@@ -1,0 +1,5 @@
+# Local shared BIOS secret and distributable packages must stay out of Git.
+**/BIOS-Password.psd1
+*.intunewin
+*.exe
+Dell-BIOS-PSADT41/Intune/

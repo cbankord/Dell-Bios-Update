@@ -18,8 +18,9 @@ function Assert-Config($Config) {
     if (@($Config.Models).Count -eq 0 -or @($Config.Models | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count) { throw 'Exact model list required.' }
     if ($Config.FileName -notmatch '^[a-zA-Z0-9_. -]+\.exe$') { throw 'Use a BIOS EXE filename without a directory.' }
     if ($Config.SHA256 -notmatch '^[a-fA-F0-9]{64}$') { throw 'A pinned SHA256 hash is required.' }
+    if ($Config.BiosPasswordRequired -isnot [bool]) { throw 'BiosPasswordRequired must be Boolean.' }
     if ($Config.RequireBattery -isnot [bool]) { throw 'RequireBattery must be Boolean.' }
-    if ($Config.MinimumBatteryPercent -lt 50 -or $Config.MinimumBatteryPercent -gt 100) { throw 'Battery threshold must be 50-100.' }
+    if ($Config.MinimumBatteryPercent -lt 51 -or $Config.MinimumBatteryPercent -gt 100) { throw 'Battery threshold must be 51-100 (above 50%).' }
     if ($Config.MinimumFreeSpaceGB -lt 1) { throw 'At least 1 GB free space is required.' }
     if ($Config.BitLockerRebootCount -lt 1 -or $Config.BitLockerRebootCount -gt 3) { throw 'Use a finite reboot count from 1 to 3.' }
     if ($Config.EscrowDestination -notin @('EntraID','ADDS')) { throw 'Choose EntraID or ADDS escrow.' }
@@ -29,11 +30,28 @@ function Get-BootId {
     return (Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime.ToUniversalTime().Ticks.ToString()
 }
 function Get-State {
-    if (Test-Path -LiteralPath $script:StateKey) { return Get-ItemProperty -LiteralPath $script:StateKey }
+    if (Test-Path -LiteralPath $script:StateKey) {
+        $state = Get-ItemProperty -LiteralPath $script:StateKey -ErrorAction Stop
+        foreach ($name in @('Status','TargetVersion','BootId','PayloadHash','SuspendedByUs')) {
+            if ($null -eq $state.PSObject.Properties[$name] -or [string]::IsNullOrWhiteSpace([string]$state.$name)) {
+                throw "Incomplete BIOS transaction state: missing $name. Preserve the key and inspect logs, pending firmware and BitLocker before manual recovery."
+            }
+        }
+        if ($state.Status -notin @('Preparing','Launching','Staged','Verified','FailedOrAmbiguous','FailedAfterReboot') -or $state.SuspendedByUs -notin @('0','1')) {
+            throw 'Invalid BIOS transaction state. Manual investigation is required; automatic reflashing is blocked.'
+        }
+        if ($state.Status -eq 'Staged' -and ($null -eq $state.PSObject.Properties['StagedUtc'] -or [string]::IsNullOrWhiteSpace([string]$state.StagedUtc))) {
+            throw 'Incomplete BIOS transaction state: missing StagedUtc. Manual investigation is required.'
+        }
+        return $state
+    }
     return $null
 }
 function Set-StateValue([string]$Name, $Value) {
-    $null = New-Item -Path $script:StateKey -Force
+    # Registry New-Item -Force can erase existing values. Create this key only once.
+    if (-not (Test-Path -LiteralPath $script:StateKey)) {
+        $null = New-Item -Path $script:StateKey -ErrorAction Stop
+    }
     $null = New-ItemProperty -LiteralPath $script:StateKey -Name $Name -Value ([string]$Value) -PropertyType String -Force
 }
 function Write-BiosLog([string]$Message) {
@@ -116,4 +134,27 @@ function Assert-NoPendingReboot {
     foreach ($name in @('PendingFileRenameOperations','PendingFileRenameOperations2')) {
         if ($manager.PSObject.Properties[$name] -and @($manager.$name | Where-Object { $_ }).Count) { throw 'Retry: pending file rename operations require review/restart.' }
     }
+}
+
+function Get-BiosPassword($Config, [string]$Directory) {
+    if (-not $Config.BiosPasswordRequired) { return $null }
+    $path = Join-Path $Directory 'BIOS-Password.psd1'
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        throw 'Required local BIOS-Password.psd1 is missing. See the password setup instructions.'
+    }
+    # Do not propagate a data-file parse error: it could include a secret source line.
+    try { $secret = Import-PowerShellDataFile -LiteralPath $path -ErrorAction Stop }
+    catch { throw 'Cannot read BIOS-Password.psd1. Check its data-file syntax locally.' }
+    if (-not $secret.ContainsKey('Password') -or $secret.Password -isnot [string] -or
+        [string]::IsNullOrWhiteSpace($secret.Password) -or $secret.Password -eq 'REPLACE_LOCALLY' -or
+        $secret.Password -match '[\x00\r\n]') {
+        throw 'BIOS-Password.psd1 must contain a configured, single-line Password string.'
+    }
+    return $secret.Password
+}
+function ConvertTo-WindowsQuotedArgument([string]$Value) {
+    # Windows native argv escaping: double backslashes before quotes and at the end.
+    $escaped = [regex]::Replace($Value, '(\\*)"', '$1$1\"')
+    $escaped = [regex]::Replace($escaped, '(\\+)$', '$1$1')
+    return '"' + $escaped + '"'
 }

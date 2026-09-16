@@ -9,13 +9,15 @@ $lock = $null
 $ownedSuspension = $false
 $launched = $false
 $knownFailure = $false
+$createdTransaction = $false
+$biosPassword = $null
 try {
     if (-not [Environment]::Is64BitProcess) { throw '64-bit Windows PowerShell is required.' }
     if ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value -ne 'S-1-5-18') { throw 'Run as LocalSystem, including pilot tests.' }
     $config = Import-PowerShellDataFile "$PSScriptRoot\BIOS-Config.psd1"
+    Initialize-SecureDirectory
     Assert-Config $config
     Assert-Model $config
-    Initialize-SecureDirectory
     try { $lock = [IO.File]::Open((Join-Path $script:WorkDir 'Deployment.lock'), 'OpenOrCreate', 'ReadWrite', 'None') }
     catch { throw 'Retry: another deployment or verification is running.' }
     $boot = Get-BootId
@@ -40,6 +42,7 @@ try {
         return
     }
     if ($current -lt (Convert-BiosVersion $config.MinimumCurrentVersion)) { throw 'Install the Dell prerequisite BIOS version first.' }
+    $biosPassword = Get-BiosPassword $config $PSScriptRoot
     $payload = Join-Path $PSScriptRoot $config.FileName
     Assert-Payload $payload $config
     Assert-NoPendingReboot
@@ -83,6 +86,7 @@ try {
         PayloadHash = $config.SHA256; BootId = $boot; StartedUtc = [datetime]::UtcNow.ToString('o')
         StagedUtc = ''; SuspendedByUs = '0'; LastDellExitCode = ''; Verification = 'Pending'
     }
+    $createdTransaction = $true
     foreach ($name in $values.Keys) { Set-StateValue $name $values[$name] }
     $ps = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
     $taskArgs = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}"' -f (Join-Path $script:WorkDir 'Verify-AfterReboot.ps1')
@@ -109,12 +113,15 @@ try {
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
     $startInfo.FileName = $cachedExe
     $startInfo.Arguments = '/s /l="{0}"' -f $dellLog
+    if ($config.BiosPasswordRequired) {
+        $startInfo.Arguments += ' /p=' + (ConvertTo-WindowsQuotedArgument $biosPassword)
+    }
     $startInfo.WorkingDirectory = $script:WorkDir
     $startInfo.UseShellExecute = $false
     $startInfo.CreateNoWindow = $true
     $process = New-Object System.Diagnostics.Process
     $process.StartInfo = $startInfo
-    # No /r, /f, /forceit, /bls, password, process timeout or forced termination.
+    # No /r, /f, /forceit, /bls, process timeout or forced termination. Never log arguments.
     # Once launch is attempted, treat an exception as potentially staged firmware.
     $launched = $true
     if (-not $process.Start()) { throw 'Dell process did not start.' }
@@ -126,6 +133,7 @@ try {
     if ($dellCode -in @(0,2)) {
         Set-StateValue 'StagedUtc' ([datetime]::UtcNow.ToString('o'))
         Set-StateValue 'Status' 'Staged'
+        Write-BiosLog 'BIOS update staged successfully; restart required (3010). Actual firmware will be verified after boot.'
         $exitCode = 3010
     } else {
         $knownFailure = $dellCode -in @(1,3,4,5,7,8,9,10)
@@ -152,14 +160,17 @@ try {
         }
     }
     # A transient check failed after task/state creation, before launch: safe retry.
-    if (-not $launched -and $null -ne $lock -and (Test-Path $script:StateKey)) {
-        $saved = Get-State
-        if ($saved.Status -eq 'Preparing' -and $saved.SuspendedByUs -eq '0') {
+    if ($createdTransaction -and -not $launched -and $null -ne $lock -and (Test-Path $script:StateKey)) {
+        # Read defensively here so a damaged key cannot mask the original error.
+        $saved = Get-ItemProperty -LiteralPath $script:StateKey -ErrorAction SilentlyContinue
+        if ($null -ne $saved -and $null -ne $saved.PSObject.Properties['Status'] -and
+            $null -ne $saved.PSObject.Properties['SuspendedByUs'] -and $saved.Status -eq 'Preparing' -and $saved.SuspendedByUs -eq '0') {
             Remove-Item -LiteralPath $script:StateKey -Recurse -Force
             Unregister-ScheduledTask -TaskName $script:TaskName -Confirm:$false -ErrorAction SilentlyContinue
         }
     }
 } finally {
+    $biosPassword = $null
     if ($null -ne $lock) { $lock.Dispose() }
     exit $exitCode
 }

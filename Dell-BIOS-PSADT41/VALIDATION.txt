@@ -1,3 +1,40 @@
+Validation of 2026-09-16 changes
+
+PASS: 45 assertions using PowerShell 7.6.6 on Linux:
+- Parse all supplied PS1/PSD1 source files, including the wrapper and tests.
+- Mocked registry: create once, retain previous values, reject damaged missing-Status state.
+- Required password file/placeholder/read/parse-error sanitization; optional omission.
+- Native argument quoting for spaces, dollar signs, quotes and backslashes.
+- Battery 51% on AC passes; 50%, unplugged AC and unknown AC block.
+- No-user and Silent mode retries; cooldown after the third deferral; final notice.
+- Staging restart timer and remaining time; final 15 minutes; shared text restored.
+- Existing transaction skips deferral; UI failure still returns 3010.
+- No-user staged case skips restart UI; compliant firmware exits without prompting.
+- Child prerequisite Retry passes through without a restart prompt.
+PASS: git diff --check.
+Manual review: PSADT 4.1.0 welcome/restart parameter sets and deferral history.
+The restart mock enforces separate Countdown and SilentRestart parameter sets.
+
+Reproduce from Dell-BIOS-PSADT41:
+  pwsh -NoProfile -File ./Tests/Test-Deployment.ps1
+On a Windows pilot, additionally test the real registry writer in an isolated HKCU key:
+  powershell.exe -NoProfile -File .\Tests\Test-Deployment.ps1 -WindowsRegistryIntegration
+The HKCU integration mode was NOT run here. It never accesses the deployment key.
+The harness uses inert configuration/hash/password fixtures and never flashes firmware.
+The older 53-assertion validation below is historical, not a rerun of this revision.
+
+BLOCKERS / UNVERIFIED:
+- Repository SHA256 is 65 characters, not 64. Recompute from the approved EXE.
+- Existing model/EXE compatibility remains unverified; PackageReviewed remains false.
+- No real password or BIOS executable is present; Intune scripts cannot be built yet.
+- Windows PowerShell 5.1, actual PSADT UI, Intune delivery/timers, Dell updater,
+  Windows Registry/Task Scheduler, Authenticode and BitLocker require a pilot.
+- Logoff can remove UI; PSADT 4.1 has a no-user restart race. Intune is the fallback.
+- AC is checked at staging; the countdown cannot ensure AC remains connected.
+- Shared password delivery is plaintext in the local package and native arguments.
+
+--- Historical initial-source validation follows ---
+
 Validation performed 2026-09-15
 
 PASS: 53 assertions using PowerShell 7.4.6 on Linux.
