@@ -1,12 +1,12 @@
 V2 and package-builder validation performed 2026-09-16
 
-PASS: 220 assertions across five fresh PowerShell 7.6.6 processes on Linux:
+PASS: 222 assertions across five fresh PowerShell 7.6.6 processes on Linux:
   49  Tests/Test-Deployment.ps1
   76  Tests/V2/Test-Scheduler.ps1
    9  Tests/V2/Test-Transport.ps1
   14  Tests/V2/Test-Guards.ps1
-  72  Tests/Test-Builder.ps1
-Counts include parser assertions in more than one suite; they are not 220 unique
+  74  Tests/Test-Builder.ps1
+Counts include parser assertions in more than one suite; they are not 222 unique
 end-to-end scenarios. The optional WindowsRegistryIntegration mode was not run.
 
 Covered:
@@ -38,6 +38,10 @@ Covered:
 - Actual GUI worker scriptblock in a separate runspace: simulated authorization
   failure stops execution, wrapped exceptions show troubleshooting, and raw
   private error details are omitted. This does not reproduce Windows policy.
+- PS5 dictionary-sort compatibility regression: emulate unavailable named-key
+  lookup on hashtable inputs and exercise the real AST rewrite. Reproduced the
+  exact generated-script syntax failure before the fix; parses and preserves
+  custom content after explicit numeric sorting. This is not live Windows PS5.
 - Inert source-only builds preserve custom module bytes, extensions and bootstrap
   logic while integrating standard PSADT functions/metadata with the AST.
 - Copied firmware hash feeds config and all standalone Intune scripts.

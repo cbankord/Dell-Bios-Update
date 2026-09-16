@@ -239,3 +239,20 @@ The builder now stops on a denied engine load and recognizes authorization error
 wrapped by the background worker. Its diagnostic omits raw script lines and
 arguments. This error-handling change improves diagnosis; it does not prove that
 Windows authorization on a particular packaging computer has been resolved.
+
+
+### Generated deployment script did not pass syntax validation
+
+Early builder revisions used `Sort-Object Start -Descending` on a list of edit
+hashtables. Named-property sorting by dictionary keys is supported only from
+PowerShell 6 onward, so Windows PowerShell 5.1 could apply replacements in the
+wrong order and generate invalid syntax even from a valid template. This was a
+builder compatibility defect. The corrected builder uses an explicit numeric
+calculated property and rejects overlapping/out-of-order edits before writing.
+See [Microsoft's Sort-Object documentation](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/sort-object#example-11-sort-hashtables-by-key-value).
+
+Update the builder on v2, close the existing wizard, and launch it again with the
+same approved template and settings. Syntax validation remains mandatory. If a
+new build still fails, its error now includes parser IDs and line/column positions
+without disclosing custom source text. Share those diagnostics and the PSADT
+module version; do not share passwords or a credential-bearing package.

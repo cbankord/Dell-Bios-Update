@@ -58,6 +58,35 @@ $adtSession = Open-ADTSession @adtSession
 throw 'The build must NEVER execute the template'
 '@
     [IO.File]::WriteAllText((Join-Path $template 'Invoke-AppDeployToolkit.ps1'),$bootstrap)
+    # Windows PowerShell 5.1 does not resolve dictionary keys when Sort-Object
+    # receives a string property name (support was added in PowerShell 6).
+    # Emulate that boundary so Linux/PS7 cannot conceal corrupt edit ordering.
+    function Sort-Object {
+        [CmdletBinding()]
+        param([Parameter(ValueFromPipeline)]$InputObject,
+              [Parameter(Position=0)][object[]]$Property, [switch]$Descending)
+        begin { $items=New-Object 'System.Collections.Generic.List[object]' }
+        process { $items.Add($InputObject) }
+        end {
+            if ($Property.Count -eq 1 -and $Property[0] -is [string] -and $items.Count -gt 0 -and $items[0] -is [hashtable]) {
+                # All requested property values are absent on the Hashtable
+                # object itself; do not sort by its keys as PowerShell 7 would.
+                $items.ToArray()
+            } else {
+                $items.ToArray() | Microsoft.PowerShell.Utility\Sort-Object -Property $Property -Descending:$Descending
+            }
+        }
+    }
+    try {
+        $legacyTemplate=Join-Path $fixture 'ps51-template.ps1'
+        [IO.File]::WriteAllText($legacyTemplate,$bootstrap)
+        Set-BuilderTemplate $legacyTemplate '2.7.3'
+        $rewritten=[IO.File]::ReadAllText($legacyTemplate)
+        $tokens=$null; $errors=$null
+        $null=[Management.Automation.Language.Parser]::ParseInput($rewritten,[ref]$tokens,[ref]$errors)
+        Assert ($errors.Count -eq 0 -and $rewritten.Contains("AppVersion='2.7.3'")) 'Template parses with Windows PowerShell 5.1 dictionary sorting semantics'
+        Assert ($rewritten.Contains('Start-ADTProcessAsUser') -and $rewritten.Contains('preserve nested data') -and $rewritten.Contains('NEVER execute the template')) 'PS5-compatible edits retain BIOS function and custom bootstrap'
+    } finally { Remove-Item Function:Sort-Object }
     [IO.File]::WriteAllText((Join-Path $template 'custom-config.txt'),'preserve my branding')
     $null=[IO.Directory]::CreateDirectory((Join-Path $template 'PSAppDeployToolkit.Extensions'))
     [IO.File]::WriteAllText((Join-Path $template 'PSAppDeployToolkit.Extensions/custom.ps1'),"throw 'do not run extensions during build'")

@@ -248,9 +248,23 @@ function Set-BuilderTemplate([string]$ScriptPath, [string]$TargetVersion) {
         $extent=$pairs[0].Item2.Extent
         $edits.Add(@{Start=$extent.StartOffset; End=$extent.EndOffset; Text=$values[$key]})
     }
-    foreach ($edit in $edits | Sort-Object Start -Descending) { $text=$text.Substring(0,$edit.Start)+$edit.Text+$text.Substring($edit.End) }
+    # Windows PowerShell 5.1 cannot sort hashtables by a key passed as a string
+    # property name. Explicitly read the numeric key with a calculated property.
+    # Descending offsets are mandatory: earlier edits must not move later ones.
+    $previousStart=$text.Length
+    foreach ($edit in $edits | Sort-Object -Property { [int]$_['Start'] } -Descending) {
+        if ($edit.Start -lt 0 -or $edit.End -lt $edit.Start -or $edit.End -gt $previousStart) {
+            Stop-BuilderValidation 'Deployment script edits overlap or are out of order. The source script was not changed.'
+        }
+        $text=$text.Substring(0,$edit.Start)+$edit.Text+$text.Substring($edit.End)
+        $previousStart=$edit.Start
+    }
     $null=[Management.Automation.Language.Parser]::ParseInput($text,[ref]$tokens,[ref]$errors)
-    if ($errors.Count) { Stop-BuilderValidation 'Generated deployment script did not pass syntax validation.' }
+    if ($errors.Count) {
+        # Error IDs and positions are useful without exposing custom script text.
+        $locations=@($errors | Select-Object -First 3 | ForEach-Object { 'line {0}, column {1}: {2}' -f $_.Extent.StartLineNumber,$_.Extent.StartColumnNumber,$_.ErrorId })
+        Stop-BuilderValidation ('Generated deployment script did not pass syntax validation (' + ($locations -join '; ') + '). The source script was not changed.')
+    }
     [IO.File]::WriteAllText($ScriptPath,$text,(New-Object Text.UTF8Encoding($true)))
 }
 function Invoke-BuilderContentPrep([string]$Tool, [string]$Source, [string]$Output) {

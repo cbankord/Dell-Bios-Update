@@ -1,3 +1,15 @@
+# v2 Windows PowerShell 5.1 template integration fix - 2026-09-16
+
+- Fix descending script-edit ordering: use an explicit numeric calculated
+  property instead of Sort-Object's dictionary-key property lookup, which was
+  introduced in PowerShell 6 and does not work on the required Windows PS 5.1.
+- Reject overlapping or incorrectly ordered edits before writing. Keep the
+  parser gate and provide sanitized parser IDs/positions for future failures.
+- Add a regression that emulates PS5 dictionary sorting in the real template
+  integration function. It reproduced the reported syntax-validation failure
+  before the fix and passes afterward. Builder suite: 74 assertions on PS7/Linux;
+  this is compatibility-boundary emulation, not a Windows 5.1 execution result.
+
 # v2 builder authorization diagnostics - 2026-09-16
 
 - Stop the background worker immediately if loading the builder engine fails.
