@@ -6,15 +6,20 @@ function Read-Utc([string]$Text) {
     [datetimeoffset]::Parse($Text, [Globalization.CultureInfo]::InvariantCulture)
 }
 function Assert-SchedulerPolicy($Policy) {
-    if ($Policy.Schema -ne 2 -or $Policy.WindowHours -ne 72) { throw 'V2 requires a fixed 72-hour window.' }
+    if ($Policy.Schema -ne 2) { throw 'Invalid scheduler policy schema.' }
+    foreach ($name in @('WindowHours','ReminderHours','FinalWarningMinutes','PreparationLeadMinutes','SafetyRetryMinutes')) {
+        if ($Policy[$name] -isnot [int]) { throw "$name must be a whole number." }
+    }
+    if ($Policy.WindowHours -lt 1 -or $Policy.WindowHours -gt 168) { throw 'WindowHours must be 1-168 (default 72).' }
     if ($Policy.ReminderHours -lt 1 -or $Policy.ReminderHours -gt 12) { throw 'ReminderHours must be 1-12.' }
     if ($Policy.FinalWarningMinutes -lt 15 -or $Policy.FinalWarningMinutes -gt 60) { throw 'FinalWarningMinutes must be 15-60.' }
     if ($Policy.PreparationLeadMinutes -lt $Policy.FinalWarningMinutes -or $Policy.PreparationLeadMinutes -gt 60) { throw 'Preparation lead must cover the warning and be at most 60 minutes.' }
     if ($Policy.SafetyRetryMinutes -lt 1 -or $Policy.SafetyRetryMinutes -gt 30) { throw 'SafetyRetryMinutes must be 1-30.' }
 }
-function New-ScheduleState([string]$PackageId, [datetimeoffset]$Now) {
+function New-ScheduleState([string]$PackageId, [datetimeoffset]$Now, [int]$WindowHours = 72) {
+    if ($WindowHours -lt 1 -or $WindowHours -gt 168) { throw 'Invalid original scheduling window.' }
     @{
-        Schema = 2; PackageId = $PackageId; Phase = 'AwaitingNotice'
+        Schema = 2; PackageId = $PackageId; Phase = 'AwaitingNotice'; WindowHours = $WindowHours
         EnrolledUtc = Get-UtcText $Now; FirstNotifiedUtc = ''; DeadlineUtc = ''
         ScheduledUtc = ''; RestartUtc = ''; NextNoticeUtc = ''; NextAttemptUtc = ''
         LastObservedUtc = Get-UtcText $Now; LastError = ''; WorkerBoot = ''
@@ -23,6 +28,9 @@ function New-ScheduleState([string]$PackageId, [datetimeoffset]$Now) {
     }
 }
 function Assert-ScheduleState($State, [string]$PackageId) {
+    # Earlier schema-2 deployments always used 72 hours. Never adopt a new
+    # package policy when recovering their state, even before first notice.
+    if (-not $State.ContainsKey('WindowHours')) { $State.WindowHours = 72 }
     $required = (New-ScheduleState $PackageId ([datetimeoffset]::UtcNow)).Keys
     foreach ($name in $required) { if (-not $State.ContainsKey($name)) { throw "Damaged scheduler state: missing $name. Manual review required." } }
     if ($State.Schema -ne 2 -or $State.PackageId -ne $PackageId) { throw 'Different deployment or invalid scheduler schema. Manual review required.' }
@@ -31,7 +39,8 @@ function Assert-ScheduleState($State, [string]$PackageId) {
         if ($State[$name]) { $null = Read-Utc $State[$name] }
     }
     if ([bool]$State.FirstNotifiedUtc -ne [bool]$State.DeadlineUtc) { throw 'Incomplete deadline state.' }
-    if ($State.DeadlineUtc -and (Read-Utc $State.DeadlineUtc) -ne (Read-Utc $State.FirstNotifiedUtc).AddHours(72)) { throw 'Deadline has changed. Manual review required.' }
+    if ($State.WindowHours -notmatch '^\d+$' -or $State.WindowHours -lt 1 -or $State.WindowHours -gt 168) { throw 'Invalid persisted scheduling window.' }
+    if ($State.DeadlineUtc -and (Read-Utc $State.DeadlineUtc) -ne (Read-Utc $State.FirstNotifiedUtc).AddHours($State.WindowHours)) { throw 'Deadline has changed. Manual review required.' }
     if ($State.ScheduledUtc -and (-not $State.DeadlineUtc -or (Read-Utc $State.ScheduledUtc) -gt (Read-Utc $State.DeadlineUtc))) { throw 'Schedule exceeds its original deadline.' }
 }
 function Set-SchedulePhase($State, [string]$Phase, [string]$Reason = '') {
@@ -61,7 +70,7 @@ function Invoke-ScheduleRequest($State, $Policy, $Request, [datetimeoffset]$Now)
         NoticeShown {
             if (-not $State.FirstNotifiedUtc -and $State.Phase -eq 'AwaitingNotice') {
                 $State.FirstNotifiedUtc = Get-UtcText $Now
-                $State.DeadlineUtc = Get-UtcText ($Now.AddHours(72))
+                $State.DeadlineUtc = Get-UtcText ($Now.AddHours($State.WindowHours))
                 Set-SchedulePhase $State Pending
             }
             if ($State.Phase -eq 'VerifiedComplete') { $State.CompletedNoticeShown = $true }
@@ -105,6 +114,7 @@ function Get-ScheduleView($State, $Policy, [datetimeoffset]$Now) {
     @{
         Phase = $State.Phase; DeadlineUtc = $State.DeadlineUtc; ScheduledUtc = $State.ScheduledUtc
         RestartUtc = $State.RestartUtc; ServerUtc = Get-UtcText $Now
+        WindowHours = $State.WindowHours; PreparationLeadMinutes = $Policy.PreparationLeadMinutes
         CanSchedule = [bool](Test-CanSchedule $State $Now); Overdue = $overdue
         ShouldShow = [bool]$shouldShow; Message = $State.LastError
         CanRestart = $State.Phase -eq 'RestartRequired' -and -not $State.LastError

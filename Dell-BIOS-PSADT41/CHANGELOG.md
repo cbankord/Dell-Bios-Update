@@ -1,3 +1,31 @@
+# v2 packaging wizard - 2026-09-16
+
+- Add a four-step Windows WPF package builder and a reusable PowerShell engine.
+  Accept a Dell BIOS EXE and a custom prepared PSADT 4.1.x ZIP; preserve framework
+  resources, use AST integration for standard functions/metadata, archive the
+  original bootstrap, and generate deployment configuration and Intune scripts.
+- Calculate SHA256 from copied firmware and require valid Dell Authenticode.
+  Validate ZIP paths, links, collisions, sizes, layout and framework version;
+  never execute selected BIOS or template code while building.
+- Accept shared password via masked, confirmed input/SecureString. Create unique
+  protected output outside the repository; exclude credentials from presets,
+  manifests and logs; remove handled partial builds. Retain the existing local
+  shared-password deployment support and document its plaintext boundary.
+- Optionally invoke the supplied Microsoft-signed IntuneWinAppUtil.exe and report
+  success only when a nonempty .intunewin is produced. Source-only builds remain
+  explicit. Add reusable nonsecret presets, branding fields and detailed output
+  notes with Intune restart ownership settings.
+- Make the scheduling window configurable from 1-168 hours, default 72. Persist
+  the original duration; migrate earlier state to 72 without changing deadlines.
+  UI copy now uses the actual preparation lead and original duration.
+- Add an optional minimum estimated battery runtime gate (0 disables) while
+  retaining AC, minimum 51%, disk, model, hash, password, BitLocker and transaction
+  protection. Expose StagedDetectionHours explicitly as legacy compatibility,
+  unused by v2 enrollment detection.
+- Add inert packaging, ZIP safety, AST, preset/secret, configurable-deadline and
+  battery telemetry regression tests. Windows GUI/ACL, actual content preparation
+  and hardware flash validation remain required pilot gates.
+
 # Change notes
 
 ## 2026-09-16 — v2 branded scheduling workflow

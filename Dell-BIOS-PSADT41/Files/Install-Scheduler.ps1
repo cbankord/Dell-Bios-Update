@@ -80,7 +80,7 @@ try {
         $childAcl.SetOwner((New-Object Security.Principal.SecurityIdentifier('S-1-5-18')))
         Set-Acl -LiteralPath $item.FullName -AclObject $childAcl
     }
-    Save-ScheduleFile (New-ScheduleState $packageId ([datetimeoffset]::UtcNow)) $statePath
+    Save-ScheduleFile (New-ScheduleState $packageId ([datetimeoffset]::UtcNow) $policy.WindowHours) $statePath
     Save-ScheduleFile @{ PackageId=$packageId; Schema=2 } $enrollmentPath
     Register-V2Tasks $runtime $uiRoot
     Write-SchedulerLog "Enrolled $packageId. Deadline will start on the first delivered notice."

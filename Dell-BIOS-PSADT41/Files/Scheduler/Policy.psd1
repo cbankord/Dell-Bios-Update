@@ -1,6 +1,6 @@
 @{
     Schema = 2
-    WindowHours = 72
+    WindowHours = 72 # 1-168; persisted at enrollment. Later changes never extend an existing deadline.
     ReminderHours = 4
     PreparationLeadMinutes = 30
     FinalWarningMinutes = 15

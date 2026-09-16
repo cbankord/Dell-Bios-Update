@@ -1,10 +1,13 @@
 #requires -Version 5.1
 [CmdletBinding()]
-param()
+param(
+    [string]$PackageRoot = $PSScriptRoot,
+    [string]$OutputDirectory = (Join-Path $PackageRoot 'Intune')
+)
 . "$PSScriptRoot\Files\Common.ps1"
-$config = Import-PowerShellDataFile "$PSScriptRoot\Files\BIOS-Config.psd1"
+$config = Import-PowerShellDataFile (Join-Path $PackageRoot 'Files/BIOS-Config.psd1')
 Assert-Config $config
-Assert-Payload (Join-Path "$PSScriptRoot\Files" $config.FileName) $config
+Assert-Payload (Join-Path (Join-Path $PackageRoot 'Files') $config.FileName) $config
 $json = ($config | ConvertTo-Json -Depth 5 -Compress).Replace("'", "''")
 $header = @'
 # Generated from BIOS-Config.psd1. Regenerate for EVERY model/version/hash change.
@@ -59,7 +62,7 @@ $audit = @'
     exit 0
 } catch { Write-Output ('Needs attention: ' + $_.Exception.Message); exit 1 }
 '@
-$out = Join-Path $PSScriptRoot 'Intune'
+$out = $OutputDirectory
 $null = New-Item -ItemType Directory -Path $out -Force
 $utf8 = New-Object System.Text.UTF8Encoding($true)
 foreach ($entry in @(

@@ -1,11 +1,12 @@
-V2 validation performed 2026-09-16
+V2 and package-builder validation performed 2026-09-16
 
-PASS: 125 assertions across four fresh PowerShell 7.6.6 processes on Linux:
-  39  Tests/Test-Deployment.ps1
-  63  Tests/V2/Test-Scheduler.ps1
+PASS: 216 assertions across five fresh PowerShell 7.6.6 processes on Linux:
+  49  Tests/Test-Deployment.ps1
+  76  Tests/V2/Test-Scheduler.ps1
    9  Tests/V2/Test-Transport.ps1
   14  Tests/V2/Test-Guards.ps1
-Counts include parser assertions in more than one suite; they are not 125 unique
+  68  Tests/Test-Builder.ps1
+Counts include parser assertions in more than one suite; they are not 216 unique
 end-to-end scenarios. The optional WindowsRegistryIntegration mode was not run.
 
 Covered:
@@ -13,7 +14,11 @@ Covered:
 - Registry writer mocked create-once behavior and actionable damaged-state errors.
 - Local password requirements, sanitized parse errors, and native argv escaping.
 - AC/unknown-power and 50% vs 51% battery gates using inert native/CIM telemetry.
-- First delivered notice starts exactly 72 hours; enrollment/status alone does not.
+- First delivered notice starts the persisted duration (72 hours by default);
+  enrollment/status alone does not. Configured windows, changing policy before/
+  after first notice and old schema-2 migration preserve the original duration.
+- Optional battery runtime: below/equal threshold, absent/zero/implausible data,
+  disabled gate and compatibility with earlier configs.
 - 100 deferrals, repeated acknowledgements and reschedules preserve the deadline.
 - Reject past/late/unzoned schedule times, unknown actions and extra fields.
 - Deadline expiry disables deferral/scheduling; preparation locks further changes.
@@ -30,6 +35,22 @@ Covered:
   unexpected encryption changes all block a restart.
 - A verified marker alone does not bypass post-boot health checks.
 
+- Inert source-only builds preserve custom module bytes, extensions and bootstrap
+  logic while integrating standard PSADT functions/metadata with the AST.
+- Copied firmware hash feeds config and all standalone Intune scripts.
+- Password metacharacters round trip without execution. Secrets are excluded from
+  presets, manifests, logs and progress; no password-file hash is recorded.
+- Preset approval reset, unknown/secret fields rejected, settings validation,
+  unique output, no-password packaging, handled failure cleanup and original
+  inputs retained. Output ACL creation is mocked, not verified on Windows.
+- ZIP traversal/rooted/ADS/reserved/case-collision/symlink/embedded-secret rejects,
+  wrapped roots, ambiguous/unsupported templates, and missing/duplicate functions.
+- Content prep orchestration with an inert mock: correct source/output separation,
+  output reporting/hash, failure cleanup. Non-Microsoft signer rejected before
+  native execution. No Microsoft content prep executable actually ran.
+
+PASS: AST integration against the official PSADT 4.1.0 frontend retrieved from
+its 4.1.0 tag; parsed/rewritten only, no template code was executed.
 PASS: git diff --check.
 Manual source/API review: PSADT 4.1 Start-ADTProcessAsUser, ScheduledTasks group
 principals, named-pipe ACL/client access rights, and Windows session constants.
@@ -37,16 +58,22 @@ The client uses specific PipeAccessRights rather than GENERIC_WRITE, avoiding
 an accidental request for the pipe-instance creation right.
 
 Reproduce from Dell-BIOS-PSADT41, using separate processes:
+  pwsh -NoProfile -File ./Tests/Test-Builder.ps1
   pwsh -NoProfile -File ./Tests/Test-Deployment.ps1
   pwsh -NoProfile -File ./Tests/V2/Test-Scheduler.ps1
   pwsh -NoProfile -File ./Tests/V2/Test-Transport.ps1
   pwsh -NoProfile -File ./Tests/V2/Test-Guards.ps1
-On Windows, additionally run:
+On Windows, additionally run the same suites with powershell.exe, plus:
   powershell.exe -NoProfile -File .\Tests\Test-Deployment.ps1 -WindowsRegistryIntegration
   powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo
+  .\Builder\Start-PackageBuilder.cmd
 
 NOT TESTED / MUST PILOT:
 - Windows PowerShell 5.1 execution, WPF rendering, screen reader/scaling behavior.
+- Builder GUI browse/preset/password/async flows, protected output ACLs, actual
+  Authenticode verification and Microsoft tool execution; no real .intunewin built.
+- Custom PSADT module/extensions/top-level code and optional battery runtime on
+  the actual fleet. A preserved custom framework may contain competing behavior.
 - Actual Windows ACL inheritance, named-pipe ownership/impersonation and active
   session checks; task Group activation, logon, SYSTEM and user launch behavior.
 - Intune packaging/detection delivery, competing tenant restart policies, sleep,
@@ -56,11 +83,16 @@ NOT TESTED / MUST PILOT:
 - A malicious client/administrator penetration test. The protocol and directory
   protections were reviewed in source, not certified by live security testing.
 
-PACKAGE BLOCKERS (inherited and intentionally preserved):
+MANUAL EXAMPLE CONFIGURATION BLOCKERS (inherited and intentionally preserved):
 - SHA256 is 65 characters. Recalculate it from the approved EXE; do not trim it.
 - PB14250 model vs PA13250-named executable compatibility remains unverified.
 - PackageReviewed=false; real BIOS EXE, password and PSADT distribution absent.
 - Generated Intune scripts cannot be produced against an unapproved/missing EXE.
+
+The builder bypasses these sample values by generating new configuration from
+selected inputs, verified copied firmware and explicit local review. Tests use
+only inert executables with mocked trust boundaries. Never treat test artifacts
+as approved firmware or deployable .intunewin files.
 
 No production BIOS, protection state, scheduled task, restart or Intune assignment
 was changed by these tests. Main remains v1; this implementation is on v2.

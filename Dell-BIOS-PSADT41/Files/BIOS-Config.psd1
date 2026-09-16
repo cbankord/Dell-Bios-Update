@@ -8,6 +8,7 @@
     BiosPasswordRequired = $true # Local ignored BIOS-Password.psd1; never commit the secret.
     RequireBattery = $true # Set false only for an approved desktop model.
     MinimumBatteryPercent = 51 # Strictly above 50%.
+    MinimumBatteryRuntimeMinutes = 0 # Optional estimate gate; 0 disables. Unknown telemetry blocks when enabled.
     MinimumFreeSpaceGB = 1
     BitLockerRebootCount = 1 # Never zero. Validate boot sequence on each model/version.
     EscrowDestination = 'EntraID' # EntraID or ADDS; successful backup required.

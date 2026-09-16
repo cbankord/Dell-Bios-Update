@@ -17,6 +17,32 @@ Assert ($null -ne $xaml.DocumentElement) 'Well-formed XAML'
 $p=Import-PowerShellDataFile "$root/Files/Scheduler/Policy.psd1"
 Assert-SchedulerPolicy $p
 $t=[datetimeoffset]'2026-09-16T12:00:00Z'
+# New packages can choose a window; it becomes immutable persisted state.
+$custom=$p.Clone(); $custom.WindowHours=48
+Assert-SchedulerPolicy $custom
+$new=New-ScheduleState custom $t $custom.WindowHours
+Invoke-ScheduleRequest $new $custom @{Action='NoticeShown'} $t
+Assert ((Read-Utc $new.DeadlineUtc) -eq $t.AddHours(48)) 'Configured 48-hour window starts on delivery'
+$custom.WindowHours=168
+Invoke-ScheduleRequest $new $custom @{Action='NoticeShown'} $t.AddHours(1)
+Assert ((Read-Utc $new.DeadlineUtc) -eq $t.AddHours(48)) 'Changed policy cannot extend enrolled deadline'
+$unnoticed=New-ScheduleState custom $t 24
+Invoke-ScheduleRequest $unnoticed $custom @{Action='NoticeShown'} $t.AddHours(10)
+Assert ((Read-Utc $unnoticed.DeadlineUtc) -eq $t.AddHours(34)) 'Window persisted before first notice also remains fixed'
+$old=New-ScheduleState legacy $t
+$old.Remove('WindowHours')
+Assert-ScheduleState $old legacy
+Invoke-ScheduleRequest $old $custom @{Action='NoticeShown'} $t
+Assert ($old.WindowHours -eq 72 -and (Read-Utc $old.DeadlineUtc) -eq $t.AddHours(72)) 'Earlier schema-2 state migrates to original 72 hours'
+$old.Remove('WindowHours'); Assert-ScheduleState $old legacy
+Assert ((Read-Utc $old.DeadlineUtc) -eq $t.AddHours(72)) 'Already delivered legacy deadline remains unchanged'
+$v=Get-ScheduleView $new $custom $t.AddHours(2)
+Assert ($v.WindowHours -eq 48 -and $v.PreparationLeadMinutes -eq $p.PreparationLeadMinutes) 'UI receives actual persisted window and preparation lead'
+Reject { Invoke-ScheduleRequest $new $custom @{Action='Defer'} $t.AddHours(49) } 'Custom deadline also stops deferral'
+$bad=$p.Clone(); $bad.WindowHours=0
+Reject { Assert-SchedulerPolicy $bad } 'Zero-hour policy rejected'
+$bad.WindowHours=169; Reject { Assert-SchedulerPolicy $bad } 'Unbounded policy rejected'
+$bad.WindowHours=48.5; Reject { Assert-SchedulerPolicy $bad } 'Fractional policy rejected'
 $s=New-ScheduleState test $t
 Assert-ScheduleState $s test
 Assert (-not $s.DeadlineUtc) 'No clock before delivered notice'

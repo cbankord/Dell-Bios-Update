@@ -120,7 +120,7 @@ function Invoke-SchedulerTick([datetimeoffset]$Now) {
         Set-SchedulePhase $s VerifiedComplete; return
     }
     $due = Get-MaintenanceTime $s
-    if ($null -eq $due) { return } # 72-hour clock begins only on delivered notice.
+    if ($null -eq $due) { return } # fixed clock begins only on delivered notice.
     if ($s.NextAttemptUtc -and $Now -lt (Read-Utc $s.NextAttemptUtc)) { return }
     $lead = if ($s.ScheduledUtc) { $script:policy.PreparationLeadMinutes } else { 0 }
     if ($Now -lt $due.AddMinutes(-$lead)) { return }

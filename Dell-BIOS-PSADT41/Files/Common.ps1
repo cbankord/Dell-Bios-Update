@@ -20,6 +20,10 @@ function Assert-Config($Config) {
     if ($Config.SHA256 -notmatch '^[a-fA-F0-9]{64}$') { throw 'A pinned SHA256 hash is required.' }
     if ($Config.BiosPasswordRequired -isnot [bool]) { throw 'BiosPasswordRequired must be Boolean.' }
     if ($Config.RequireBattery -isnot [bool]) { throw 'RequireBattery must be Boolean.' }
+    if ($Config.ContainsKey('MinimumBatteryRuntimeMinutes')) {
+        if ($Config.MinimumBatteryRuntimeMinutes -isnot [int] -or $Config.MinimumBatteryRuntimeMinutes -lt 0 -or $Config.MinimumBatteryRuntimeMinutes -gt 240) { throw 'MinimumBatteryRuntimeMinutes must be 0-240; 0 disables the optional estimate check.' }
+        if ($Config.MinimumBatteryRuntimeMinutes -gt 0 -and -not $Config.RequireBattery) { throw 'Battery runtime requires RequireBattery.' }
+    }
     if ($Config.MinimumBatteryPercent -lt 51 -or $Config.MinimumBatteryPercent -gt 100) { throw 'Battery threshold must be 51-100 (above 50%).' }
     if ($Config.MinimumFreeSpaceGB -lt 1) { throw 'At least 1 GB free space is required.' }
     if ($Config.BitLockerRebootCount -lt 1 -or $Config.BitLockerRebootCount -gt 3) { throw 'Use a finite reboot count from 1 to 3.' }
@@ -124,6 +128,13 @@ namespace ManagedDellBios {
         if (-not $batteries.Count) { throw 'Retry: no battery telemetry available.' }
         foreach ($battery in $batteries) {
             if ($null -eq $battery.EstimatedChargeRemaining -or $battery.EstimatedChargeRemaining -gt 100 -or $battery.EstimatedChargeRemaining -lt $Config.MinimumBatteryPercent) { throw 'Retry: a battery is below threshold or unknown.' }
+            if ($Config.ContainsKey('MinimumBatteryRuntimeMinutes') -and $Config.MinimumBatteryRuntimeMinutes -gt 0) {
+                # Optional CIM estimate; Win32 API BatteryLifeTime is unknown on AC.
+                # Values over one day are treated as implausible/unknown, not safe.
+                $estimate = $battery.PSObject.Properties['EstimatedRunTime']
+                if ($null -eq $estimate -or $null -eq $estimate.Value -or $estimate.Value -lt 1 -or $estimate.Value -gt 1440) { throw 'Retry: battery runtime estimate is unavailable. Contact IT if this persists.' }
+                if ($estimate.Value -lt $Config.MinimumBatteryRuntimeMinutes) { throw 'Retry: estimated battery runtime is below the configured minimum.' }
+            }
         }
     }
 }

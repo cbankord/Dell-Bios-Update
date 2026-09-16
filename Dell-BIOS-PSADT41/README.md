@@ -1,6 +1,6 @@
 # Dell BIOS deployment v2
 
-A branded Windows interface and persistent 72-hour scheduler for Intune + PSADT
+A branded Windows interface and persistent scheduler (72 hours by default) for Intune + PSADT
 4.1, with the existing guarded Dell BIOS installer underneath. This branch is
 `v2`; [Main](https://github.com/cbankord/Dell-Bios-Update/tree/Main) retains v1.
 
@@ -18,7 +18,7 @@ MC16250. Choose the approved EXE/model/version for each deployment.
   keyboard labels, live status announcements, scrolling and scalable layout.
 - A local date picker and 24-hour time selectors. Local times are converted to UTC;
   nonexistent/ambiguous daylight-saving times are rejected explicitly.
-- A fixed 72-hour deadline starts when the UI acknowledges its first rendered
+- A fixed deadline (72 hours by default) starts when the UI acknowledges its first rendered
   notice on an available desktop. Enrollment itself does not start the clock.
 - Unlimited reminder deferrals and rescheduling before preparation begins, while
   the deadline remains open. A reminder normally appears at most every four hours.
@@ -74,7 +74,21 @@ Missing/corrupt state or an ambiguous firmware transaction stops for IT review.
 The controller never terminates a firmware process or automatically reflashes an
 unresolved update. See [OPERATIONS.md](OPERATIONS.md) for failure behavior.
 
-## Configure and build
+## Build with the wizard
+
+Open **`Builder/Start-PackageBuilder.cmd`** on your Windows packaging computer.
+Select your approved BIOS EXE and custom PSADT 4.1.x template ZIP, enter the model,
+version, password and deployment settings, and build. The wizard calculates and
+pins the SHA256, validates Dell signing, integrates the deployment functions,
+applies branding, and generates the Intune requirement/detection/audit scripts.
+Select your official `IntuneWinAppUtil.exe` to also produce `.intunewin`.
+
+[Builder instructions, settings and output](Builder/README.md) cover reusable
+nonsecret presets, optional battery runtime checks and Windows pilot requirements.
+Built packages use your selected inputs; they do not use the inherited example
+hash/model/version below. Output is protected and kept outside this repository.
+
+## Configure and build manually
 
 1. Put the approved Dell BIOS EXE in `Files`. Review its release notes, prerequisite
    versions, supported models, `/s`, `/p=` and return codes on a pilot. The package
@@ -93,10 +107,11 @@ unresolved update. See [OPERATIONS.md](OPERATIONS.md) for failure behavior.
    `Files/UI/Assets`. Change company name, title, purpose, support text, logo,
    banner, colors and messages without editing scheduler logic. Empty image
    paths use the built-in vector mark. Keep accessibility contrast when rebranding.
-5. Review `Files/Scheduler/Policy.psd1`: the window is fixed at 72 hours; reminder,
-   preparation, final warning and retry intervals are configurable within the
-   validated bounds. The current UI explains the default 30-minute preparation
-   lead; update its wording if you change that policy value.
+5. Review `Files/Scheduler/Policy.psd1`: the window defaults to 72 hours and can
+   be set to 1-168 hours for new enrollments. The original window is persisted;
+   policy changes never extend an existing deadline. Reminder, preparation, final
+   warning and retry intervals are also configurable. The UI displays the actual
+   configured preparation lead and persisted window.
 6. Copy `Files` into your approved stock PSADT **4.1.x** template. Replace ONLY
    `Install-ADTDeployment` in `Invoke-AppDeployToolkit.ps1` with
    `PSADT-Install-Function.ps1`. Keep the stock bootstrap/session handling. Set

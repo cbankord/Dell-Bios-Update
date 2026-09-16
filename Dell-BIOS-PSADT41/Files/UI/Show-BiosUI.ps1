@@ -18,7 +18,7 @@ try {
     $reader = New-Object Xml.XmlNodeReader $xaml
     $window = [Windows.Markup.XamlReader]::Load($reader)
     $controls = @{}
-    foreach ($name in @('Logo','Banner','Mark','Company','Heading','Purpose','Phase','StatusText','Deadline','Remaining','Scheduled','Day','Hour','Minute','TimeZone','Power','ErrorText','Support','PickerCard','StatusCard','ScheduleButton','RestartButton','DeferButton','CloseButton')) { $controls[$name] = $window.FindName($name) }
+    foreach ($name in @('Logo','Banner','Mark','Company','Heading','Purpose','Phase','StatusText','Deadline','Remaining','Scheduled','Day','Hour','Minute','TimeZone','PreparationText','Power','ErrorText','Support','PickerCard','StatusCard','ScheduleButton','RestartButton','DeferButton','CloseButton')) { $controls[$name] = $window.FindName($name) }
     $window.Title = $brand.AppTitle
     $window.Background = $brand.BackgroundColor
     $window.Foreground = $brand.TextColor
@@ -48,7 +48,7 @@ try {
     $default = (Get-Date).AddHours(1)
     $controls.Day.SelectedDate = $default.Date; $controls.Hour.SelectedIndex = $default.Hour; $controls.Minute.SelectedIndex = $default.Minute
     $script:view = $null
-    $script:demoView = [pscustomobject]@{ Phase='Pending'; DeadlineUtc=[datetimeoffset]::UtcNow.AddHours(72).ToString('o'); ScheduledUtc=''; RestartUtc=''; ServerUtc=[datetimeoffset]::UtcNow.ToString('o'); CanSchedule=$true; Overdue=$false; ShouldShow=$true; Message=''; CanRestart=$false }
+    $script:demoView = [pscustomobject]@{ WindowHours=72; PreparationLeadMinutes=30; Phase='Pending'; DeadlineUtc=[datetimeoffset]::UtcNow.AddHours(72).ToString('o'); ScheduledUtc=''; RestartUtc=''; ServerUtc=[datetimeoffset]::UtcNow.ToString('o'); CanSchedule=$true; Overdue=$false; ShouldShow=$true; Message=''; CanRestart=$false }
     function Invoke-UIRequest($Request) {
         if ($Demo) {
             if ($Request.Action -eq 'Schedule') { $script:demoView.Phase='Scheduled'; $script:demoView.ScheduledUtc=$Request.Utc }
@@ -59,6 +59,7 @@ try {
     }
     function Render-Status($View) {
         $script:view = $View
+        $controls.PreparationText.Text = 'Use your local time. Preparation can begin up to {0} minutes earlier; save your work before then.' -f $View.PreparationLeadMinutes
         $labels = @{ AwaitingNotice='Choose a time that works for you'; Pending='Ready to schedule'; Scheduled='Your restart is scheduled'; Preparing='Preparing your BIOS update'; Blocked='Waiting for a safety requirement'; RestartRequired='Restart required'; Verifying='Verifying the update'; VerifiedComplete='Update verified complete'; NeedsAttention='Your IT team needs to take a look' }
         $controls.Phase.Text = $labels[$View.Phase]
         $text = 'You can postpone reminders as often as needed before the deadline. Your original deadline will stay the same.'
@@ -66,10 +67,10 @@ try {
         if ($View.Phase -eq 'RestartRequired') { $text = $brand.ReadyMessage }
         if ($View.Phase -eq 'Verifying') { $text = 'Windows has returned. We are checking the installed BIOS version and drive protection.' }
         if ($View.Phase -eq 'VerifiedComplete') { $text = 'The installed BIOS meets the approved version and drive protection has been checked. You can continue working.' }
-        if ($View.Overdue -and $View.Phase -in @('Pending','Scheduled','Blocked')) { $text = 'The three-day deadline has passed. Deferral is unavailable. The update will proceed when safety requirements are met.' }
+        if ($View.Overdue -and $View.Phase -in @('Pending','Scheduled','Blocked')) { $text = 'The deadline has passed. Deferral is unavailable. The update will proceed when safety requirements are met.' }
         if ($View.Message) { $text += "`n`n" + $View.Message }
         $controls.StatusText.Text = $text
-        $controls.Deadline.Text = if ($View.DeadlineUtc) { 'Deadline: ' + (Get-LocalTimeLabel $View.DeadlineUtc) } else { 'Your 72-hour window starts when this notice is delivered.' }
+        $controls.Deadline.Text = if ($View.DeadlineUtc) { 'Deadline: ' + (Get-LocalTimeLabel $View.DeadlineUtc) } else { 'Your {0}-hour window starts when this notice is delivered.' -f $View.WindowHours }
         $controls.Remaining.Text = ''
         if ($View.DeadlineUtc) {
             $remaining = [datetimeoffset]::Parse($View.DeadlineUtc) - [datetimeoffset]::Parse($View.ServerUtc)

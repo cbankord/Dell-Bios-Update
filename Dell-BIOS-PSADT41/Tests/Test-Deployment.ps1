@@ -110,6 +110,26 @@ namespace ManagedDellBios {
     [ManagedDellBios.NativePower]::AC = 255
     Assert-Throws { Assert-Power $config } 'Retry:*' 'Unknown AC blocks launch'
 
+    [ManagedDellBios.NativePower]::AC = 1
+    $config.MinimumBatteryRuntimeMinutes = 20
+    Assert-Throws { Assert-Power $config } 'Retry: battery runtime estimate is unavailable*' 'Missing optional runtime telemetry fails safely'
+    $script:runtimeMinutes=19
+    function Get-CimInstance { [pscustomobject]@{EstimatedChargeRemaining=51; EstimatedRunTime=$script:runtimeMinutes} }
+    Assert-Throws { Assert-Power $config } 'Retry: estimated battery runtime*' 'Insufficient estimated runtime blocks'
+    $script:runtimeMinutes=20
+    Assert-Power $config
+    Assert $true 'Runtime equal to configured minimum passes'
+    $script:runtimeMinutes=71582788
+    Assert-Throws { Assert-Power $config } 'Retry: battery runtime estimate is unavailable*' 'Implausible runtime sentinel blocks'
+    $script:runtimeMinutes=0
+    Assert-Throws { Assert-Power $config } 'Retry: battery runtime estimate is unavailable*' 'Zero runtime is unknown'
+    $config.MinimumBatteryRuntimeMinutes=0
+    Assert-Power $config
+    Assert $true 'Disabled optional estimate does not block otherwise safe power'
+    $config.Remove('MinimumBatteryRuntimeMinutes')
+    Assert-Config $config; Assert-Power $config
+    Assert $true 'Existing configurations without new optional key remain supported'
+
     Write-Output "PASS: $count base safety assertions. WindowsRegistryIntegration=$WindowsRegistryIntegration"
 } finally {
     $env:ProgramData = $oldProgramData

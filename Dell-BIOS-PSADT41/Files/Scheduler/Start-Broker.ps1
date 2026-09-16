@@ -18,7 +18,7 @@ try {
     Assert-ScheduleState $script:schedule (Get-PackageId $script:config)
     Initialize-PipeNative
     # Existing RestartRequired state after broker restart receives a fresh warning;
-    # it retains the original 72-hour deadline and cannot be deferred or rescheduled.
+    # it retains the original deadline and cannot be deferred or rescheduled.
     if ($script:schedule.Phase -eq 'RestartRequired') {
         $script:schedule.RestartUtc = Get-UtcText ([datetimeoffset]::UtcNow.AddMinutes($script:policy.FinalWarningMinutes))
         $script:schedule.NextNoticeUtc = ''

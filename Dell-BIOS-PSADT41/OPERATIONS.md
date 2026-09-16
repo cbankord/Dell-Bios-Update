@@ -4,12 +4,12 @@
 
 | Event | Behavior |
 |---|---|
-| Enrolled, no user/notice yet | No 72-hour clock or suspension. User logon delivers notice. Monitor machines that never receive one. |
+| Enrolled, no user/notice yet | No deadline clock or suspension. User logon delivers notice. Monitor machines that never receive one. |
 | User closes the notice | UI hides; selected time and deadline remain. SYSTEM enforcement continues. |
 | User never chooses a time | The original deadline is the fallback. A catch-up warning precedes mandatory preparation. |
 | User reschedules | Only before preparation, to a future instant within the original deadline. |
 | User logs off | Controller continues. A selected time or delivered-notice deadline remains binding even without a user present. |
-| Computer is asleep/offline | Nothing flashes while off. Task resumes when Windows runs; a missed time receives a fresh warning, not another 72 hours. No wake timer is created. |
+| Computer is asleep/offline | Nothing flashes while off. Task resumes when Windows runs; a missed time receives a fresh warning, not another deferral window. No wake timer is created. |
 | AC disconnected or charge low | No staging/restart. Explanation is shown, overdue status persists, and checks retry every five minutes by default. |
 | Power lost after staging | Firmware is not staged again. Suspension remains owned; restart waits for safety and then a fresh warning. |
 | Another Windows restart pending | Pre-staging hold. This installer does not clear pending flags or restart to bypass them. |
@@ -123,3 +123,23 @@ recovery procedure for firmware failures. No generic downgrade/uninstall exists.
 
 Windows WPF/pipe/task integration and real firmware behavior were not executable
 on the Linux authoring host. These are unverified gates, not claimed passes.
+
+## Builder and configurable policy update
+
+The package builder is an offline packaging tool. Use
+[Builder/README.md](Builder/README.md) for its input requirements, credential
+handling and additional Windows GUI/packaging pilot gates. It never enrolls the
+packaging machine or flashes a BIOS.
+
+New state records its original `WindowHours` at enrollment. First delivered
+notice starts that duration; deferrals, sign-outs, restarts and retries retain
+it. Old schema-2 state without the field adopts 72 hours, preserving its prior
+meaning. Editing Policy.psd1 cannot extend an existing deadline. Do not delete
+schedule/enrollment state to change the window. Same version/hash reenrollment
+also retains existing runtime/branding; a rebuilt package is not a live updater.
+
+`MinimumBatteryRuntimeMinutes` is optional and defaults to 0 (off). When enabled,
+missing or implausible CIM runtime telemetry blocks both preparation and managed
+restart. The state stays overdue when applicable. Validate support per model;
+do not enable it fleet-wide based on an estimate from one machine. AC and the
+configured percentage remain required regardless of that optional setting.

@@ -38,7 +38,7 @@
       <Border x:Name="PickerCard" Background="White" CornerRadius="14" Padding="22" Margin="0,0,0,18" BorderBrush="#DFE5EF" BorderThickness="1">
         <StackPanel>
           <TextBlock Text="Choose your restart time" FontSize="18" FontWeight="SemiBold"/>
-          <TextBlock Text="Use your local time. Preparation can begin up to 30 minutes earlier; save your work before then." Margin="0,7,0,16" Foreground="#475569"/>
+          <TextBlock x:Name="PreparationText" Text="Use your local time. Preparation can begin up to 30 minutes earlier; save your work before then." Margin="0,7,0,16" Foreground="#475569"/>
           <WrapPanel>
             <StackPanel Margin="0,0,18,12"><Label Content="_Date" Target="{Binding ElementName=Day}" Padding="0,0,0,6"/><DatePicker x:Name="Day" Width="190" Height="34" AutomationProperties.Name="Restart date"/></StackPanel>
             <StackPanel Margin="0,0,8,12"><Label Content="_Hour" Target="{Binding ElementName=Hour}" Padding="0,0,0,6"/><ComboBox x:Name="Hour" Width="76" Height="34" AutomationProperties.Name="Restart hour, 24-hour time"/></StackPanel>

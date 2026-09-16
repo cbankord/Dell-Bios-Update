@@ -1,0 +1,197 @@
+# Dell BIOS package builder
+
+Launch **Start-PackageBuilder.cmd** on your Windows packaging computer. The wizard
+builds a fresh deployment from your approved Dell BIOS executable and your own
+prepared **PSADT 4.1.x template ZIP**. You do not need to edit the deployment
+functions or calculate/paste a SHA256.
+
+Use 64-bit **Windows PowerShell 5.1** on x64 Windows. The GUI uses WPF and runs as
+the packaging user; elevation is not required. Use an existing local NTFS output
+folder outside this repository, with a short path and sufficient free space for
+the extracted framework, BIOS and package. Your organization's script execution
+and signing policy still applies; the launcher does not override that policy.
+
+## The four steps
+
+1. **Files:** choose the BIOS EXE, custom PSADT ZIP and output folder. Optionally
+   choose your official `IntuneWinAppUtil.exe` to produce `.intunewin` in the same
+   build. Without it, the result is complete deployment source plus Intune scripts.
+2. **Deployment:** enter exact CIM model names, target/prerequisite BIOS versions,
+   shared administrator password twice, power/disk thresholds and recovery settings.
+3. **Experience:** set the deferral window, reminders and preparation/restart
+   intervals. Enter company text, colors and optional logo/banner images.
+4. **Build:** review the settings, confirm that you reviewed the approved firmware
+   and trusted template, then build. The GUI remains responsive during packaging.
+   Select **Open output** and follow the generated `READ-ME-FIRST.txt`.
+
+Save a preset to reuse the same settings for the next model or version. Presets
+contain **no password**; loading one clears the password boxes and the prior
+review. Change the BIOS, target and model as appropriate and enter the password
+again. The wizard starts with empty model/version fields instead of assuming that
+the repository's old example values are approved for your devices.
+
+Obtain the content prep utility through the
+[official Microsoft repository](https://github.com/microsoft/Microsoft-Win32-Content-Prep-Tool).
+It requires .NET Framework 4.7.2. The builder checks its Microsoft signature and
+invokes `-c Source -s Invoke-AppDeployToolkit.exe -o Package -q` with quoted paths.
+The utility is optional, is not bundled, and is never downloaded silently.
+
+## Settings and their actual behavior
+
+| Field | Default / allowed | Effect |
+|---|---|---|
+| Models | Required; 1-50 exact names | Exact Dell model allowlist; one EXE must support every listed model |
+| Expected version | Required numeric version | Actual post-restart BIOS must meet or exceed this target; no downgrade |
+| Minimum existing version | `0.0.0` | Dell prerequisite version gate |
+| BIOS password required | Enabled | Requires a locally entered shared password; clear only for approved password-free systems |
+| Require battery | Enabled | Laptop battery checks; clear only for approved desktops; AC remains mandatory |
+| Minimum battery percent | `51`; 51-100 | Charge must meet or exceed the value at staging and managed restart |
+| Minimum estimated runtime | `0`; 0-240 minutes | Optional runtime gate; 0 disables it |
+| Minimum free space | `1`; 1-1024 GB | Free space required on the Windows volume before staging |
+| BitLocker reboot count | `1`; 1-3 | Finite suspension around staging; recovery workflow still verifies/resumes |
+| Recovery key escrow | `EntraID` or `ADDS` | Successful backup required before suspension |
+| StagedDetectionHours | `24`; 1-24 | **Legacy compatibility only. V2 enrollment detection does not use it.** |
+| Deferral window | `72`; 1-168 hours | Fixed window from first delivered notice; persisted at enrollment for each deployment |
+| Reminder interval | `4`; 1-12 hours | Unlimited reminder deferrals within the original window |
+| Preparation lead | `30`; warning through 60 minutes | How early staging may begin before the selected restart |
+| Final warning | `15`; 15-60 minutes | Minimum automatic restart warning after successful staging or a recovered safety hold |
+| Safety retry | `5`; 1-30 minutes | Retry after recoverable prerequisite failure; never resets deadline |
+
+“Battery time” means the **estimated remaining runtime in minutes**, not a sleep,
+charging delay or BIOS execution timeout. It uses
+[Win32_Battery.EstimatedRunTime](https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-battery).
+Many devices report unknown or implausible telemetry on AC. When enabled, missing,
+zero or values over 1,440 minutes fail safely and retain the waiting/overdue state.
+The upper bound is a conservative application rule, not a Windows guarantee.
+Validate telemetry on each model before enabling this gate. The native
+[BatteryLifeTime field](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-system_power_status)
+is not used because it can be unknown on AC. No estimate guarantees physical
+battery life or substitutes for AC and percentage checks.
+
+Changing the window in a future package cannot extend an existing device's
+original deadline. Existing v2 state without a stored window is interpreted as
+72 hours, including when its first notice has not yet been delivered. Same BIOS
+version/hash reenrollment retains the existing runtime and policy; it is not an
+in-place policy/branding upgrade. See [OPERATIONS.md](../OPERATIONS.md) for safe
+maintenance of an enrolled controller.
+
+## What the ZIP must contain
+
+Supply a **prepared deployment template**, with these together in one directory:
+
+- `Invoke-AppDeployToolkit.exe`
+- `Invoke-AppDeployToolkit.ps1`
+- `PSAppDeployToolkit/PSAppDeployToolkit.psd1`, declaring version 4.1.x
+- The manifest's `.psm1` root module and its required framework resources
+- Your framework configuration, extensions and custom files
+
+An enclosing folder is supported. Multiple complete templates, incomplete
+releases, PSADT 3/4.0/4.2+, or a GitHub source-code archive are rejected. Remove
+`BIOS-Password.psd1` from the ZIP and enter the current password in the wizard.
+The ZIP is checked for traversal, rooted paths, alternate streams, case-colliding
+entries, links, Windows reserved names and size limits (20,000 entries, 2 GB per
+entry and 4 GB extracted). No input template script or module is executed during
+the build; data manifests are read through `Import-PowerShellDataFile`.
+
+The builder parses the deployment script with PowerShell's AST. It requires one
+top-level function for each standard Install/Uninstall/Repair entry point and one
+top-level literal `$adtSession` metadata table. It inserts the BIOS installer,
+makes uninstall/repair fail explicitly, and sets app vendor/name/version/x64,
+success/reboot codes, processes-to-close and admin/title metadata. It preserves
+the rest of your bootstrap, module, extensions and files. The original script is
+archived outside Source. This was checked against the official
+[PSADT 4.1.0 frontend](https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.0/src/PSAppDeployToolkit/Frontend/v4/Invoke-AppDeployToolkit.ps1).
+
+Custom top-level code or extensions can still install other software, launch
+prompts or request restarts. Review your framework for these behaviors; the
+builder cannot certify arbitrary customization. Its BIOS runtime files, config,
+policy, UI files and `Files/ApprovedBIOS.exe` replace matching paths in the copied
+framework. Original ZIP and repository files are not changed. Existing signatures
+on edited scripts are invalidated; re-sign final scripts if your policy requires
+it and then rebuild `.intunewin` from that signed Source.
+
+## Output
+
+| Item | Use |
+|---|---|
+| `Source/` | Complete customized PSADT package with approved BIOS and generated runtime settings |
+| `Intune/Require-Model.ps1` | Standalone x64 requirement; Boolean equals True |
+| `Intune/Detect-BIOS.ps1` | Controller enrollment or actual target BIOS detection |
+| `Intune/Audit-BIOSAndBitLocker.ps1` | Actual firmware and protection compliance |
+| `Package/*.intunewin` | Upload artifact, only when the content prep tool was selected and succeeded |
+| `Settings.psd1` | Nonsecret reusable preset with review reset |
+| `BuildManifest.json`, `Build.log` | Versions, payload/framework hashes, policy and build records; no secret or password-file hash |
+| `OriginalTemplate/` | Original deployment script for local review, outside the deployable source |
+| `READ-ME-FIRST.txt` | Exact Intune commands, restart policy, credential and pilot instructions |
+
+The BIOS gets a stable `ApprovedBIOS.exe` filename inside the package; its bytes
+are unchanged. Its copied bytes are hashed and checked for valid Dell Authenticode
+before configuration and detection are generated. Each build gets a new unique
+output directory. Partial output is removed on a handled failure. If the builder
+is terminated or Windows shuts down mid-build, a protected partial directory may
+remain; remove it and rebuild. Only a completed result is deployable.
+
+Output access is restricted to the packaging account, SYSTEM and Administrators
+before any secret is written. The shared password is plaintext in the generated
+local data file, as in the existing deployment. It is never saved in presets,
+review text, build logs or manifests. Do not enable PowerShell transcription while
+entering secrets via scripts; use `Read-Host -AsSecureString` or the GUI. SYSTEM,
+local administrators and privileged monitoring can still recover the password
+from the package/runtime/Dell command line. `.intunewin` is not a credential vault.
+Moving output can change its permissions; protect and dispose of it accordingly.
+
+The builder uses a fixed runtime file allowlist from the repository and never
+copies a local password or arbitrary BIOS binary from the repository. Output
+inside this repository is refused. Password files and `.intunewin` are also
+Git-ignored. No Intune app, assignment, firmware update or restart is triggered by
+building the package.
+
+## Scripted reuse
+
+Run from the `Dell-BIOS-PSADT41` directory in Windows PowerShell 5.1. All final
+settings remain available through the same engine as the GUI:
+
+```powershell
+. .\Builder\Build-Package.ps1
+$settings = Import-PackagePreset 'C:\SecurePackaging\DellBIOS-settings.psd1'
+$settings.BiosPath = 'C:\ApprovedFirmware\YOUR_APPROVED_BIOS.exe'
+$settings.FrameworkZip = 'C:\SecurePackaging\Our-PSADT-4.1.zip'
+$settings.OutputRoot = 'C:\SecurePackaging\Output' # Existing folder, outside checkout
+$settings.Models = @('Dell Pro Max 16 MC16250')      # Verify exact model/EXE support
+$settings.TargetVersion = '2.1.1'                    # Example; use the approved version
+$settings.PackageReviewed = $true                  # After reviewing these inputs
+$password = Read-Host 'Shared BIOS administrator password' -AsSecureString
+try {
+    New-DellBiosPackage -Settings $settings -BiosPassword $password -Progress {
+        param($message)
+        Write-Host $message
+    }
+} finally {
+    $password.Dispose()
+}
+```
+
+Use `New-PackageBuildSettings` instead of importing a preset to start with safe
+defaults. The engine accepts the password only through a separate SecureString
+parameter; do not add one to the settings hashtable.
+
+## Troubleshooting and Windows pilot
+
+Build errors identify the phase without echoing file contents or password parse
+errors. Invalid settings are reported before extraction. For extraction failures,
+check the ZIP layout, version, entry restrictions and free space. For template
+integration failures, start with the standard 4.1.x metadata/functions and move
+custom behavior into supported extensions. For Dell validation failures, inspect
+the approved EXE's Authenticode status and certificate chain on the packaging
+computer; do not disable the signature check. For content prep failures, use the
+official signed utility, verify .NET 4.7.2 and sufficient space, and inspect local
+tool output. No partial build is ready for upload.
+
+Before deployment, validate the GUI at 100/150/200% scaling, keyboard navigation,
+password mismatch/clear behavior, browse/preset flows, async build completion and
+output permissions as a nonadmin user. Build with your real ZIP and EXE, verify
+custom framework resources, create an actual `.intunewin`, and run the existing
+[Windows firmware pilot](../OPERATIONS.md). Test both the optional runtime gate
+and configured thresholds immediately before staging and managed restart. The
+Linux regression suite uses inert fixtures and mocks Windows trust/ACL boundaries;
+it is not proof of WPF rendering, Windows permissions or a successful flash.
