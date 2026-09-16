@@ -1,0 +1,30 @@
+Validation performed 2026-09-15
+
+PASS: 53 assertions using PowerShell 7.4.6 on Linux.
+- PowerShell parser accepted all supplied PS1 and PSD1 files.
+- Numeric version order and normalization; malformed/legacy versions rejected.
+- Unreviewed/default configuration rejected.
+- Unsafe reboot count, bad hash, traversal filename, low battery threshold,
+  invalid prerequisite version, empty model and excessive marker lifetime rejected.
+- Exact model/manufacturer acceptance and rejection using mocked CIM.
+- Payload hash rejection and publisher/signature rejection using mocked
+  Authenticode results (no real Windows certificate-chain validation here).
+- Builder produced parseable standalone requirement, detection and audit scripts
+  from an inert QA-only fixture with a mocked signature result.
+- Detection subprocesses checked actual equal/newer/older versions, staged same
+  boot, staged after reboot, expired/future markers, mismatched hash/target,
+  failed/launching transactions and wrong model.
+- Detection success emitted STDOUT; detection failures did not emit success text.
+- PSADT integration parameter names checked against official 4.1.0
+  Start-ADTProcess.ps1 source.
+
+NOT TESTED:
+- Windows PowerShell 5.1 runtime execution (source targets its syntax/API surface).
+- PSADT 4.1 end-to-end execution, Intune install/detection/restart scheduling.
+- Dell hardware, actual BIOS EXE, AC/battery telemetry, firmware boot sequence.
+- Windows Authenticode validation, ACL operations, BitLocker escrow/suspension/
+  resume, Registry and Task Scheduler integration.
+
+No Dell BIOS binary or PSADT distribution is included. The default configuration
+is intentionally blocked until the administrator supplies and reviews the model,
+version, executable and hash. Pilot testing is required before production rollout.
