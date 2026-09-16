@@ -1,3 +1,21 @@
+# v2 compact notice and explicit install choices - 2026-09-16
+
+- Reduce the default notice from 780 x 760 to 600 x 560, fit its initial size to
+  available desktop space, and keep the action bar outside scrolling content.
+- Add clearly labeled Install Now, Schedule Install and Defer choices. Expand
+  date/time controls only on request; confirm with Schedule Install. Show Restart
+  Now after staging and remove deferral/rescheduling once the deadline expires.
+- Add a validated InstallNow protocol action and persist its intent separately
+  from the restart schedule. The controller retains safety/transaction gates,
+  final restart warnings and the original deadline. Delayed immediate requests
+  receive a fresh notice. Duplicate requests cannot reset a safety retry.
+- Preserve earlier enrolled state and make a new UI connected to an old controller
+  explain the required controller update. Document the paired runtime/UI upgrade
+  for existing pilots; same version/hash reenrollment remains nondestructive.
+- Add action visibility/layout, intent persistence, overdue/phase rejection,
+  guarded launch, power holds, missed requests and post-staging warning tests.
+  Windows WPF rendering and scaling still require the documented pilot.
+
 # v2 Windows PowerShell 5.1 template integration fix - 2026-09-16
 
 - Fix descending script-edit ordering: use an explicit numeric calculated

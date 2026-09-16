@@ -5,8 +5,9 @@
 | Event | Behavior |
 |---|---|
 | Enrolled, no user/notice yet | No deadline clock or suspension. User logon delivers notice. Monitor machines that never receive one. |
-| User closes the notice | UI hides; selected time and deadline remain. SYSTEM enforcement continues. |
+| User closes the notice or chooses Defer | UI hides; selected time, immediate-install intent and deadline remain. SYSTEM enforcement continues. |
 | User never chooses a time | The original deadline is the fallback. A catch-up warning precedes mandatory preparation. |
+| User chooses Install Now | Records immediate intent, then checks power, transaction state and installer prerequisites. No UI-initiated firmware or restart. Successful staging still gets the configured final restart warning. |
 | User reschedules | Only before preparation, to a future instant within the original deadline. |
 | User logs off | Controller continues. A selected time or delivered-notice deadline remains binding even without a user present. |
 | Computer is asleep/offline | Nothing flashes while off. Task resumes when Windows runs; a missed time receives a fresh warning, not another deferral window. No wake timer is created. |
@@ -143,3 +144,57 @@ missing or implausible CIM runtime telemetry blocks both preparation and managed
 restart. The state stays overdue when applicable. Validate support per model;
 do not enable it fleet-wide based on an estimate from one machine. AC and the
 configured percentage remain required regardless of that optional setting.
+
+
+## Updating the compact notice and Install Now action
+
+A newly built package includes the smaller notice and updated controller.
+**Reinstalling the same BIOS version/hash on an already enrolled pilot preserves
+its cached runtime.** It does not automatically install these code changes.
+Updating only the XAML changes the size but cannot add a working Install Now
+request to an older controller. The new UI explicitly reports an older controller
+and disables that unsupported action.
+
+Use the maintenance procedure above to update both sides together. These are the
+specific source-to-installed mappings for this change:
+
+| Repository source | Installed destination |
+|---|---|
+| `Files/UI/Window.xaml` | `%ProgramFiles%\ManagedDellBIOS-v2\Window.xaml` |
+| `Files/UI/Show-BiosUI.ps1` | `%ProgramFiles%\ManagedDellBIOS-v2\Show-BiosUI.ps1` |
+| `Files/UI/Client.ps1` | `%ProgramFiles%\ManagedDellBIOS-v2\Client.ps1` |
+| `Files/Scheduler/Core.ps1` | `%ProgramData%\ManagedDellBIOS\Runtime-v2\Scheduler\Core.ps1` |
+| `Files/Scheduler/Engine.ps1` | `%ProgramData%\ManagedDellBIOS\Runtime-v2\Scheduler\Engine.ps1` |
+| `Files/Scheduler/Start-Broker.ps1` | `%ProgramData%\ManagedDellBIOS\Runtime-v2\Scheduler\Start-Broker.ps1` |
+
+Do this only during an IT maintenance session with no running/pending firmware
+operation. Preparing, RestartRequired, Verifying, NeedsAttention or an unresolved
+firmware transaction requires resolution before runtime replacement. Prevent
+staging during the maintenance window; do not update at a selected preparation
+time or after the deadline where enforcement may be due. If the deadline is
+already due, let the existing guarded deployment finish before code maintenance.
+
+Back up schedule/enrollment state and code, record the original deadline, and
+stop the controller and user UI tasks before copying. The immediate UI launched
+by PSADT may not belong to the scheduled task: close that application's process
+too. Target only the PowerShell process whose command line runs the exact
+installed `ManagedDellBIOS-v2\Show-BiosUI.ps1` path; never stop every PowerShell
+process or any firmware/verification worker. Closing the notice with its Close
+button only hides it and does not unload its scripts.
+
+Copy the six reviewed files above using your approved administrator/SYSTEM
+maintenance process, preserve their protected ownership/ACLs and your branding,
+and leave `Schedule-v2.json`, `Enrollment-v2.json`, policy, BIOS config, payload,
+password and firmware registry state unchanged. Restart the tasks and confirm
+the original deadline and selected time remain. The controller migrates the new
+optional `InstallRequestedUtc` field to an empty value for older state; it never
+fabricates an Install Now request or starts a new deferral window.
+
+Pilot the first notice with all three choices visible, the date-picker expand/
+confirm/cancel flow, an overdue notice without Defer, and the post-staging
+Restart Now action. Check 100/150/200% scaling, short screens, long company text
+and a banner: the action bar must remain visible while the content scrolls.
+Install Now older than two minutes at the first eligible tick (for example after
+sleep or a safety hold) gets a fresh preparation notice. Every restart still
+requires its own safety check and final warning; an explicit Restart Now remains
+available once staging succeeds.

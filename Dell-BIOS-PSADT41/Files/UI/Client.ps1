@@ -22,3 +22,24 @@ function Get-LocalTimeLabel([string]$Utc) {
     if (-not $Utc) { return 'Not selected' }
     ([datetimeoffset]::Parse($Utc)).ToLocalTime().ToString('ddd, MMM d, yyyy h:mm tt zzz')
 }
+function Get-BiosViewValue($View, [string]$Name, $Default) {
+    if ($View -is [System.Collections.IDictionary]) {
+        if ($View.Contains($Name)) { return $View[$Name] }
+    } elseif ($null -ne $View -and $null -ne $View.PSObject.Properties[$Name]) { return $View.$Name }
+    return $Default
+}
+function Get-NoticeActions($View) {
+    # Choices are visible on the first rendered notice, even while awaiting
+    # acknowledgement; enabling them still requires the controller's permission.
+    $choicePhase=$View.Phase -in @('AwaitingNotice','Pending','Scheduled','Blocked')
+    @{
+        ShowInstall=$choicePhase
+        ShowSchedule=$choicePhase -and -not $View.Overdue
+        ShowDefer=$choicePhase -and -not $View.Overdue
+        EnableInstall=[bool](Get-BiosViewValue $View 'CanInstallNow' $false)
+        EnableSchedule=[bool]$View.CanSchedule
+        EnableDefer=[bool]$View.CanSchedule
+        ShowRestart=$View.Phase -eq 'RestartRequired'
+        EnableRestart=[bool]$View.CanRestart
+    }
+}

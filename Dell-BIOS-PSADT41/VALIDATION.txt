@@ -1,12 +1,12 @@
 V2 and package-builder validation performed 2026-09-16
 
-PASS: 222 assertions across five fresh PowerShell 7.6.6 processes on Linux:
+PASS: 258 assertions across five fresh PowerShell 7.6.6 processes on Linux:
   49  Tests/Test-Deployment.ps1
-  76  Tests/V2/Test-Scheduler.ps1
+ 112  Tests/V2/Test-Scheduler.ps1
    9  Tests/V2/Test-Transport.ps1
   14  Tests/V2/Test-Guards.ps1
   74  Tests/Test-Builder.ps1
-Counts include parser assertions in more than one suite; they are not 222 unique
+Counts include parser assertions in more than one suite; they are not 258 unique
 end-to-end scenarios. The optional WindowsRegistryIntegration mode was not run.
 
 Covered:
@@ -27,6 +27,15 @@ Covered:
 - Real temporary-file create/read/atomic replacement, without production paths.
 - Bounded framed JSON roundtrip and invalid/truncated frame rejection.
 - Compile Windows peer/session and input-desktop C# declarations without invoking them.
+- Compact XAML structure keeps the three choices outside the scrolling content;
+  date picker initially collapses. Pure UI action mapping covers first notice,
+  pending, overdue, staging, completed and older-controller responses.
+- Install Now intent persists without moving the deadline, can be rescheduled
+  before preparation, rejects duplicates and unsafe phases, and never launches
+  a worker from the UI/request handler. Older state migrates with no intent.
+- Actual engine with mocked boundaries: immediate guarded launch, no early
+  restart, full post-staging warning, power hold/retry, sleep catch-up notice and
+  ambiguous transaction rejection for Install Now.
 - Mocked engine: missed deadline warnings, pre-stage power holds, restoration,
   near-schedule launch, successful staging, final warning, power-loss restart hold,
   post-boot verification and blocked reflashing after failure/ambiguous crash.

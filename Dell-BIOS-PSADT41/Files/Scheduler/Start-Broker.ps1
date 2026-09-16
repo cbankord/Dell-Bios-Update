@@ -47,7 +47,7 @@ try {
                 Invoke-ScheduleRequest $script:schedule $script:policy $request $now
                 if ($request.Action -ne 'Status') {
                     Save-EngineState
-                    Write-SchedulerLog "Interactive request accepted: action=$($request.Action); sid=$sid; deadline=$($script:schedule.DeadlineUtc); selected=$($script:schedule.ScheduledUtc)."
+                    Write-SchedulerLog "Interactive request accepted: action=$($request.Action); sid=$sid; deadline=$($script:schedule.DeadlineUtc); selected=$($script:schedule.ScheduledUtc); installNow=$($script:schedule.InstallRequestedUtc)."
                 }
                 Write-PipeMessage $pipe @{ Ok = $true; State = Get-ScheduleView $script:schedule $script:policy $now }
             } catch {

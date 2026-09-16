@@ -122,14 +122,15 @@ function Invoke-SchedulerTick([datetimeoffset]$Now) {
     $due = Get-MaintenanceTime $s
     if ($null -eq $due) { return } # fixed clock begins only on delivered notice.
     if ($s.NextAttemptUtc -and $Now -lt (Read-Utc $s.NextAttemptUtc)) { return }
-    $lead = if ($s.ScheduledUtc) { $script:policy.PreparationLeadMinutes } else { 0 }
+    $lead = if ($s.ScheduledUtc -and -not $s.InstallRequestedUtc) { $script:policy.PreparationLeadMinutes } else { 0 }
     if ($Now -lt $due.AddMinutes(-$lead)) { return }
     # If we missed a selected time/deadline, announce a fresh warning BEFORE staging.
-    if ($Now -ge $due -and -not $s.WorkerStartedUtc) {
+    $recentInstallRequest = $s.InstallRequestedUtc -and ($Now - (Read-Utc $s.InstallRequestedUtc)).TotalMinutes -le 2
+    if ($Now -ge $due -and -not $s.WorkerStartedUtc -and -not $recentInstallRequest) {
         $s.WorkerStartedUtc = Get-UtcText $Now # catch-up-warning marker, replaced on actual start
         $s.NextAttemptUtc = Get-UtcText ($Now.AddMinutes($script:policy.FinalWarningMinutes))
         $s.NextNoticeUtc = ''
-        $s.LastError = 'The scheduled time was missed. Preparation will begin after a 15-minute notice, once safety checks pass.'
+        $s.LastError = 'The scheduled time was missed. Preparation will begin after a {0}-minute notice, once safety checks pass.' -f $script:policy.FinalWarningMinutes
         return
     }
     try {

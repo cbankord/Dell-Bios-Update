@@ -14,9 +14,60 @@ Get-ChildItem $root -Recurse -File | Where-Object Extension -in @('.ps1','.psd1'
 }
 [xml]$xaml = Get-Content "$root/Files/UI/Window.xaml" -Raw
 Assert ($null -ne $xaml.DocumentElement) 'Well-formed XAML'
+# Action controls must not be descendants of the scrolling content: this is
+# what made the previous choices disappear below the visible window.
+$namespaces=New-Object Xml.XmlNamespaceManager($xaml.NameTable)
+$namespaces.AddNamespace('p','http://schemas.microsoft.com/winfx/2006/xaml/presentation')
+$namespaces.AddNamespace('x','http://schemas.microsoft.com/winfx/2006/xaml')
+foreach ($name in @('InstallButton','ScheduleButton','DeferButton')) {
+    $node=$xaml.SelectSingleNode("//p:Button[@x:Name='$name']",$namespaces)
+    Assert ($null -ne $node -and $null -eq $node.SelectSingleNode('ancestor::p:ScrollViewer',$namespaces)) "$name remains outside scrolling content"
+}
+Assert ([int]$xaml.DocumentElement.Width -eq 600 -and [int]$xaml.DocumentElement.Height -eq 560) 'Notice uses compact default dimensions'
+Assert ($xaml.SelectSingleNode("//p:Border[@x:Name='PickerCard']",$namespaces).Visibility -eq 'Collapsed') 'Date picker does not consume space until scheduling is requested'
 $p=Import-PowerShellDataFile "$root/Files/Scheduler/Policy.psd1"
 Assert-SchedulerPolicy $p
 $t=[datetimeoffset]'2026-09-16T12:00:00Z'
+# Install Now is an explicit, persistent intent; it never flashes in the UI.
+$immediate=New-ScheduleState immediate $t
+$v=Get-ScheduleView $immediate $p $t
+$actions=Get-NoticeActions $v
+Assert ($actions.ShowInstall -and $actions.ShowSchedule -and $actions.ShowDefer -and -not $actions.EnableInstall -and -not $actions.EnableSchedule) 'First notice shows all three choices while awaiting acknowledgement'
+Reject { Invoke-ScheduleRequest $immediate $p @{Action='InstallNow'} $t } 'Install Now requires delivered notice'
+Invoke-ScheduleRequest $immediate $p @{Action='NoticeShown'} $t
+$deadlineBefore=$immediate.DeadlineUtc
+$actions=Get-NoticeActions (Get-ScheduleView $immediate $p $t)
+Assert ($actions.EnableInstall -and $actions.EnableSchedule -and $actions.EnableDefer) 'Pending update enables Install Now, Schedule Install and Defer'
+Invoke-ScheduleRequest $immediate $p @{Action='Schedule';Utc=(Get-UtcText $t.AddHours(24))} $t
+Invoke-ScheduleRequest $immediate $p @{Action='InstallNow'} $t.AddMinutes(2)
+Assert ($immediate.DeadlineUtc -eq $deadlineBefore -and -not $immediate.ScheduledUtc -and (Get-MaintenanceTime $immediate) -eq $t.AddMinutes(2)) 'Install Now replaces a future selection without moving the deadline'
+Assert ($immediate.Phase -eq 'Scheduled' -and $immediate.WorkerPid -eq 0) 'Install Now request does not create a worker or claim successful staging'
+Reject { Invoke-ScheduleRequest $immediate $p @{Action='InstallNow'} $t.AddMinutes(3) } 'Duplicate Install Now cannot reset a pending safety retry'
+Invoke-ScheduleRequest $immediate $p @{Action='Defer'} $t.AddMinutes(3)
+Assert ((Get-MaintenanceTime $immediate) -eq $t.AddMinutes(2)) 'Defer hides notice without cancelling requested installation'
+$roundtrip=@{}; (ConvertFrom-SchedulerJson ($immediate|ConvertTo-Json)).PSObject.Properties|ForEach-Object{$roundtrip[$_.Name]=$_.Value}
+Assert-ScheduleState $roundtrip immediate
+Assert ($roundtrip.InstallRequestedUtc -eq $immediate.InstallRequestedUtc) 'Immediate intent survives persistence'
+Invoke-ScheduleRequest $immediate $p @{Action='Schedule';Utc=(Get-UtcText $t.AddHours(24))} $t.AddMinutes(4)
+Assert (-not $immediate.InstallRequestedUtc -and (Get-MaintenanceTime $immediate) -eq $t.AddHours(24)) 'Before preparation, a new schedule can replace the immediate request'
+$older=$immediate.Clone(); $older.Remove('InstallRequestedUtc'); Assert-ScheduleState $older immediate
+Assert (-not $older.InstallRequestedUtc -and $older.DeadlineUtc -eq $deadlineBefore) 'Older enrolled states migrate with no fabricated install request'
+$overdue=New-ScheduleState overdue $t
+Invoke-ScheduleRequest $overdue $p @{Action='NoticeShown'} $t
+$v=Get-ScheduleView $overdue $p $t.AddHours(73)
+$actions=Get-NoticeActions $v
+Assert ($actions.ShowInstall -and $actions.EnableInstall -and -not $actions.ShowSchedule -and -not $actions.ShowDefer) 'Overdue notice removes defer and reschedule while allowing guarded Install Now'
+Invoke-ScheduleRequest $overdue $p @{Action='InstallNow'} $t.AddHours(73)
+Assert ((Read-Utc $overdue.DeadlineUtc) -eq $t.AddHours(72)) 'Overdue Install Now never grants another deadline'
+foreach ($phase in @('Preparing','RestartRequired','Verifying','VerifiedComplete','NeedsAttention')) {
+    $locked=$immediate.Clone(); $locked.Phase=$phase
+    Reject { Invoke-ScheduleRequest $locked $p @{Action='InstallNow'} $t.AddMinutes(5) } "Install Now rejected during $phase"
+    $actions=Get-NoticeActions (Get-ScheduleView $locked $p $t.AddMinutes(5))
+    Assert (-not $actions.ShowInstall -and -not $actions.ShowSchedule -and -not $actions.ShowDefer) "Inappropriate pre-install choices absent during $phase"
+}
+$legacyView=Get-ScheduleView $immediate $p $t.AddMinutes(6); $legacyView.Remove('CanInstallNow')
+$actions=Get-NoticeActions ([pscustomobject]$legacyView)
+Assert ($actions.ShowInstall -and -not $actions.EnableInstall -and $actions.EnableSchedule) 'Older controllers do not falsely enable unsupported Install Now'
 # New packages can choose a window; it becomes immutable persisted state.
 $custom=$p.Clone(); $custom.WindowHours=48
 Assert-SchedulerPolicy $custom
@@ -169,4 +220,34 @@ Invoke-SchedulerTick $t.AddHours(4)
 Assert ($script:schedule.Phase -eq 'Scheduled') 'No early suspension far ahead of selected time'
 Invoke-SchedulerTick $t.AddHours(4).AddMinutes(31)
 Assert ($script:schedule.Phase -eq 'Preparing') 'Preparation starts near selected time'
+# Exercise actual immediate-install engine path, including holds and recovery.
+Fresh
+$launchesBefore=$script:launches; $restartsBefore=$script:restarts
+Invoke-ScheduleRequest $script:schedule $p @{Action='InstallNow'} $t
+Invoke-SchedulerTick $t.AddSeconds(5)
+Assert ($script:launches -eq $launchesBefore+1 -and $script:schedule.Phase -eq 'Preparing') 'Explicit Install Now starts the guarded worker on the next tick'
+Assert ($script:restarts -eq $restartsBefore) 'Install Now never restarts before staging'
+$script:worker.HasExited=$true
+$script:txn=[pscustomobject]@{Status='Staged';TargetVersion='2.1.1';PayloadHash=('a'*64);BootId='one';StagedUtc=(Get-UtcText $t.AddMinutes(1))}
+Invoke-SchedulerTick $t.AddMinutes(1)
+Assert ($script:schedule.Phase -eq 'RestartRequired' -and (Read-Utc $script:schedule.RestartUtc) -eq $t.AddMinutes(16)) 'Immediate install retains full final warning instead of waiting until the three-day deadline'
+Assert ($script:restarts -eq $restartsBefore) 'Successful staging still waits for managed restart'
+Fresh
+$launchesBefore=$script:launches
+Invoke-ScheduleRequest $script:schedule $p @{Action='InstallNow'} $t
+$script:power=$false
+Invoke-SchedulerTick $t.AddSeconds(5)
+Assert ($script:launches -eq $launchesBefore -and $script:schedule.Phase -eq 'Blocked') 'Install Now cannot bypass AC/battery checks'
+$script:power=$true
+Invoke-SchedulerTick $t.AddMinutes(1)
+Assert ($script:launches -eq $launchesBefore) 'Install Now respects the existing safety retry interval'
+Fresh
+Invoke-ScheduleRequest $script:schedule $p @{Action='InstallNow'} $t
+Invoke-SchedulerTick $t.AddHours(2)
+Assert ($script:launches -eq $launchesBefore -and $script:schedule.NextAttemptUtc) 'Install Now missed during sleep receives a fresh notice before preparation'
+Fresh
+Invoke-ScheduleRequest $script:schedule $p @{Action='InstallNow'} $t
+$script:txn=[pscustomobject]@{Status='Launching';TargetVersion='2.1.1';PayloadHash=('a'*64)}
+Invoke-SchedulerTick $t.AddSeconds(5)
+Assert ($script:launches -eq $launchesBefore -and $script:schedule.Phase -eq 'NeedsAttention') 'Install Now cannot bypass an ambiguous firmware transaction'
 Write-Output "PASS: $script:count V2 assertions (parser, schedule, DST, mocked engine). No Windows/firmware operations performed."

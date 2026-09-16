@@ -14,8 +14,16 @@ MC16250. Choose the approved EXE/model/version for each deployment.
 
 ## User experience
 
-- A professional WPF window with logo/banner slots, configurable colors and copy,
-  keyboard labels, live status announcements, scrolling and scalable layout.
+- A compact 600 x 560 WPF notice, fitted to the available work area at startup,
+  with logo/banner slots, configurable colors and copy. Scrolling content sits
+  above a fixed action bar so the buttons remain accessible.
+- **Install Now** requests immediate guarded preparation after a save-work/power
+  confirmation. SYSTEM retains every safety check and the final restart warning.
+- **Schedule Install** opens the local date/time controls; click it again to save
+  the selected restart time. Preparation may begin earlier by the configured lead.
+- **Defer** hides the reminder while preserving the original deadline and any
+  selected time or Install Now request. An expired deadline removes deferral and
+  rescheduling. After staging, **Restart Now** replaces pre-install actions.
 - A local date picker and 24-hour time selectors. Local times are converted to UTC;
   nonexistent/ambiguous daylight-saving times are rejected explicitly.
 - A fixed deadline (72 hours by default) starts when the UI acknowledges its first rendered
@@ -49,7 +57,7 @@ relaunches it every five minutes if it exits. A separate task launches the WPF
 client with a signed-in user's limited token at logon and periodically. PSADT
 also tries an immediate `Start-ADTProcessAsUser -NoWait` launch.
 
-The UI sends only `Status`, `NoticeShown`, `Defer`, `Schedule` and `RestartNow`
+The UI sends only `Status`, `NoticeShown`, `Defer`, `Schedule`, `InstallNow` and `RestartNow`
 requests over a local named pipe. The controller authenticates an interactive
 client in an active session and validates each action/time. It rejects network
 access, unknown actions, extra fields, oversized frames and out-of-window dates.
@@ -138,7 +146,10 @@ on a Windows machine with Windows PowerShell 5.1:
 powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo
 ```
 
-Demo scheduling changes only in-memory sample state. End the demo PowerShell
+Demo scheduling changes only in-memory sample state. Install Now in preview
+moves to a simulated Preparing state and never launches firmware. Preview on an
+unenrolled test machine so the installed UI's per-session instance is not active.
+For enrolled pilots, see [updating the notice and actions](OPERATIONS.md#updating-the-compact-notice-and-install-now-action). End the demo PowerShell
 process when finished; closing its window hides it to the tray like the real UI.
 
 ## Intune settings: one restart owner

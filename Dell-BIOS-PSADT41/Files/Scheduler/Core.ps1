@@ -21,7 +21,7 @@ function New-ScheduleState([string]$PackageId, [datetimeoffset]$Now, [int]$Windo
     @{
         Schema = 2; PackageId = $PackageId; Phase = 'AwaitingNotice'; WindowHours = $WindowHours
         EnrolledUtc = Get-UtcText $Now; FirstNotifiedUtc = ''; DeadlineUtc = ''
-        ScheduledUtc = ''; RestartUtc = ''; NextNoticeUtc = ''; NextAttemptUtc = ''
+        ScheduledUtc = ''; InstallRequestedUtc = ''; RestartUtc = ''; NextNoticeUtc = ''; NextAttemptUtc = ''
         LastObservedUtc = Get-UtcText $Now; LastError = ''; WorkerBoot = ''
         WorkerPid = 0; WorkerStartedUtc = ''; LastRestartAttemptUtc = ''
         HeartbeatUtc = ''; CompletedNoticeShown = $false
@@ -31,17 +31,19 @@ function Assert-ScheduleState($State, [string]$PackageId) {
     # Earlier schema-2 deployments always used 72 hours. Never adopt a new
     # package policy when recovering their state, even before first notice.
     if (-not $State.ContainsKey('WindowHours')) { $State.WindowHours = 72 }
+    if (-not $State.ContainsKey('InstallRequestedUtc')) { $State.InstallRequestedUtc = '' }
     $required = (New-ScheduleState $PackageId ([datetimeoffset]::UtcNow)).Keys
     foreach ($name in $required) { if (-not $State.ContainsKey($name)) { throw "Damaged scheduler state: missing $name. Manual review required." } }
     if ($State.Schema -ne 2 -or $State.PackageId -ne $PackageId) { throw 'Different deployment or invalid scheduler schema. Manual review required.' }
     if ($State.Phase -notin @('AwaitingNotice','Pending','Scheduled','Preparing','Blocked','RestartRequired','Verifying','VerifiedComplete','NeedsAttention')) { throw 'Invalid scheduler phase.' }
-    foreach ($name in @('EnrolledUtc','LastObservedUtc','FirstNotifiedUtc','DeadlineUtc','ScheduledUtc','RestartUtc','NextNoticeUtc','NextAttemptUtc','HeartbeatUtc','WorkerStartedUtc','LastRestartAttemptUtc')) {
+    foreach ($name in @('EnrolledUtc','LastObservedUtc','FirstNotifiedUtc','DeadlineUtc','ScheduledUtc','InstallRequestedUtc','RestartUtc','NextNoticeUtc','NextAttemptUtc','HeartbeatUtc','WorkerStartedUtc','LastRestartAttemptUtc')) {
         if ($State[$name]) { $null = Read-Utc $State[$name] }
     }
     if ([bool]$State.FirstNotifiedUtc -ne [bool]$State.DeadlineUtc) { throw 'Incomplete deadline state.' }
     if ($State.WindowHours -notmatch '^\d+$' -or $State.WindowHours -lt 1 -or $State.WindowHours -gt 168) { throw 'Invalid persisted scheduling window.' }
     if ($State.DeadlineUtc -and (Read-Utc $State.DeadlineUtc) -ne (Read-Utc $State.FirstNotifiedUtc).AddHours($State.WindowHours)) { throw 'Deadline has changed. Manual review required.' }
     if ($State.ScheduledUtc -and (-not $State.DeadlineUtc -or (Read-Utc $State.ScheduledUtc) -gt (Read-Utc $State.DeadlineUtc))) { throw 'Schedule exceeds its original deadline.' }
+    if ($State.InstallRequestedUtc -and (-not $State.FirstNotifiedUtc -or $State.ScheduledUtc)) { throw 'Invalid immediate-install request state.' }
 }
 function Set-SchedulePhase($State, [string]$Phase, [string]$Reason = '') {
     if ($State.Phase -ne $Phase -or $State.LastError -ne $Reason) { $State.NextNoticeUtc = '' }
@@ -54,12 +56,16 @@ function Get-EffectiveNow($State, [datetimeoffset]$WallClock) {
     return $WallClock
 }
 function Get-MaintenanceTime($State) {
+    if ($State.InstallRequestedUtc) { return Read-Utc $State.InstallRequestedUtc }
     if ($State.ScheduledUtc) { return Read-Utc $State.ScheduledUtc }
     if ($State.DeadlineUtc) { return Read-Utc $State.DeadlineUtc }
     return $null
 }
 function Test-CanSchedule($State, [datetimeoffset]$Now) {
     $State.Phase -in @('Pending','Scheduled','Blocked') -and $State.DeadlineUtc -and $Now -lt (Read-Utc $State.DeadlineUtc)
+}
+function Test-CanInstallNow($State) {
+    $State.Phase -in @('Pending','Scheduled','Blocked') -and [bool]$State.DeadlineUtc -and -not $State.InstallRequestedUtc
 }
 function Invoke-ScheduleRequest($State, $Policy, $Request, [datetimeoffset]$Now) {
     $Now = Get-EffectiveNow $State $Now
@@ -92,7 +98,20 @@ function Invoke-ScheduleRequest($State, $Policy, $Request, [datetimeoffset]$Now)
             $chosen = Read-Utc $Request.Utc
             if ($chosen -lt $Now.AddMinutes(1) -or $chosen -gt (Read-Utc $State.DeadlineUtc)) { throw 'Choose a future time within the original deadline.' }
             $State.ScheduledUtc = Get-UtcText $chosen
+            $State.InstallRequestedUtc = ''
+            $State.WorkerStartedUtc = '' # A new future selection replaces any missed-time warning.
             $State.NextAttemptUtc = ''
+            Set-SchedulePhase $State Scheduled
+            $State.NextNoticeUtc = Get-UtcText ($Now.AddHours($Policy.ReminderHours))
+        }
+        InstallNow {
+            if (-not (Test-CanInstallNow $State)) { throw 'Installation cannot be requested in the current state.' }
+            # Record intent only. SYSTEM checks the transaction and every safety
+            # prerequisite on its next tick before it may start the installer.
+            $State.InstallRequestedUtc = Get-UtcText $Now
+            $State.ScheduledUtc = ''
+            $State.NextAttemptUtc = ''
+            $State.WorkerStartedUtc = ''
             Set-SchedulePhase $State Scheduled
             $State.NextNoticeUtc = Get-UtcText ($Now.AddHours($Policy.ReminderHours))
         }
@@ -112,10 +131,11 @@ function Get-ScheduleView($State, $Policy, [datetimeoffset]$Now) {
     $shouldShow = -not $State.NextNoticeUtc -or $Now -ge (Read-Utc $State.NextNoticeUtc)
     if ($State.Phase -eq 'VerifiedComplete' -and $State.CompletedNoticeShown) { $shouldShow = $false }
     @{
-        Phase = $State.Phase; DeadlineUtc = $State.DeadlineUtc; ScheduledUtc = $State.ScheduledUtc
+        Phase = $State.Phase; DeadlineUtc = $State.DeadlineUtc; ScheduledUtc = $State.ScheduledUtc; InstallRequestedUtc = $State.InstallRequestedUtc
         RestartUtc = $State.RestartUtc; ServerUtc = Get-UtcText $Now
         WindowHours = $State.WindowHours; PreparationLeadMinutes = $Policy.PreparationLeadMinutes
         CanSchedule = [bool](Test-CanSchedule $State $Now); Overdue = $overdue
+        CanInstallNow = [bool](Test-CanInstallNow $State); FinalWarningMinutes = $Policy.FinalWarningMinutes
         ShouldShow = [bool]$shouldShow; Message = $State.LastError
         CanRestart = $State.Phase -eq 'RestartRequired' -and -not $State.LastError
     }
