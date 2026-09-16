@@ -6,6 +6,21 @@ $script:BuilderSource = Split-Path $PSScriptRoot -Parent
 . "$script:BuilderSource/Files/Common.ps1"
 . "$script:BuilderSource/Files/Scheduler/Core.ps1"
 
+function Get-BuilderFailureMessage([Management.Automation.ErrorRecord]$Record) {
+    # EndInvoke can wrap a PSSecurityException. Never print script source or
+    # invocation arguments: a build may have a credential in memory.
+    $exception=$Record.Exception
+    $authorizationFailure=$Record.CategoryInfo.Category -eq 'SecurityError'
+    while ($null -ne $exception) {
+        if ($exception -is [Management.Automation.PSSecurityException] -or $exception.Message -match 'AuthorizationManager check failed') { $authorizationFailure=$true }
+        $exception=$exception.InnerException
+    }
+    if ($authorizationFailure) {
+        return 'PowerShell blocked a builder script before it could run. A downloaded-file block, script signing/execution policy, or application control can cause this. Close the wizard, review Get-ExecutionPolicy -List in Windows PowerShell 5.1, and check whether the trusted repository scripts are marked as downloaded. See Builder/README.md: AuthorizationManager check failed. No BIOS executable was launched by this build. Do not change organization-enforced policy.'
+    }
+    return $Record.Exception.Message
+}
+
 function Stop-BuilderValidation([string]$Message) {
     # Only call with our own safe diagnostic text, never a caught exception or
     # data-file source. This allows useful errors without exposing secret lines.

@@ -195,3 +195,47 @@ custom framework resources, create an actual `.intunewin`, and run the existing
 and configured thresholds immediately before staging and managed restart. The
 Linux regression suite uses inert fixtures and mocks Windows trust/ACL boundaries;
 it is not proof of WPF rendering, Windows permissions or a successful flash.
+
+
+### AuthorizationManager check failed
+
+This is a PowerShell script authorization failure, not a Dell BIOS return code
+or evidence of an incorrect BIOS password. The GUI loads its engine again in a
+background PowerShell session when Build is clicked. A downloaded-file marker,
+signing requirement, publisher prompt or application-control rule can block that
+load. The short error alone does not identify which one applies.
+
+Close the wizard. In **Windows PowerShell 5.1**, inspect:
+
+```powershell
+Get-ExecutionPolicy -List
+Get-ExecutionPolicy
+```
+
+If you downloaded the repository from GitHub, review/trust that specific source,
+then remove the downloaded-file marker from its scripts. Replace the path below
+with your extracted `Dell-BIOS-PSADT41` folder; do not point it at a drive root or
+all of Downloads:
+
+```powershell
+$repoFolder = 'C:\Path\To\Dell-BIOS-PSADT41'
+Get-ChildItem -LiteralPath $repoFolder -Recurse -File |
+    Where-Object { $_.Extension -in @('.ps1', '.psm1', '.psd1') } |
+    Unblock-File
+
+& "$repoFolder\Builder\Start-PackageBuilder.cmd"
+```
+
+[Unblock-File](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/unblock-file)
+removes the download marker; it does not change execution policy. Alternatively,
+unblock the trusted repository ZIP in its Windows Properties before extracting a
+fresh copy. Unblocking does not satisfy `AllSigned`, `Restricted`, or an enforced
+application-control rule. Use your organization's signing/approved packaging
+process for those cases; the builder does not override them. If the failure
+persists, collect the two policy outputs above, how you launched the wizard, and
+its build-status text. Do not include the BIOS password or generated password file.
+
+The builder now stops on a denied engine load and recognizes authorization errors
+wrapped by the background worker. Its diagnostic omits raw script lines and
+arguments. This error-handling change improves diagnosis; it does not prove that
+Windows authorization on a particular packaging computer has been resolved.

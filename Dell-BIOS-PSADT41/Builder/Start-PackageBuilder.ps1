@@ -169,6 +169,8 @@ $controls.BuildButton.Add_Click({
         $queue=New-Object 'System.Collections.Concurrent.ConcurrentQueue[string]'
         $worker=[PowerShell]::Create()
         $null=$worker.AddScript({param($engine,$settings,$secret,$queue)
+            $ErrorActionPreference='Stop'
+            $queue.Enqueue('Loading builder scripts in the background PowerShell session...')
             . $engine
             New-DellBiosPackage -Settings $settings -BiosPassword $secret -Progress {param($message) $queue.Enqueue($message)}
         }).AddArgument((Join-Path $PSScriptRoot 'Build-Package.ps1')).AddArgument($settings).AddArgument($secret).AddArgument($queue)
@@ -177,7 +179,7 @@ $controls.BuildButton.Add_Click({
         $controls.BuildLog.Text='Starting build...'; $controls.Progress.Visibility='Visible'; $controls.Progress.IsIndeterminate=$true
     } catch {
         if ($null -eq $script:job) { if ($null -ne $worker) { $worker.Dispose() }; if ($null -ne $secret) { $secret.Dispose() } }
-        $controls.BuildLog.Text=$_.Exception.Message
+        $controls.BuildLog.Text=Get-BuilderFailureMessage $_
     }
 })
 $controls.OpenButton.Add_Click({ if ($script:lastOutput) { Start-Process -FilePath 'explorer.exe' -ArgumentList ('"'+$script:lastOutput+'"') } })
@@ -191,7 +193,7 @@ $timer.Add_Tick({
             $results=$script:job.Worker.EndInvoke($script:job.Handle)
             if ($script:job.Worker.HadErrors -or $results.Count -ne 1) {
                 # Engine's catch deliberately sanitizes phase-specific build errors.
-                $detail=if ($script:job.Worker.Streams.Error.Count) { $script:job.Worker.Streams.Error[0].Exception.Message } else {'The build did not produce one result.'}
+                $detail=if ($script:job.Worker.Streams.Error.Count) { Get-BuilderFailureMessage $script:job.Worker.Streams.Error[0] } else {'The build did not produce one result.'}
                 $controls.BuildLog.AppendText("`r`nFAILED: "+$detail)
             } else {
                 $result=$results[0]; $script:lastOutput=$result.OutputDirectory
@@ -199,7 +201,7 @@ $timer.Add_Tick({
                 if (-not $result.IntuneWinFile) { $controls.BuildLog.AppendText("`r`nSource build complete. No .intunewin was requested.") }
                 $controls.OpenButton.IsEnabled=$true
             }
-        } catch { $controls.BuildLog.AppendText("`r`nBuild could not finish. Inspect the selected template and settings; do not deploy partial output.") }
+        } catch { $controls.BuildLog.AppendText("`r`nFAILED: " + (Get-BuilderFailureMessage $_)) }
         finally {
             $script:job.Worker.Dispose(); $script:job.Secret.Dispose(); $script:job=$null
             foreach ($name in @('FilesPanel','DeploymentPanel','ExperiencePanel','Reviewed','BuildButton','LoadButton','SaveButton')) { $controls[$name].IsEnabled=$true }

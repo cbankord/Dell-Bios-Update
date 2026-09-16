@@ -1,12 +1,12 @@
 V2 and package-builder validation performed 2026-09-16
 
-PASS: 216 assertions across five fresh PowerShell 7.6.6 processes on Linux:
+PASS: 220 assertions across five fresh PowerShell 7.6.6 processes on Linux:
   49  Tests/Test-Deployment.ps1
   76  Tests/V2/Test-Scheduler.ps1
    9  Tests/V2/Test-Transport.ps1
   14  Tests/V2/Test-Guards.ps1
-  68  Tests/Test-Builder.ps1
-Counts include parser assertions in more than one suite; they are not 216 unique
+  72  Tests/Test-Builder.ps1
+Counts include parser assertions in more than one suite; they are not 220 unique
 end-to-end scenarios. The optional WindowsRegistryIntegration mode was not run.
 
 Covered:
@@ -35,6 +35,9 @@ Covered:
   unexpected encryption changes all block a restart.
 - A verified marker alone does not bypass post-boot health checks.
 
+- Actual GUI worker scriptblock in a separate runspace: simulated authorization
+  failure stops execution, wrapped exceptions show troubleshooting, and raw
+  private error details are omitted. This does not reproduce Windows policy.
 - Inert source-only builds preserve custom module bytes, extensions and bootstrap
   logic while integrating standard PSADT functions/metadata with the AST.
 - Copied firmware hash feeds config and all standalone Intune scripts.

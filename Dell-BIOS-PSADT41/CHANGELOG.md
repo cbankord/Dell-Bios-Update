@@ -1,3 +1,16 @@
+# v2 builder authorization diagnostics - 2026-09-16
+
+- Stop the background worker immediately if loading the builder engine fails.
+- Recognize direct/wrapped PowerShell authorization failures in both the worker
+  error stream and EndInvoke exceptions. Show download-marker/signing/policy
+  troubleshooting without logging source lines or credential arguments.
+- Document narrowly scoped Unblock-File for reviewed repository scripts and
+  policy inspection. No execution policy, authorization manager, application
+  control or signature requirement is weakened or automatically changed.
+- Add four assertions using the real worker scriptblock in a separate runspace
+  with an inert PSSecurityException. Windows authorization still requires local
+  diagnosis; the Linux test verifies error handling, not the cause on the device.
+
 # v2 packaging wizard - 2026-09-16
 
 - Add a four-step Windows WPF package builder and a reusable PowerShell engine.

@@ -10,6 +10,27 @@ function Assert($Condition,[string]$Name) { $script:count++; if (-not $Condition
 function Reject([scriptblock]$Action,[string]$Name) { $rejected=$false; try { $null=& $Action } catch { $rejected=$true }; Assert $rejected $Name }
 try {
     . "$root/Builder/Build-Package.ps1"
+    # Exercise the actual GUI worker scriptblock without loading WPF. A denied
+    # engine import must terminate the worker, preserve an actionable diagnosis,
+    # and never attempt the build function or echo exception source/arguments.
+    $tokens=$null; $errors=$null
+    $guiAst=[Management.Automation.Language.Parser]::ParseFile("$root/Builder/Start-PackageBuilder.ps1",[ref]$tokens,[ref]$errors)
+    $workerCall=$guiAst.Find({param($node) $node -is [Management.Automation.Language.InvokeMemberExpressionAst] -and $node.Member.Value -eq 'AddScript'},$true)
+    $workerCode=$workerCall.Arguments[0].ScriptBlock.GetScriptBlock()
+    $denied=Join-Path $fixture 'denied-engine.ps1'
+    [IO.File]::WriteAllText($denied,"throw [System.Management.Automation.PSSecurityException]::new('inert-private-error-detail')")
+    $background=[PowerShell]::Create()
+    $events=New-Object 'System.Collections.Concurrent.ConcurrentQueue[string]'
+    try {
+        $null=$background.AddScript($workerCode).AddArgument($denied).AddArgument(@{}).AddArgument($null).AddArgument($events)
+        $handle=$background.BeginInvoke(); $record=$null
+        try { $null=$background.EndInvoke($handle) } catch { $record=$_ }
+        Assert ($null -ne $record) 'Worker stops immediately when loading its engine is denied'
+        $diagnosis=Get-BuilderFailureMessage $record
+        Assert ($diagnosis -match 'Get-ExecutionPolicy -List' -and $diagnosis -match 'downloaded') 'Wrapped authorization error has actionable guidance'
+        Assert (-not $diagnosis.Contains('inert-private-error-detail')) 'Authorization diagnostics exclude private exception contents'
+        Assert (-not (@($background.Streams.Error | Where-Object FullyQualifiedErrorId -match 'CommandNotFound').Count)) 'Denied import does not continue into missing build command'
+    } finally { $background.Dispose() }
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     [xml]$ui=Get-Content -LiteralPath "$root/Builder/Window.xaml" -Raw
     Assert ($ui.DocumentElement.LocalName -eq 'Window') 'Builder XAML is well formed'
