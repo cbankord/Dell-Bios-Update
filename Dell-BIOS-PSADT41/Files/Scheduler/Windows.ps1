@@ -108,6 +108,8 @@ function Register-V2Tasks([string]$Runtime, [string]$UiRoot) {
     $users = New-ScheduledTaskPrincipal -GroupId 'S-1-5-32-545' -RunLevel Limited
     # Parallel permits fast-user-switch logons; a per-session UI mutex rejects duplicates.
     $uiSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances Parallel -ExecutionTimeLimit ([timespan]::Zero)
-    $uiAction = New-ScheduledTaskAction -Execute $ps -Argument ('-NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "{0}\Show-BiosUI.ps1"' -f $uiRoot)
+    # Repeated/logon activation respects deferrals; manual script launches open
+    # the window. Keep this flag paired with the installed UI when upgrading.
+    $uiAction = New-ScheduledTaskAction -Execute $ps -Argument ('-NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "{0}\Show-BiosUI.ps1" -Background' -f $uiRoot)
     $null = Register-ScheduledTask -TaskName 'ManagedDellBIOS-v2-UserUI' -Action $uiAction -Trigger @((New-ScheduledTaskTrigger -AtLogOn),$repeat) -Principal $users -Settings $uiSettings -Force
 }

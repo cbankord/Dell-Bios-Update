@@ -37,7 +37,9 @@ This tool does not attempt to defend against a malicious local administrator.
 - `Deployment.log`: existing guarded installer detail.
 - `Dell-*.log`: Dell updater output; verify secret handling with the selected EXE.
 - PSADT log: enrollment and immediate UI launch results.
-- `%LocalAppData%\ManagedDellBIOS-v2\UI.log`: per-user UI startup/runtime failures.
+- `%LocalAppData%\ManagedDellBIOS-v2\UI.log`: per-user startup mode/source/host,
+  duplicate-instance handling, startup failures, connection/render failures and
+  recovery. Repeated identical polling failures are logged once until recovery.
 - `Schedule-v2.json`: phase, first delivered notice, immutable deadline, schedule,
   heartbeat and last error. Read as administrator; do not edit to grant more time.
 - `HKLM:\SOFTWARE\ManagedDellBIOS`: actual firmware transaction, ownership and
@@ -56,6 +58,66 @@ Do not export whole BitLocker objects to logs: they can contain recovery materia
 Check a controller heartbeat older than ten minutes while the device is awake.
 NeedsAttention deliberately remains until IT resolves the underlying condition;
 clearing a flag alone does not repair firmware or BitLocker.
+
+## When no window appears
+
+Run a fresh **Windows PowerShell 5.1** process (`powershell.exe`, with `-STA`) as
+the signed-in standard user. A SYSTEM/session-0 process cannot display this UI
+on that user's desktop. Do not run it inside an existing WPF host such as ISE.
+
+To test the downloaded/built UI without a controller, from the package folder:
+
+```powershell
+powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo
+```
+
+Preview uses no enrollment, password, firmware, BitLocker or restart operations.
+Its separate instance can run alongside the live UI, and Close exits preview.
+Keep the entire UI folder and its Transport.ps1 dependency together.
+
+To open the enrolled interface, independently of the reminder cooldown:
+
+```powershell
+powershell.exe -NoProfile -STA -File "$env:ProgramFiles\ManagedDellBIOS-v2\Show-BiosUI.ps1"
+Get-Content "$env:LOCALAPPDATA\ManagedDellBIOS-v2\UI.log" -Tail 50
+```
+
+Manual launch shows connection failures even before any status is received;
+all actions remain disabled until an authenticated status can be rendered.
+It retries automatically. A manual launch against the corrected running client
+opens/restores that window within the next activation poll (normally one second).
+It does not reset the deadline, cancel a selection or request installation.
+An older running client cannot receive the new signal; use its Device care tray
+icon and follow the paired upgrade below. Closing a live window still only hides
+it. Never delete scheduling state or terminate an updater to make a notice appear.
+
+The toolkit enrolls/repairs the controller under SYSTEM. Its user launch and the
+periodic task pass `-Background`, so a prior deferral legitimately suppresses a
+new notice. A toolkit exit of 0 means enrollment succeeded, not that a window
+was displayed or the BIOS was updated. When there is no active user, delivery
+waits for user logon. Examine PSADT and Scheduler.log if enrollment failed.
+
+If preview fails, inspect the console/error dialog and **that same user's**
+UI.log. The log identifies the script source path, PowerShell version and nested
+error messages without recording credentials or request bodies. If Windows
+blocks the entry script before it executes (for example signing policy or a
+download marker), there may be no new UI.log entry: the foreground command's
+PowerShell error is the diagnostic. Review/sign or unblock only the reviewed
+download according to your organization's policy; do not relax fleet policy.
+
+For an administrator investigating the installed deployment:
+
+```powershell
+Get-ScheduledTask -TaskName 'ManagedDellBIOS-v2-*' | Select-Object TaskName, State
+(Get-ScheduledTask -TaskName 'ManagedDellBIOS-v2-UserUI').Actions |
+    Select-Object Execute, Arguments
+Get-Content "$env:ProgramData\ManagedDellBIOS\Scheduler.log" -Tail 50
+```
+
+After upgrading the cached UI, the user task arguments must end in
+`Show-BiosUI.ps1" -Background`. The exact quoting may vary; the switch must be
+after the script path. An old task without this switch would reopen the new UI
+every five minutes. Update the cached files **and** task/PSADT launchers together.
 
 ## Migration, updates and recovery
 
@@ -166,6 +228,7 @@ specific source-to-installed mappings for this change:
 | `Files/Scheduler/Core.ps1` | `%ProgramData%\ManagedDellBIOS\Runtime-v2\Scheduler\Core.ps1` |
 | `Files/Scheduler/Engine.ps1` | `%ProgramData%\ManagedDellBIOS\Runtime-v2\Scheduler\Engine.ps1` |
 | `Files/Scheduler/Start-Broker.ps1` | `%ProgramData%\ManagedDellBIOS\Runtime-v2\Scheduler\Start-Broker.ps1` |
+| `Files/Scheduler/Windows.ps1` | `%ProgramData%\ManagedDellBIOS\Runtime-v2\Scheduler\Windows.ps1` |
 
 Do this only during an IT maintenance session with no running/pending firmware
 operation. Preparing, RestartRequired, Verifying, NeedsAttention or an unresolved
@@ -182,10 +245,26 @@ installed `ManagedDellBIOS-v2\Show-BiosUI.ps1` path; never stop every PowerShell
 process or any firmware/verification worker. Closing the notice with its Close
 button only hides it and does not unload its scripts.
 
-Copy the six reviewed files above using your approved administrator/SYSTEM
+Copy the seven reviewed files above using your approved administrator/SYSTEM
 maintenance process, preserve their protected ownership/ACLs and your branding,
 and leave `Schedule-v2.json`, `Enrollment-v2.json`, policy, BIOS config, payload,
-password and firmware registry state unchanged. Restart the tasks and confirm
+password and firmware registry state unchanged. Before restarting, re-register
+the paired task definitions from the reviewed updated Windows.ps1, under your
+approved administrator/SYSTEM maintenance context:
+
+```powershell
+. "$env:ProgramData\ManagedDellBIOS\Runtime-v2\Scheduler\Windows.ps1"
+Register-V2Tasks -Runtime "$env:ProgramData\ManagedDellBIOS\Runtime-v2" `
+    -UiRoot "$env:ProgramFiles\ManagedDellBIOS-v2"
+```
+
+Also rebuild the PSADT package with the current `PSADT-Install-Function.ps1` so
+future Intune retries use `-Background`. Do not run an old toolkit launcher
+against the new UI. Confirm the user task arguments contain `-Background`.
+Same-version/hash reenrollment using the rebuilt package can repair task
+definitions, but it still will not replace the cached scripts for you.
+
+Restart the tasks after maintenance and confirm
 the original deadline and selected time remain. The controller migrates the new
 optional `InstallRequestedUtc` field to an empty value for older state; it never
 fabricates an Install Now request or starts a new deferral window.
@@ -198,3 +277,13 @@ Install Now older than two minutes at the first eligible tick (for example after
 sleep or a safety hold) gets a fresh preparation notice. Every restart still
 requires its own safety check and final warning; an explicit Restart Now remains
 available once staging succeeds.
+
+For the launch fix, also pilot direct live opening after Defer, a second manual
+launch, preview alongside live UI, recovery from a stopped/unavailable broker,
+locked desktop before first notice and lock/close before acknowledgement. Verify
+no deadline starts while locked or disconnected, and background task/PSADT
+retries do not repeatedly bring a deferred notice to the foreground. Check a
+missing/invalid branding or XAML file in an isolated preview copy: it must report
+a startup error in the console/dialog and UI.log. Windows named events, WPF
+dispatch/activation, PSADT user launch and actual task integration require this
+pilot; the portable regression harness mocks those boundaries.

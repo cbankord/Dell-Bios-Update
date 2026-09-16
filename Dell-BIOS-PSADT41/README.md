@@ -147,10 +147,25 @@ powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo
 ```
 
 Demo scheduling changes only in-memory sample state. Install Now in preview
-moves to a simulated Preparing state and never launches firmware. Preview on an
-unenrolled test machine so the installed UI's per-session instance is not active.
-For enrolled pilots, see [updating the notice and actions](OPERATIONS.md#updating-the-compact-notice-and-install-now-action). End the demo PowerShell
-process when finished; closing its window hides it to the tray like the real UI.
+moves to a simulated Preparing state and never launches firmware. Preview uses
+its own instance and can run alongside the installed UI. Close exits the preview.
+Defer still hides preview to the tray. For enrolled pilots, see
+[updating the notice and actions](OPERATIONS.md#updating-the-compact-notice-and-install-now-action).
+
+Open the **live installed** interface in the signed-in user's Windows PowerShell
+session (not SYSTEM):
+
+```powershell
+powershell.exe -NoProfile -STA -File "$env:ProgramFiles\ManagedDellBIOS-v2\Show-BiosUI.ps1"
+```
+
+A manual launch opens the window even when a reminder was deferred. A second
+manual launch signals the existing window to open. Without enrollment, live
+mode shows a service-unavailable message and disables actions; use `-Demo` for
+a standalone preview. Automatic PSADT/task launches pass `-Background` to honor
+the reminder cooldown. Running the toolkit again is not a forced UI preview.
+See [no-window troubleshooting](OPERATIONS.md#when-no-window-appears), including
+the required paired launcher update for already enrolled pilots.
 
 ## Intune settings: one restart owner
 

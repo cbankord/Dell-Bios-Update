@@ -1,12 +1,13 @@
 V2 and package-builder validation performed 2026-09-16
 
-PASS: 258 assertions across five fresh PowerShell 7.6.6 processes on Linux:
-  49  Tests/Test-Deployment.ps1
- 112  Tests/V2/Test-Scheduler.ps1
+PASS: 290 assertions across six fresh PowerShell 7.6.6 processes on Linux:
+  50  Tests/Test-Deployment.ps1
+ 113  Tests/V2/Test-Scheduler.ps1
    9  Tests/V2/Test-Transport.ps1
   14  Tests/V2/Test-Guards.ps1
+  30  Tests/V2/Test-UIStartup.ps1
   74  Tests/Test-Builder.ps1
-Counts include parser assertions in more than one suite; they are not 258 unique
+Counts include parser assertions in more than one suite; they are not 290 unique
 end-to-end scenarios. The optional WindowsRegistryIntegration mode was not run.
 
 Covered:
@@ -43,6 +44,16 @@ Covered:
   transaction, unowned suspension, active protection, locked OS volume and
   unexpected encryption changes all block a restart.
 - A verified marker alone does not bypass post-boot health checks.
+- Actual UI polling, rendering, activation and queued-acknowledgement functions
+  with inert window/dispatcher/IPC boundaries: manual launch after deferral,
+  initially unavailable controller, disabled stale actions, recovery, original
+  deadline preservation, repeat/background suppression, preview/live instance
+  separation, minimized-window restore and manual inspection after completion.
+- Locked desktop and close/lock between showing and acknowledgement do not
+  start the deadline. Repeated polling errors are logged once until recovery.
+- Actual task-registration and PSADT wrapper functions with mocked launch/task
+  commands generate background-mode user arguments and retain enrollment exit
+  behavior. Named Windows events and WPF dispatch/activation are NOT exercised.
 
 - Actual GUI worker scriptblock in a separate runspace: simulated authorization
   failure stops execution, wrapped exceptions show troubleshooting, and raw
@@ -79,6 +90,7 @@ Reproduce from Dell-BIOS-PSADT41, using separate processes:
   pwsh -NoProfile -File ./Tests/V2/Test-Scheduler.ps1
   pwsh -NoProfile -File ./Tests/V2/Test-Transport.ps1
   pwsh -NoProfile -File ./Tests/V2/Test-Guards.ps1
+  pwsh -NoProfile -File ./Tests/V2/Test-UIStartup.ps1
 On Windows, additionally run the same suites with powershell.exe, plus:
   powershell.exe -NoProfile -File .\Tests\Test-Deployment.ps1 -WindowsRegistryIntegration
   powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo
@@ -92,6 +104,9 @@ NOT TESTED / MUST PILOT:
   the actual fleet. A preserved custom framework may contain competing behavior.
 - Actual Windows ACL inheritance, named-pipe ownership/impersonation and active
   session checks; task Group activation, logon, SYSTEM and user launch behavior.
+- Named-event duplicate activation, Windows startup error dialogs, actual WPF
+  host/apartment checks and preview close/shutdown; paired cached UI/launcher
+  upgrade with preserved state and background-mode task arguments.
 - Intune packaging/detection delivery, competing tenant restart policies, sleep,
   locked desktop, logoff, app-blocked restart and controller recovery on Windows.
 - Actual Dell executable/password, firmware staging/boot, Authenticode chain,

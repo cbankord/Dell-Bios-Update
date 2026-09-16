@@ -1,18 +1,67 @@
 #requires -Version 5.1
 # Unprivileged WPF client. No firmware, BitLocker, task or restart commands here.
-param([switch]$Demo)
+param([switch]$Demo, [switch]$Background)
 $ErrorActionPreference = 'Stop'
-Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms, System.Drawing
-. "$PSScriptRoot\Client.ps1"
-$transport = Join-Path $PSScriptRoot 'Transport.ps1'
-if (-not (Test-Path -LiteralPath $transport)) { $transport = Join-Path $PSScriptRoot '..\Scheduler\Transport.ps1' }
-. $transport
-$sessionId = [Diagnostics.Process]::GetCurrentProcess().SessionId
-$mutex = New-Object Threading.Mutex($false, "Local\ManagedDellBiosV2-UI-$sessionId")
-if (-not $mutex.WaitOne(0)) { $mutex.Dispose(); exit 0 }
 $script:quitting = $false
+$script:openRequested = -not $Background
+$script:lastFailure = ''
+$script:noticeQueued = $false
+$mutex = $null
+$ownsMutex = $false
+$activation = $null
+$activationTimer = $null
+$timer = $null
 $tray = $null
+function Write-UILog([string]$Message) {
+    try {
+        $logDir = Join-Path $env:LOCALAPPDATA 'ManagedDellBIOS-v2'
+        $null = New-Item -ItemType Directory -Path $logDir -Force
+        Add-Content -LiteralPath (Join-Path $logDir 'UI.log') -Encoding UTF8 -Value ('{0} PID={1} {2}' -f [datetime]::UtcNow.ToString('o'),$PID,$Message)
+    } catch { } # A logging failure must not hide the original error.
+}
+function Get-UIFailureText($Record) {
+    # Include nested exception messages and script location, never source lines,
+    # arguments, request bodies, BIOS configuration or credential files.
+    $parts = @()
+    $exception = $Record.Exception
+    while ($null -ne $exception) { $parts += $exception.GetType().Name + ': ' + $exception.Message; $exception = $exception.InnerException }
+    'Line {0}; {1}; {2}' -f $Record.InvocationInfo.ScriptLineNumber,$Record.FullyQualifiedErrorId,($parts -join ' -> ')
+}
+function Get-UIInstanceName([int]$SessionId, [bool]$Preview) {
+    $name = "Local\ManagedDellBiosV2-UI-$SessionId"
+    if ($Preview) { $name += '-Preview' }
+    $name
+}
 try {
+    Write-UILog ('Starting; Demo={0}; Background={1}; host={2}; apartment={3}; source={4}' -f [bool]$Demo,[bool]$Background,$PSVersionTable.PSVersion,[Threading.Thread]::CurrentThread.GetApartmentState(),$PSScriptRoot)
+    if ([Environment]::OSVersion.Platform -ne 'Win32NT' -or $PSVersionTable.PSEdition -ne 'Desktop') { throw 'Open this script in Windows PowerShell 5.1 (powershell.exe), not pwsh or another host.' }
+    if ([Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') { throw 'The UI requires STA. Launch a fresh powershell.exe -NoProfile -STA -File process.' }
+    $sessionId = [Diagnostics.Process]::GetCurrentProcess().SessionId
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    try { $systemUser = $identity.User.Value -eq 'S-1-5-18' } finally { $identity.Dispose() }
+    if ($sessionId -eq 0 -or $systemUser) { throw 'Run the UI as the signed-in user on their Windows desktop. SYSTEM enrolls the controller; it cannot show this window in session 0.' }
+    if ($Demo -and $Background) { throw 'Preview is interactive. Use -Demo without -Background.' }
+    Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms, System.Drawing
+    if ($null -ne [Windows.Application]::Current) { throw 'This host already owns a WPF application. Start the UI in a fresh powershell.exe -NoProfile -STA -File process.' }
+    $instanceName = Get-UIInstanceName $sessionId ([bool]$Demo)
+    $eventCreated = $false
+    # Session-local, unprivileged signal: it can only open the existing window.
+    # Create before acquiring the mutex so simultaneous launches can signal it.
+    $activation = [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::AutoReset, ($instanceName + '-Open'), [ref]$eventCreated)
+    $mutex = [Threading.Mutex]::new($false, $instanceName)
+    try { $ownsMutex = $mutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { $ownsMutex = $true }
+    if (-not $ownsMutex) {
+        if (-not $Background) {
+            if ($eventCreated) { throw 'An older copy of the UI is already running. Open Device care from the notification area. IT must replace the cached UI and its launchers together before using this fix.' }
+            $null = $activation.Set()
+            Write-UILog 'Requested that the existing window open.'
+        } else { Write-UILog 'Background duplicate skipped; existing UI owns reminders.' }
+        exit 0
+    }
+    . "$PSScriptRoot\Client.ps1"
+    $transport = Join-Path $PSScriptRoot 'Transport.ps1'
+    if (-not (Test-Path -LiteralPath $transport)) { $transport = Join-Path $PSScriptRoot '..\Scheduler\Transport.ps1' }
+    . $transport
     $brand = Import-PowerShellDataFile "$PSScriptRoot\Branding.psd1"
     [xml]$xaml = Get-Content "$PSScriptRoot\Window.xaml" -Raw
     $reader = New-Object Xml.XmlNodeReader $xaml
@@ -25,7 +74,10 @@ try {
     $window.Width = [math]::Min($window.Width, [math]::Max($window.MinWidth, $workArea.Width - 24))
     $window.Height = [math]::Min($window.Height, [math]::Max($window.MinHeight, $workArea.Height - 24))
     $controls = @{}
-    foreach ($name in @('Logo','Banner','Mark','Company','Heading','Purpose','Phase','StatusText','Deadline','Remaining','Scheduled','Day','Hour','Minute','TimeZone','PreparationText','Power','ErrorText','Support','PickerCard','StatusCard','ActionBar','ContentScroll','InstallButton','ScheduleButton','CancelScheduleButton','RestartButton','DeferButton','CloseButton')) { $controls[$name] = $window.FindName($name) }
+    foreach ($name in @('Logo','Banner','Mark','Company','Heading','Purpose','Phase','StatusText','Deadline','Remaining','Scheduled','Day','Hour','Minute','TimeZone','PreparationText','Power','ErrorText','Support','PickerCard','StatusCard','ActionBar','ContentScroll','InstallButton','ScheduleButton','CancelScheduleButton','RestartButton','DeferButton','CloseButton')) {
+        $controls[$name] = $window.FindName($name)
+        if ($null -eq $controls[$name]) { throw "Window.xaml is missing the required control '$name'. Update the UI files together." }
+    }
     $window.Title = $brand.AppTitle
     if ($Demo) { $window.Title += ' (Preview)' }
     $window.Background = $brand.BackgroundColor
@@ -39,6 +91,8 @@ try {
     $controls.Power.Text = $brand.PowerMessage
     $controls.Support.Text = $brand.SupportText
     $controls.TimeZone.Text = [TimeZoneInfo]::Local.DisplayName
+    $controls.Phase.Text = 'Connecting to the update service'
+    $controls.StatusText.Text = 'Please wait while we check your update status. No installation is started by opening this window.'
     foreach ($pair in @(@('Logo','LogoFile'), @('Banner','BannerFile'))) {
         $relative = $brand[$pair[1]]
         if (-not $relative) { continue }
@@ -130,19 +184,54 @@ public static class BiosVisibleDesktop {
  public static bool Available() { var d=OpenInputDesktop(0,false,1); if(d==IntPtr.Zero)return false; CloseDesktop(d); return true; }
 }
 '@
+    function Test-NoticeDesktop { [BiosVisibleDesktop]::Available() }
+    function Show-NoticeWindow {
+        if (-not (Test-NoticeDesktop)) { return $false }
+        if (-not $window.IsVisible) { $window.Show() }
+        if ($window.WindowState -eq 'Minimized') { $window.WindowState = 'Normal' }
+        $null = $window.Activate()
+        $script:openRequested = $false
+        return $true
+    }
+    function Report-UIFailure($Record) {
+        $detail = Get-UIFailureText $Record
+        if ($detail -ne $script:lastFailure) { Write-UILog ('Status unavailable: ' + $detail); $script:lastFailure = $detail }
+        # Do not allow actions using stale permissions while the broker is offline
+        # or rendering has failed. Only a fresh, authenticated view enables them.
+        foreach ($name in @('InstallButton','ScheduleButton','DeferButton','RestartButton')) { $controls[$name].IsEnabled = $false }
+        $controls.Phase.Text = 'Update status is unavailable'
+        $controls.StatusText.Text = if ($null -eq $script:view) { 'We could not connect to the update service. This window will retry automatically. Contact IT if this continues.' } else { 'We could not refresh your update status. Any times shown are the last received values. The existing schedule remains in effect.' }
+        $controls.Remaining.Text = ''
+        Show-UIMessage 'The update service is unavailable. Actions are paused in this window; the existing deadline has not been reset.' -IsError
+    }
+    function Confirm-NoticeRendered {
+        if ($script:noticeQueued) { return }
+        $script:noticeQueued = $true
+        # A queued acknowledgement must recheck visibility and the input desktop:
+        # the user might close/lock the window before this callback executes.
+        $null = $window.Dispatcher.BeginInvoke([Action]{
+            try {
+                if ($window.IsVisible -and (Test-NoticeDesktop)) { Render-Status (Invoke-UIRequest @{Action='NoticeShown'}) }
+            } catch { Report-UIFailure $_ } finally { $script:noticeQueued = $false }
+        }, [Windows.Threading.DispatcherPriority]::ContextIdle)
+    }
     function Refresh-Status {
         try {
+            # Manual opening is independent of the reminder cooldown and must
+            # also show connection errors on an unenrolled/broken installation.
+            if ($script:openRequested) { $null = Show-NoticeWindow }
             $v = Invoke-UIRequest @{ Action='Status' }
             Render-Status $v
-            if ($v.ShouldShow -and [BiosVisibleDesktop]::Available()) {
-                if (-not $window.IsVisible) { $window.Show(); $null = $window.Activate() }
-                # Dispatcher idle runs after WPF has had an opportunity to render.
-                $null = $window.Dispatcher.BeginInvoke([Action]{
-                    try { Render-Status (Invoke-UIRequest @{ Action='NoticeShown' }) } catch { Show-UIMessage 'The scheduler is temporarily unavailable. Your deadline has not been reset.' -IsError }
-                }, [Windows.Threading.DispatcherPriority]::ContextIdle)
+            if ($script:lastFailure) { Write-UILog 'Status connection/rendering recovered.'; $script:lastFailure = ''; Show-UIMessage '' }
+            if ($v.ShouldShow -and (Test-NoticeDesktop)) {
+                if (-not $window.IsVisible) { $null = Show-NoticeWindow }
+                Confirm-NoticeRendered
             }
-            if ($v.Phase -eq 'VerifiedComplete' -and -not $v.ShouldShow -and -not $window.IsVisible) { $script:quitting=$true; $app.Shutdown() }
-        } catch { if ($window.IsVisible) { Show-UIMessage 'The scheduler is temporarily unavailable. Existing scheduling remains in effect; contact IT if this persists.' -IsError } }
+            if ($v.Phase -eq 'VerifiedComplete' -and -not $v.ShouldShow -and -not $window.IsVisible -and -not $script:openRequested) { $script:quitting=$true; $app.Shutdown() }
+        } catch { Report-UIFailure $_ }
+    }
+    function Receive-UIActivation {
+        if ($activation.WaitOne(0)) { $script:openRequested=$true; Refresh-Status }
     }
     $controls.InstallButton.Add_Click({
         $warning = Get-BiosViewValue $script:view 'FinalWarningMinutes' 15
@@ -186,6 +275,7 @@ public static class BiosVisibleDesktop {
     })
     $controls.CloseButton.Add_Click({ $window.Close() })
     $window.Add_Closing({ param($sender,$e)
+        if ($Demo) { $script:quitting=$true }
         if (-not $script:quitting) {
             $e.Cancel=$true; $window.Hide()
             # Closing only hides the UI. It never cancels the schedule.
@@ -195,25 +285,36 @@ public static class BiosVisibleDesktop {
     $tray = New-Object Windows.Forms.NotifyIcon
     $tray.Icon = [Drawing.SystemIcons]::Information
     $tray.Text = 'Device care - BIOS update'; $tray.Visible=$true
-    $tray.Add_DoubleClick({ $window.Show(); $null=$window.Activate(); Refresh-Status })
+    $tray.Add_DoubleClick({ $script:openRequested=$true; Refresh-Status })
     $menu = New-Object Windows.Forms.ContextMenuStrip
-    $open = $menu.Items.Add('Open device care'); $open.Add_Click({ $window.Show(); $null=$window.Activate(); Refresh-Status })
+    $open = $menu.Items.Add('Open device care'); $open.Add_Click({ $script:openRequested=$true; Refresh-Status })
     $tray.ContextMenuStrip=$menu
     $app = New-Object Windows.Application
-    $app.ShutdownMode = 'OnExplicitShutdown'
+    $app.MainWindow = $window
+    $app.ShutdownMode = if ($Demo) { 'OnMainWindowClose' } else { 'OnExplicitShutdown' }
     $timer = New-Object Windows.Threading.DispatcherTimer
     $timer.Interval = [timespan]::FromSeconds(15)
     $timer.Add_Tick({ Refresh-Status }); $timer.Start()
+    $activationTimer = New-Object Windows.Threading.DispatcherTimer
+    $activationTimer.Interval = [timespan]::FromSeconds(1)
+    $activationTimer.Add_Tick({ Receive-UIActivation }); $activationTimer.Start()
     $app.Add_Startup({ Refresh-Status })
+    Write-UILog 'UI initialized; starting the window dispatcher.'
     $null = $app.Run()
 } catch {
-    try {
-        $logDir=Join-Path $env:LOCALAPPDATA 'ManagedDellBIOS-v2'
-        $null=New-Item -ItemType Directory -Path $logDir -Force
-        Add-Content -LiteralPath (Join-Path $logDir 'UI.log') -Encoding UTF8 -Value (([datetime]::UtcNow.ToString('o')) + ' UI stopped: ' + $_.Exception.Message)
-    } catch { }
+    $detail = Get-UIFailureText $_
+    Write-UILog ('UI stopped: ' + $detail)
+    $message = "The BIOS update window could not open.`r`n`r`n$detail`r`n`r`nDetails: %LOCALAPPDATA%\ManagedDellBIOS-v2\UI.log"
+    [Console]::Error.WriteLine($message)
+    if (-not $Background -and [Environment]::UserInteractive) {
+        try { Add-Type -AssemblyName PresentationFramework; $null = [Windows.MessageBox]::Show($message, 'BIOS update - UI startup error', 'OK', 'Error') } catch { }
+    }
     exit 1
 } finally {
+    if ($null -ne $timer) { $timer.Stop() }
+    if ($null -ne $activationTimer) { $activationTimer.Stop() }
     if ($null -ne $tray) { $tray.Visible=$false; $tray.Dispose() }
-    $mutex.ReleaseMutex(); $mutex.Dispose()
+    if ($ownsMutex) { $mutex.ReleaseMutex() }
+    if ($null -ne $mutex) { $mutex.Dispose() }
+    if ($null -ne $activation) { $activation.Dispose() }
 }

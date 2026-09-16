@@ -1,3 +1,24 @@
+# v2 visible manual launch and UI diagnostics - 2026-09-16
+
+- Fix direct UI launches staying hidden behind the reminder cooldown or an
+  unavailable controller. Show a connection explanation and disable stale
+  actions until authenticated status recovers; retain automatic retry.
+- Separate manual opening from `-Background` PSADT/task activation. Automatic
+  retries continue to respect deferrals. A per-session event asks an existing
+  corrected instance to open; older running instances receive actionable help.
+- Give preview its own instance so it can run alongside the installed UI; Close
+  exits preview. Reject unsupported hosts/session 0 with useful diagnostics.
+- Move dependency loading and mutex startup inside error handling. Log launch
+  mode/source, nested failures and recovery; show foreground fatal errors in the
+  console/dialog. No BIOS configuration or credentials are read by diagnostics.
+- Recheck visibility and the unlocked desktop when acknowledging rendering.
+  Opening or reconnecting alone never creates another scheduling window.
+- Document live/preview commands and paired cached-code/task/PSADT upgrades;
+  same-version/hash reenrollment still preserves the live runtime and state.
+- Add 30 assertions exercising actual UI functions against inert window/pipe/
+  dispatcher boundaries, and capture both automatic launch paths. Actual
+  Windows WPF, named-event activation and task integration still require pilot.
+
 # v2 compact notice and explicit install choices - 2026-09-16
 
 - Reduce the default notice from 780 x 760 to 600 x 560, fit its initial size to
