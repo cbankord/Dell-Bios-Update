@@ -109,7 +109,7 @@ try {
     Assert-Power $config
     Set-StateValue 'Status' 'Launching'
     $dellLog = Join-Path $script:WorkDir ('Dell-{0}.log' -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
-    Write-BiosLog "Launching approved Dell BIOS $current -> $target. Reboot is managed by Intune."
+    Write-BiosLog "Launching approved Dell BIOS $current -> $target. Reboot is managed by the v2 SYSTEM scheduler."
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
     $startInfo.FileName = $cachedExe
     $startInfo.Arguments = '/s /l="{0}"' -f $dellLog

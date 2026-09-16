@@ -1,96 +1,113 @@
-# Dell BIOS deployment through Intune and PSADT 4.1
+# Dell BIOS deployment v2
 
-Reusable deployment source for Dell Pro Max 16 MC16250 and other approved Dell
-client models using the same documented Windows BIOS EXE interface. One approved
-EXE/target version per package; multiple exact model names are allowed only when
-that same Dell EXE supports all of them. No wildcard model matching.
+A branded Windows interface and persistent 72-hour scheduler for Intune + PSADT
+4.1, with the existing guarded Dell BIOS installer underneath. This branch is
+`v2`; [Main](https://github.com/cbankord/Dell-Bios-Update/tree/Main) retains v1.
 
-**This is a deployment template, not a hardware-validated production package.**
-You must supply your approved BIOS EXE and PSADT 4.1.x distribution. The default
-configuration deliberately cannot flash anything. No BIOS release has been
-selected for you. Script checks reduce risk; they cannot guarantee a firmware
-update will succeed or prevent someone disconnecting power during reboot.
+**Implemented source; Windows pilot required before rollout.** No BIOS EXE,
+PSADT distribution, real password or deployable `.intunewin` is included. The
+repository's inherited SHA256 is **65 characters** and must be recalculated from
+the approved EXE. The inherited configuration names **Dell Pro 14 Plus PB14250**,
+`Dell_Pro_PA13250.exe`, target `2.1.1`; verify that exact Dell compatibility.
+`PackageReviewed` remains false. Do not trim a hash or assume these values match
+MC16250. Choose the approved EXE/model/version for each deployment.
 
-## Behavior
+## User experience
 
-1. Run as LocalSystem in 64-bit Windows PowerShell 5.1 through PSADT 4.1.
-2. Match the exact Dell model; compare numeric BIOS versions; skip equal/newer
-   firmware and reject a version below your configured prerequisite.
-3. Validate the EXE's pinned SHA256 and a valid Dell Authenticode signature.
-4. Require known AC power, a battery above 50% charge (minimum 51%) on laptops, at least
-   1 GB free space, no CBS/Windows Update restart flag and no pending file renames.
-   These are common reboot checks, not an exhaustive detector of all firmware or
-   management products. Coordinate Windows Update, Dell Command Update and other
-   BIOS deployments so they cannot stage another update concurrently.
-5. For encrypted OS volumes, require protection On, stable encryption state and
-   an existing recovery-password protector. Back up all recovery protectors to
-   Entra ID (default) or AD DS and require each backup command to succeed. The
-   scripts never print key material. A successful backup command is not a separate
-   server-side retrieval test: verify recovery-key retrieval in your pilot.
-6. Cache the EXE and verification scripts in a SYSTEM/Administrators-only
-   directory, register a SYSTEM verification task, then suspend BitLocker for a
-   finite number of reboots (default 1). Check power again before launching.
-7. Execute `BIOS.exe /s /p="..." /l="..."` when a BIOS password is required.
-   No immediate reboot and no force switches. Password arguments are never logged by these scripts.
-   Dell codes 0 and 2 become 3010. All other codes are failures, including an
-   unexpected 6 (the updater is rebooting despite this package omitting `/r`).
-8. PSADT displays a 12-hour restart countdown from the original successful staging
-   time. Intune enforces a 720-minute restart grace period as a fallback.
-   Firmware progress will still be visible during
-   boot. After Windows returns, the task checks BitLocker protection and actual
-   BIOS version. It resumes protection only when this package owned suspension.
-   It runs at startup after 5 minutes and every 30 minutes until verification can
-   finish. Failed protection recovery retains the task for another attempt.
+- A professional WPF window with logo/banner slots, configurable colors and copy,
+  keyboard labels, live status announcements, scrolling and scalable layout.
+- A local date picker and 24-hour time selectors. Local times are converted to UTC;
+  nonexistent/ambiguous daylight-saving times are rejected explicitly.
+- A fixed 72-hour deadline starts when the UI acknowledges its first rendered
+  notice on an available desktop. Enrollment itself does not start the clock.
+- Unlimited reminder deferrals and rescheduling before preparation begins, while
+  the deadline remains open. A reminder normally appears at most every four hours.
+- Closing the window hides it to the notification area. It never clears the
+  schedule, deadline or SYSTEM task. Double-click the tray icon to reopen it.
+- A selected restart permits preparation up to 30 minutes beforehand. The UI
+  explains this; scheduling is locked once preparation begins. No selection means
+  preparation becomes mandatory at the original deadline, with a warning first.
+- Successful staging produces the requested restart-required message, the planned
+  restart time and a **Restart now** button with a save-work confirmation.
+- The scheduler provides at least 15 minutes after staging before automatic
+  restart, plus a reminder at five minutes. The actual restart may be later than
+  the requested time if preparation, sleep or safety checks take longer.
+- Only the actual firmware version and acceptable BitLocker state produce
+  **Verified complete**. Enrollment and successful staging are separate states.
 
-If a documented updater failure occurs, the package restores its own suspension.
-If execution becomes ambiguous, it retains the transaction and finite suspension
-for the next reboot. It never kills a running BIOS updater or automatically
-reflashes an unresolved transaction. A failed post-boot firmware check is logged
-and blocks further automatic attempts until investigated.
+The default post-staging message is:
 
-Before a new installation, PSADT shows a BIOS update notice with three deferrals.
-Each deferral suppresses another prompt for at least 12 hours, including the third.
-After deferrals are exhausted, a final 10-minute notice proceeds automatically;
-all power, payload and BitLocker checks still apply. No active user means Retry
-before a new update is staged. Dell's updater remains silent; the PSADT notices
-require Interactive deployment mode.
+> Your BIOS update is ready. A restart is required to finish installing it. Save
+> your work, keep your computer plugged into power, and do not turn it off until
+> the update has finished and Windows returns.
 
-## 1. Select and configure the BIOS
+## Architecture and authority
 
-**Current repository configuration needs correction before packaging:** its SHA256
-has 65 characters. Recalculate it from the approved EXE instead of trimming it.
-The existing PB14250 model and PA13250-named executable were preserved; confirm
-that Dell supports that pairing. `PackageReviewed` remains false. See
-[CHANGELOG.md](CHANGELOG.md) for the changes and remaining rollout steps.
+PSADT installs the durable controller; it no longer waits days for an update or
+owns a restart timer. A SYSTEM scheduled task runs the controller at startup and
+relaunches it every five minutes if it exits. A separate task launches the WPF
+client with a signed-in user's limited token at logon and periodically. PSADT
+also tries an immediate `Start-ADTProcessAsUser -NoWait` launch.
 
-Obtain the EXE from Dell Support for your service tag/model. Read its release
-notes, prerequisite versions, downgrade restrictions and `EXE /?` help on a pilot
-Windows device. Confirm `/s` stages silently without reboot and that its return
-codes match the supported interface. Do not simply deploy whichever EXE is newest
-at endpoint runtime.
+The UI sends only `Status`, `NoticeShown`, `Defer`, `Schedule` and `RestartNow`
+requests over a local named pipe. The controller authenticates an interactive
+client in an active session and validates each action/time. It rejects network
+access, unknown actions, extra fields, oversized frames and out-of-window dates.
+The UI checks that the pipe owner is SYSTEM. No user-supplied file paths or
+commands are executed. Users do not write privileged schedule state directly.
 
-Gather the actual inventory strings:
-
-```powershell
-Get-CimInstance Win32_ComputerSystem | Select-Object Manufacturer, Model
-Get-CimInstance Win32_BIOS | Select-Object SMBIOSBIOSVersion
-```
-
-Put the approved EXE into `Files`. Edit `Files\BIOS-Config.psd1`:
-
-| Setting | What to put there |
+| Location | Purpose / access |
 |---|---|
-| Models | Exact `Win32_ComputerSystem.Model` values supported by this EXE |
-| TargetVersion | Approved BIOS version from Dell, e.g. numeric `1.x.y` |
-| MinimumCurrentVersion | Dell prerequisite version; `0.0.0` only when no intermediate BIOS is required |
-| FileName | Exact EXE filename in Files |
-| SHA256 | Hash of that approved EXE, checked against Dell's published hash where available |
-| BiosPasswordRequired | True for the shared-password fleet; configure the local password file below |
-| MinimumBatteryPercent | 51 by default, meaning strictly above 50%; may be increased |
-| RequireBattery | True for MC16250; false only for a validated desktop package |
-| BitLockerRebootCount | 1 by default; validate the complete firmware boot sequence before changing |
-| EscrowDestination | EntraID or ADDS, matching your recovery-key storage |
-| PackageReviewed | True after completing this configuration review |
+| `%ProgramData%\ManagedDellBIOS\Schedule-v2.json` | Authoritative schedule and fixed deadline; SYSTEM/Administrators only |
+| `%ProgramData%\ManagedDellBIOS\Enrollment-v2.json` | Missing-state recovery guard |
+| `%ProgramData%\ManagedDellBIOS\Runtime-v2` | Durable privileged scripts, config, approved EXE and required secret |
+| `%ProgramFiles%\ManagedDellBIOS-v2` | UI and branding; Users read/execute, SYSTEM/Administrators write |
+| `HKLM\SOFTWARE\ManagedDellBIOS` | Existing firmware transaction and suspension ownership |
+| `ManagedDellBIOS-v2-Controller` | SYSTEM orchestration task |
+| `ManagedDellBIOS-v2-UserUI` | Limited-token interactive client task |
+| `ManagedDellBIOS-VerifyAndResume` | Existing post-boot verification/recovery task |
+
+State writes use a same-directory atomic replacement. Same-package reenrollment
+preserves the state and repairs task registration; it does not grant more time.
+A different package is blocked until the previous v2 deployment is verified.
+Missing/corrupt state or an ambiguous firmware transaction stops for IT review.
+The controller never terminates a firmware process or automatically reflashes an
+unresolved update. See [OPERATIONS.md](OPERATIONS.md) for failure behavior.
+
+## Configure and build
+
+1. Put the approved Dell BIOS EXE in `Files`. Review its release notes, prerequisite
+   versions, supported models, `/s`, `/p=` and return codes on a pilot. The package
+   uses exact Dell manufacturer/model matching, numeric version comparison, no
+   downgrades, a pinned SHA256 and valid Dell Authenticode signature.
+2. Update `Files/BIOS-Config.psd1`. Retain `MinimumBatteryPercent = 51` or higher
+   for laptops, and use the correct escrow destination and prerequisite version.
+   Set `PackageReviewed = $true` only after review. The current hash is invalid.
+3. For the shared BIOS administrator password, copy
+   `Files/BIOS-Password.example.psd1` to **local** `Files/BIOS-Password.psd1` and
+   populate it in your secured packaging workspace. This filename is Git-ignored.
+   Single-quoted PowerShell strings preserve `$`; double any embedded apostrophe.
+   Explicitly set `BiosPasswordRequired = $false` only for an approved fleet that
+   has no BIOS password.
+4. Customize `Files/UI/Branding.psd1`, and place local PNG/JPG artwork in
+   `Files/UI/Assets`. Change company name, title, purpose, support text, logo,
+   banner, colors and messages without editing scheduler logic. Empty image
+   paths use the built-in vector mark. Keep accessibility contrast when rebranding.
+5. Review `Files/Scheduler/Policy.psd1`: the window is fixed at 72 hours; reminder,
+   preparation, final warning and retry intervals are configurable within the
+   validated bounds. The current UI explains the default 30-minute preparation
+   lead; update its wording if you change that policy value.
+6. Copy `Files` into your approved stock PSADT **4.1.x** template. Replace ONLY
+   `Install-ADTDeployment` in `Invoke-AppDeployToolkit.ps1` with
+   `PSADT-Install-Function.ps1`. Keep the stock bootstrap/session handling. Set
+   app metadata for this deployment. Uninstall/repair should fail explicitly;
+   do not implement a generic BIOS downgrade or clear state during repair.
+7. Run `Build-IntuneScripts.ps1` on your Windows packaging machine after every
+   model/version/hash change. It validates the reviewed configuration and payload
+   and generates the standalone scripts in `Intune`. Sign completed scripts if
+   required by your organization's policy. Build a fresh `.intunewin` using the
+   stock `Invoke-AppDeployToolkit.exe` as the setup file. Keep output outside the
+   source folder.
 
 ```powershell
 Get-FileHash '.\Files\YOUR_APPROVED_BIOS.exe' -Algorithm SHA256
@@ -99,269 +116,79 @@ Get-AuthenticodeSignature '.\Files\YOUR_APPROVED_BIOS.exe' |
 .\Build-IntuneScripts.ps1
 ```
 
-The builder validates the configuration and EXE and generates standalone Intune
-scripts. They embed the same configuration, so they do not depend on the Intune
-content cache at detection time. Re-run the builder after **every** configuration
-change. Treat the packaged files as immutable after building. If your organization
-signs scripts, sign them after all edits/generation and before packaging.
-
-This version supports numeric BIOS versions only, not legacy `Axx` releases.
-Interchangeable configuration does not mean every historical Dell updater has the
-same switches, prerequisites or boot behavior.
-
-## 2. Integrate with your stock PSADT 4.1 template
-
-Use your approved PSADT 4.1.x distribution. Copy this package's Files contents into
-its Files directory. In `Invoke-AppDeployToolkit.ps1`, replace the entire
-`Install-ADTDeployment` function with the function in `PSADT-Install-Function.ps1`.
-Keep PSADT's stock bootstrap/import/session handling. Set AppVendor, AppName and
-AppVersion to identify this Dell BIOS package; keep them stable for retries of
-the same deployment so PSADT retains its deferral history. The replacement
-function includes welcome and restart prompts. Do not add duplicate dialogs, app
-closure or the old v3 `Execute-Process` syntax.
-
-Replace `Uninstall-ADTDeployment` and `Repair-ADTDeployment` with explicit failure
-functions; BIOS uninstall/repair is not a safe generic operation:
+Preview the real interface without enrollment, credentials, staging or restart
+on a Windows machine with Windows PowerShell 5.1:
 
 ```powershell
-function Uninstall-ADTDeployment { Close-ADTSession -ExitCode 60001 }
-function Repair-ADTDeployment { Close-ADTSession -ExitCode 60001 }
+powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo
 ```
 
-The resulting source root contains the stock Invoke-AppDeployToolkit EXE and PS1,
-PSAppDeployToolkit module directory and the populated Files directory. The helper
-calls `Start-ADTProcess -PassThru -IgnoreExitCodes '*'` so it can explicitly pass
-the child's exit code to `Close-ADTSession`. This is supported in PSADT 4.1.0.
-Do not use `-SuppressRebootPassThru` or a process-killing timeout.
+Demo scheduling changes only in-memory sample state. End the demo PowerShell
+process when finished; closing its window hides it to the tray like the real UI.
 
-Package the completed source folder with Microsoft's Win32 Content Prep Tool:
+## Intune settings: one restart owner
 
-```powershell
-.\IntuneWinAppUtil.exe -c 'C:\Packaging\Dell-BIOS' `
-    -s 'Invoke-AppDeployToolkit.exe' -o 'C:\Packaging\Output' -q
-```
-
-Keep Output outside the source directory. The ZIP supplied here is source, not an
-`.intunewin`, and does not include Dell's EXE or the PSADT distribution.
-
-## 3. Intune configuration
-
-| Setting | Value |
+| Setting | v2 value |
 |---|---|
-| App type | Windows app (Win32) |
-| Install behavior | System |
-| Install command | `Invoke-AppDeployToolkit.exe -DeploymentType Install -DeployMode Interactive` |
-| Uninstall command | `Invoke-AppDeployToolkit.exe -DeploymentType Uninstall -DeployMode Silent` (deliberately fails) |
-| Allow available uninstall | No; do not assign uninstall |
-| Installation time required | 120 minutes; this is an outer limit, not permission to interrupt flashing |
-| Architecture | x64 |
-| OS requirement | Your supported Windows 11 baseline |
-| Additional requirement | Upload Intune\Require-Model.ps1; Boolean equals True |
-| Requirement execution | 64-bit; no logged-on user context |
-| Detection | Upload Intune\Detect-BIOS.ps1; run as 32-bit = No |
-| Return 0 | Success |
-| Return 3010 | Hard reboot for an enforced Intune restart with grace period (see below) |
-| Return 1602 | Retry (PSADT default deferral code; match your PSADT configuration) |
-| Return 1618 | Retry (cooldown, no active user, or temporary prerequisite failure) |
-| Return 60001 / other errors | Failed |
-| Device restart behavior | Determine behavior based on return codes |
-| Assignment | Required, device group, small pilot ring first |
-| Restart grace period | Enabled: 720 minutes; final countdown: 15 minutes; notifications enabled |
+| Install behavior | System; x64 Windows 11 |
+| Install command | `Invoke-AppDeployToolkit.exe -DeploymentType Install -DeployMode Silent` |
+| Device restart behavior | **No specific action** |
+| Return 0 | Success: controller enrolled, not proof of firmware completion |
+| Return 1618 | Retry if used by your enrollment wrapper |
+| Return 60001 / unexpected results | Failed |
+| 3010 | Not emitted by the v2 wrapper; do not configure a competing hard-reboot policy |
+| Requirement script | `Intune/Require-Model.ps1`, 64-bit, Boolean equals True |
+| Detection script | `Intune/Detect-BIOS.ps1`, 64-bit |
+| Firmware compliance | `Intune/Audit-BIOSAndBitLocker.ps1`, read-only Remediations detection or your inventory system |
+| Assignment | Small device pilot first; remove overlapping v1/other BIOS assignments |
 
-The 3010-to-Hard-reboot mapping is **intentional**: the wrapper reports that a
-restart is required and Intune enforces it using its grace-period controls. It
-does not mean the Dell process already restarted. Leave the script's code at 3010;
-change the mapping in this app's return-code table. Microsoft's current guidance
-says Soft reboot only notifies and does not apply restart grace-period settings.
-If you leave 3010 as Soft reboot, supply another reliable restart mechanism or the
-BIOS can remain staged indefinitely. Do not report a fully automated rollout as
-complete if no restart is enforced.
+**Important change from v1:** no Intune 720-minute grace-period restart and no
+PSADT restart prompt. The persistent v2 controller owns this app's restart. Its
+background firmware child may return 3010 internally; that is consumed by the
+controller and is not returned to Intune. Enrollment completes promptly.
 
-Keep restart notifications enabled on user workstations. The firmware updater
-is silent, while PSADT uses Interactive mode for the requested notices. For unattended machines, coordinate the assignment
-and enforced restart with the operating schedule. Intune availability/deadlines
-alone are not a precise firmware maintenance-window guarantee.
+Intune's Installed state means the controller is enrolled for this package (or
+actual firmware already meets target). It does not assert firmware success. Use
+the separate audit script to report actual BIOS and BitLocker compliance. A
+controller in NeedsAttention can remain Installed; monitor Scheduler.log/state
+and the audit result. Other Windows Update/application policies can still restart
+Windows independently; coordinate them for the pilot and deployment ring.
 
-Configure retries for temporary power/reboot/space conditions. Intune Retry uses
-three attempts with five-minute waits; it is not a continuously running power
-monitor. Devices that miss these attempts need later Intune reevaluation or an
-admin retry after the cause is resolved. Pending Windows updates are not forcibly
-rebooted by this installer before flashing.
+## Safety boundaries
 
-### Deferral and restart timing
+Before staging, the existing installer still checks the approved model, version,
+signature/hash, AC/battery, disk, pending Windows restarts, recovery protector and
+successful recovery-key backup. It suspends BitLocker only immediately around
+staging with a finite reboot count. The SYSTEM scheduler rechecks AC, charge,
+matching staged transaction and owned suspension before requesting restart.
 
-The 12-hour cooldown is a minimum time between notices after a user defers. It
-does not schedule Intune to run at exactly 12 hours. Intune Retry attempts are
-five minutes apart; a later reevaluation or administrator retry may be needed.
-The explicit wrapper cooldown also covers the third deferral, when PSADT 4.1's
-built-in interval check no longer applies. The default deferral exit code is
-1602; if your PSADT configuration changes it, map that code to Retry too.
+No `/r`, force-flash or forced process termination is used by the Dell installer.
+The controller requests Windows restart with `/t 0` and without `/f`, after its
+own warning period, so it does not intentionally force-close unsaved applications.
+An application can consequently block completion; monitor overdue systems.
 
-The restart countdown is 43,200 seconds after successful staging. Re-running the
-wrapper uses the remaining time from StagedUtc rather than granting another
-12 hours. The final 15 minutes cannot be hidden. Prompt failures still return
-3010 so Intune can enforce the restart. No active user means the wrapper skips
-the restart dialog. PSADT 4.1 has a five-second no-user restart fallback internally;
-a logoff between the wrapper's session check and dialog creation is a remaining
-race to evaluate in your pilot. `SilentCountdownSeconds` cannot be combined with
-`CountdownSeconds` in 4.1, so this wrapper does not use that incompatible pairing.
+A deadline never overrides a safety check. Physical power can change after the
+last check, including during firmware boot. The software cannot guarantee power
+continuity. BitLocker remains suspended while staged firmware awaits restart;
+a power hold can extend that interval. Do not resume it over pending firmware.
 
-The PSADT dialog does not survive every logoff/session transition. Configure the
-Intune 720-minute grace period as well; its clock starts when Intune handles the
-return code, so it may be slightly later than the PSADT deadline. These are two
-restart mechanisms and may display overlapping notifications: verify the actual
-experience in your pilot. A machine powered off or asleep cannot honor an exact
-wall-clock deadline. AC/battery are checked before staging, not by the restart
-timer 12 hours later; users must keep AC connected. BitLocker can remain suspended
-throughout this wait. Neither the timer nor this package bypasses firmware power
-checks, and uninterrupted power at reboot cannot be guaranteed by these scripts.
+The shared password is plaintext in your local package and protected runtime and
+is supplied to Dell via its native command line. SYSTEM/local administrators and
+privileged monitoring can recover it. It is never sent to the UI or deliberately
+logged by these scripts. Review Dell logs/EDR in the pilot. This is not a vault
+integration; substitute an approved secret provider if your policy requires one.
 
-## Detection and verification are different
+## Validation and sources
 
-Before reboot, the old BIOS version is still expected. Detect-BIOS accepts a
-successful staging marker only for the matching target/hash, the same Windows
-boot and less than 24 hours. This lets Intune complete installation processing
-and apply its restart policy. Intune may briefly label the app Installed while
-firmware is still pending. This is **staging success**, not proof of BIOS success.
+See [VALIDATION.txt](VALIDATION.txt), [OPERATIONS.md](OPERATIONS.md) and
+[CHANGELOG.md](CHANGELOG.md). The Linux tests exercise parser, scheduling rules,
+DST conversion, framed messages, argument quoting, power thresholds and mocked
+controller transitions. They do **not** validate Windows WPF rendering, named-pipe
+ACL/impersonation, Task Scheduler group activation, Intune or Dell hardware.
 
-After a real Windows restart, that marker no longer passes detection. The actual
-BIOS must be at least the target. There is no permanent marker that conceals a
-failed flash. Intune reporting refresh is asynchronous; it may not update at boot.
-Deploy the generated Audit-BIOSAndBitLocker.ps1 as a read-only Intune Remediations
-detection script, or use it in your existing inventory/audit process, to monitor
-both actual BIOS and protection state. Scope it only to the intended model group.
-It never treats staging as compliance and does not enforce encryption on a fully
-decrypted device; use your existing encryption policy for that.
-
-## BIOS administrator passwords
-
-This package supports the shared BIOS administrator password using Dell's `/p=`
-argument. In your secured local packaging workspace, copy
-`Files/BIOS-Password.example.psd1` to `Files/BIOS-Password.psd1` and replace
-`REPLACE_LOCALLY`. Use a single-quoted PowerShell string; double any embedded
-apostrophe. The installer rejects a missing, empty or placeholder password before
-escrow or BitLocker suspension. A preflight validates availability, not whether
-Dell accepts the password. Dell return code 7 means a missing/incorrect password.
-
-`BIOS-Password.psd1` is excluded from Git and is not embedded in the generated
-Intune scripts or copied to the durable verification directory. **Include it in
-the local PSADT Files folder when building the Intune package.** Do not paste the
-real password into Git, the main configuration, a command, a log or an issue.
-The committed example contains only a placeholder. For models without a password,
-explicitly set `BiosPasswordRequired = $false` after validating that policy.
-
-This is plaintext secret delivery: administrators who can read the deployed
-package or observe process arguments can recover the shared password. Git ignore
-rules prevent accidental normal adds, not deliberate force-adds or package access.
-Restrict packaging and Intune app access. This package does not provide a vault
-integration. If your policy requires one, replace `Get-BiosPassword` with your
-approved SYSTEM-accessible secret provider. These scripts never log the command
-arguments; review Dell's own logs and your endpoint monitoring in the pilot too.
-
-## Pilot and operational checks
-
-Run `Files\Install-DellBIOS.ps1 -PreflightOnly` under SYSTEM in 64-bit Windows
-PowerShell on a pilot. It writes local logs/creates the protected working
-directory, but does not back up keys, suspend protection, register tasks or run
-the BIOS EXE. It does not prove a password, capsule staging, escrow connectivity or
-post-boot firmware behavior. Then test the complete PSADT package through Intune.
-
-Validate the following before expanding the ring:
-
-- Wrong model and tampered/unsigned EXE never launch.
-- Battery disconnected/low and unknown telemetry return Retry without suspension.
-- Equal/newer BIOS does not run the updater, prompt the user or downgrade.
-- Three deferrals persist; retries inside each 12-hour cooldown show no notice,
-  including after the third deferral. The final notice runs all safety checks.
-- No logged-on user blocks a new installation; no-user restart UI is skipped.
-- Missing/placeholder/wrong passwords fail safely without exposing the secret.
-- Restart countdown uses the original staging timestamp on repeated launches;
-  test logoff, sleep, prompt failure and Intune fallback notifications.
-- Recovery key is retrievable and failed backup prevents suspension/flashing.
-- Actual accepted Dell return code, successful silent staging and Intune restart
-  grace-period behavior match expectations under SYSTEM.
-- The firmware finishes with AC connected, returns to Windows and reports the
-  target version with BitLocker protection On, without recovery prompts.
-- A failed update is detected after reboot and is not repeatedly reflashed.
-
-Keep AC connected through the entire restart/update. Finite reboot count is not a
-wall-clock suspension timeout: a device that never restarts can remain suspended.
-Enforce the restart promptly and monitor delayed/rejected restart cases. The
-post-boot task assumes that firmware work has finished when Windows returns; each
-new model/version must be piloted for this sequence. No automated downgrade or
-firmware rollback is attempted; use Dell's model-specific recovery procedure.
-
-## Logs and recovery
-
-On each device:
-
-```powershell
-Get-Content "$env:ProgramData\ManagedDellBIOS\Deployment.log"
-Get-ChildItem "$env:ProgramData\ManagedDellBIOS\Dell-*.log"
-Get-ItemProperty 'HKLM:\SOFTWARE\ManagedDellBIOS'
-Get-BitLockerVolume -MountPoint $env:SystemDrive |
-    Select-Object MountPoint, VolumeStatus, ProtectionStatus
-Get-CimInstance Win32_BIOS | Select-Object SMBIOSBIOSVersion
-```
-
-PSADT also writes its normal deployment log, including prompt/cooldown decisions.
-The child initializes its protected logging directory before configuration/model
-validation (after the SYSTEM/64-bit checks). Dell return **2 means restart
-required**: it is accepted as successful staging and translated to 3010, not a
-firmware failure. Actual firmware success is checked after the restart.
-
-A successful update keeps its
-verification state and logs. A failed or ambiguous transaction is deliberately
-not erased by reinstalling or changing package versions. Inspect Dell logs and
-the actual BIOS/BitLocker state first. After a completed reboot, you can rerun the
-registered task with `Start-ScheduledTask -TaskName 'ManagedDellBIOS-VerifyAndResume'`.
-If it has already completed and unregistered, its verification script remains in
-the protected working directory for an administrator to run as SYSTEM.
-
-Only after confirming no firmware operation is running or pending, resolving the
-cause and verifying protection, may an administrator archive the logs and clear
-the `HKLM:\SOFTWARE\ManagedDellBIOS` transaction key to allow a fresh attempt.
-Do not clear this key merely to make Intune retry. Do not forcibly terminate a
-stuck BIOS process or resume BitLocker over a pending firmware update.
-
-### Recovery from the old missing-Status bug
-
-The old writer used `New-Item -Force` on an existing registry key and could erase
-previous fields, leaving only `SuspendedByUs = 0`. The fixed writer creates the
-key only when absent. Incomplete existing state now produces a clear recovery
-error and blocks another flash; updating the source does not repair missing data.
-
-Preserve the key with `reg.exe export HKLM\SOFTWARE\ManagedDellBIOS <backup.reg>`
-and check the export succeeds. Inspect both logs, actual firmware, BitLocker and
-any pending firmware operation. Only after confirming no updater/task is running,
-no firmware update is pending, and BitLocker is healthy should an administrator
-remove the stale `ManagedDellBIOS-VerifyAndResume` task and clear this package's
-transaction key. Do not automate this reset across the fleet. Rebuild with the
-fixed source before retrying. The verification task uses a cached Common.ps1;
-existing cached tasks are not retroactively upgraded by a repository commit.
-
-## Reuse for the next BIOS or another model
-
-Clone the completed package source, replace the EXE, update the configuration and
-PSADT AppVersion, regenerate the three Intune scripts, and create a new Win32 app.
-Keep the transaction key/task identity consistent so packages can see unresolved
-updates. Remove overlapping required assignments to older versions or use
-supersedence without uninstalling the older firmware. For intermediate-version
-requirements, deploy and verify the prerequisite with a real restart before the
-next package. The minimum-version gate prevents skipping the prerequisite.
-
-## Sources and validation
-
-- [Dell BIOS command switches](https://www.dell.com/support/kbdoc/en-us/000136752/command-line-switches-for-dell-bios-updates)
-- [Dell DUP options and exit codes](https://www.dell.com/support/kbdoc/en-ed/000148745/dup-bios-updates)
-- [MC16250 supported BIOS package example; not a selected release](https://www.dell.com/support/home/en-us/drivers/driversdetails?driverid=v0c19)
+- [PSADT 4.1 Start-ADTProcessAsUser](https://psappdeploytoolkit.com/docs/4.1.x/reference/functions/Start-ADTProcessAsUser)
+- [Microsoft scheduled task principals](https://learn.microsoft.com/en-us/powershell/module/scheduledtasks/new-scheduledtaskprincipal)
+- [Microsoft pipe permissions](https://learn.microsoft.com/en-us/dotnet/api/system.io.pipes.pipeaccessrights)
+- [Dell BIOS update switches and exit codes](https://www.dell.com/support/kbdoc/en-ed/000148745/dup-bios-updates)
 - [Microsoft Suspend-BitLocker](https://learn.microsoft.com/en-us/powershell/module/bitlocker/suspend-bitlocker)
-- [Microsoft BitLocker cmdlets](https://learn.microsoft.com/en-us/powershell/module/bitlocker/)
-- [Intune Win32 app configuration and detection](https://learn.microsoft.com/en-us/intune/app-management/deployment/add-win32)
-- [Intune restart grace-period behavior](https://learn.microsoft.com/en-us/intune/app-management/deployment/win32)
-- [PSADT 4.1 welcome and deferral parameters](https://psappdeploytoolkit.com/docs/4.1.x/reference/functions/Show-ADTInstallationWelcome)
-- [PSADT 4.1 restart parameters](https://psappdeploytoolkit.com/docs/4.1.x/reference/functions/Show-ADTInstallationRestartPrompt)
-- [PSADT 4.1.0 Start-ADTProcess source](https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.0/src/PSAppDeployToolkit/Public/Start-ADTProcess.ps1)
-
-See VALIDATION.txt for checks performed on these source files. Windows, Intune,
-Dell hardware and real BitLocker/Task Scheduler integration require your pilot.
+- [Intune Win32 app configuration](https://learn.microsoft.com/en-us/intune/app-management/deployment/add-win32)

@@ -74,12 +74,14 @@ function Initialize-SecureDirectory {
     # Reject pre-existing reparse points before writing privileged files.
     foreach ($item in @(Get-ChildItem -LiteralPath $script:WorkDir -Force -Recurse)) {
         if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Reparse point in working directory.' }
-        # Reset file ACLs to the protected parent, removing explicit user permissions.
-        if (-not $item.PSIsContainer) {
-            $fileAcl = New-Object System.Security.AccessControl.FileSecurity
-            $fileAcl.SetAccessRuleProtection($false, $false)
-            Set-Acl -LiteralPath $item.FullName -AclObject $fileAcl
-        }
+        # Lock down directories as well as files: a writable parent lets a user
+        # replace a privileged script even when that script's own ACL is protected.
+        $itemAcl = if ($item.PSIsContainer) {
+            New-Object System.Security.AccessControl.DirectorySecurity
+        } else { New-Object System.Security.AccessControl.FileSecurity }
+        $itemAcl.SetAccessRuleProtection($false, $false)
+        $itemAcl.SetOwner((New-Object System.Security.Principal.SecurityIdentifier('S-1-5-18')))
+        Set-Acl -LiteralPath $item.FullName -AclObject $itemAcl
     }
 }
 function Assert-Model($Config) {
@@ -113,7 +115,7 @@ namespace ManagedDellBios {
 '@
     }
     $power = New-Object ManagedDellBios.NativePower+Status
-    if (-not [ManagedDellBios.NativePower]::GetSystemPowerStatus([ref]$power)) { throw 'Cannot determine AC power.' }
+    if (-not [ManagedDellBios.NativePower]::GetSystemPowerStatus([ref]$power)) { throw 'Retry: cannot determine AC power.' }
     if ($power.ACLineStatus -ne 1) { throw 'Retry: AC power is disconnected or unknown.' }
     if ($Config.RequireBattery) {
         if (($power.BatteryFlag -band 128) -or $power.BatteryFlag -eq 255 -or $power.BatteryLifePercent -eq 255) { throw 'Retry: battery is absent or unknown.' }

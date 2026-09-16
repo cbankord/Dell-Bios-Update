@@ -27,11 +27,17 @@ $model = @'
 $detect = @'
     $current = Convert-BiosVersion (Get-CimInstance Win32_BIOS -ErrorAction Stop).SMBIOSBIOSVersion.Trim()
     if ($current -ge (Convert-BiosVersion $config.TargetVersion)) { Write-Output "BIOS verified: $current"; exit 0 }
-    $state = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\ManagedDellBIOS' -ErrorAction Stop
-    $boot = (Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime.ToUniversalTime().Ticks.ToString()
-    $age = [datetime]::UtcNow - [datetime]::Parse($state.StagedUtc).ToUniversalTime()
-    if ($state.Status -eq 'Staged' -and $state.BootId -eq $boot -and $state.TargetVersion -eq $config.TargetVersion -and $state.PayloadHash -eq $config.SHA256 -and $age.TotalHours -ge 0 -and $age.TotalHours -lt $config.StagedDetectionHours) {
-        Write-Output 'BIOS payload staged; restart and firmware verification pending.'
+    # V2 detects controller enrollment, not completed firmware. Audit is separate.
+    $path = Join-Path $env:ProgramData 'ManagedDellBIOS\Schedule-v2.json'
+    $state = Get-Content -LiteralPath $path -Raw -ErrorAction Stop | ConvertFrom-Json
+    $id = 'v2-' + $config.TargetVersion + '-' + $config.SHA256.ToLowerInvariant()
+    if ($state.Schema -ne 2 -or $state.PackageId -ne $id) { exit 1 }
+    $task = Get-ScheduledTask -TaskName 'ManagedDellBIOS-v2-Controller' -ErrorAction Stop
+    $ui = Get-ScheduledTask -TaskName 'ManagedDellBIOS-v2-UserUI' -ErrorAction Stop
+    if ($task.State -eq 'Disabled' -or $ui.State -eq 'Disabled') { exit 1 }
+    $broker = Join-Path $env:ProgramData 'ManagedDellBIOS\Runtime-v2\Scheduler\Start-Broker.ps1'
+    if (Test-Path -LiteralPath $broker -PathType Leaf) {
+        Write-Output ('BIOS scheduler enrolled; phase=' + $state.Phase + '. Firmware compliance is reported by Audit-BIOSAndBitLocker.ps1.')
         exit 0
     }
     exit 1

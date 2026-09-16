@@ -1,5 +1,62 @@
 # Change notes
 
+## 2026-09-16 — v2 branded scheduling workflow
+
+This implementation is isolated on `v2`. Main remains at the previous release.
+
+### Scheduling and user experience
+
+- Replace the three-deferral/12-hour wrapper with a durable SYSTEM controller and
+  standard-user WPF client. PSADT enrolls the controller and exits promptly.
+- Add logo/banner slots, configurable colors and copy, date/time selection,
+  status cards, keyboard labels, scrolling, tray reopening and a harmless Demo mode.
+- Start exactly 72 hours from first acknowledged rendered notice. Store UTC state
+  with atomic replacement; repeated notices/retries cannot extend the deadline.
+- Permit unlimited deferrals and rescheduling inside the window until preparation
+  starts. No chosen time falls back to mandatory preparation at the deadline.
+- Stage near the chosen time; retain power/prerequisite holds without clearing an
+  overdue deadline. Give a fresh warning after missed times, sleep, broker recovery
+  or restoration of restart safety. Show the requested restart-required wording.
+- Separate enrollment, preparation, restart-required, verification and completion.
+  Final success requires actual firmware and healthy BitLocker verification.
+
+### Privilege and safety
+
+- Keep credentials and writable state in the protected SYSTEM/Admin runtime;
+  publish only read-only UI/branding to Program Files.
+- Add a bounded local named-pipe protocol with active interactive peer checks,
+  SYSTEM-owner validation, network denial and no arbitrary command/path requests.
+  Use specific client access rights without granting pipe-instance creation.
+- Recheck transaction, AC/battery and owned BitLocker suspension immediately before
+  managed restart. Do not force-close applications, terminate firmware, bypass a
+  safety gate, resume over pending firmware or reflash ambiguous transactions.
+- Fix descendant directory ownership/ACLs as well as file ACLs to prevent replacing
+  privileged scripts through a writable parent.
+- Preserve the v1 firmware transaction/verification identities and refuse migration
+  over unresolved firmware. Same-package reenrollment preserves deadlines and
+  repairs task activation; missing state fails closed.
+
+### Packaging and operations
+
+- Intune now uses **No specific action** for restart behavior. Remove the v1 hard
+  reboot mapping/grace timer and PSADT restart prompt. The controller is the sole
+  restart owner for this app; internal Dell 0/2 -> 3010 never reaches Intune.
+- Detection reports controller enrollment; the existing separate audit reports
+  actual firmware/BitLocker compliance. Installed does not imply a successful flash.
+- Add operations, migration/recovery guidance, Windows UI Demo and pilot matrix.
+- Preserve inherited model/version/EXE values and PackageReviewed=false. The
+  65-character hash still requires recalculation from an approved executable.
+
+### Validation
+
+See VALIDATION.txt for current counts and exact scope. Parser, pure scheduling,
+DST, framing, native declaration compilation, real file replacement and mocked
+firmware/restart guards ran on Linux. Windows UI, pipe ACL/impersonation, task
+principals, actual Dell firmware and Intune remain unverified pilot gates.
+
+---
+
+
 ## 2026-09-16 — Registry repair and managed BIOS update notices
 
 ### Why
