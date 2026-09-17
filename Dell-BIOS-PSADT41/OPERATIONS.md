@@ -6,8 +6,9 @@ V4 branches from latest v3 (`243f384`) and keeps the existing package identity,
 deadline state and firmware recovery workflow. Main/v2/v3 remain unchanged.
 Rebuild with the v4 builder and deploy the **complete package and matching new
 Intune detection**. New presentation helpers and policy cannot be delivered by
-copying only `Show-BiosUI.ps1`. Changed managed files use 4.0.0 tattoos; unchanged
-files retain their own versions. There are 15 core managed files plus brand assets.
+copying only `Show-BiosUI.ps1`. V4 presentation files use 4.0.0 tattoos; the
+v4.0.1 launch fix uses 4.0.1 on `Deployment.ps1` and `Live.ps1`. Other files
+retain their own versions. There are 15 core managed files plus brand assets.
 
 **Allow schedule later** defaults to enabled, including imported v3 presets
 without that field. `$false` removes Schedule Install and prevents new/rescheduled
@@ -153,8 +154,9 @@ bypass. Do not remove this check, reset the shared ACL, or delete firmware state
 to make an unsafe location pass.
 
 Rebuild with the updated v4 builder and replace both the Intune package and its
-generated detection script. Changed v4 runtime files have 4.0.0 tattoos; unchanged runtime
-files retain their own versions. Never edit just a cached script or reuse the old
+generated detection script. Managed files retain individual version tattoos;
+the v4.0.1 launch fix updates `Deployment.ps1` and `Live.ps1` to 4.0.1.
+Never edit just a cached script or reuse the old
 runtime manifest/detection hashes. Pending firmware recovery still blocks code
 replacement until that transaction is resolved.
 
@@ -264,6 +266,44 @@ blocks automatic reflashing. No reboot count of zero, forced flash, forced proce
 kill or bypass of model/power/signature/hash/escrow checks is introduced.
 
 ## Troubleshooting
+
+### Install Now fails with a parameter-set error and 60001
+
+V4.0.1 fixes a reproduced PSADT compatibility defect in the progress-window and
+BIOS-worker launches. PSADT 4.1.4-4.1.8 reject `-IgnoreExitCodes '*'` together
+with `-NoWait`; passing `-NoWait:$false` also binds the incompatible parameter.
+See the official
+[4.1.4 worker function](https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.4/src/PSAppDeployToolkit/Public/Start-ADTProcess.ps1)
+and [user-process function](https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.4/src/PSAppDeployToolkit/Public/Start-ADTProcessAsUser.ps1).
+`60001` here is the deployment wrapper's failure code, not a Dell BIOS return code.
+The failing progress-launch call precedes worker launch; the generic error alone
+does not prove whether a previous attempt staged firmware.
+
+1. Download the latest **v4** repository content. Close the old builder and launch
+   `Builder/Start-PackageBuilder.cmd` from the updated copy.
+2. Load your preset and use the same approved BIOS, settings and prepared PSADT
+   4.1 ZIP. Re-enter the password locally if required. Build a fresh complete
+   package; there is no need to downgrade the framework for this correction.
+3. Confirm `BuildManifest.json` has `BuilderVersion` equal to `4.0.1`, and generated
+   `Source/Files/Simple/Deployment.ps1` and `Live.ps1` start with version `4.0.1`.
+   Follow the existing final-signing/manifest regeneration instructions if applicable.
+4. Replace the Intune package **and its matching generated detection script**, or
+   run the newly generated complete Source through the existing SYSTEM pilot
+   method. Do not reuse an older output folder or edit cached files independently.
+
+Normal cache refresh replaces the corrected helpers while preserving the fixed
+deadline and state. Do not delete `C:\ProgramData\Medela\DellBIOS`, reset its
+state, or remove recovery tasks. Accepted appointments and unresolved firmware
+still block replacement; a retained older package that keeps failing requires
+IT review of its logs and transaction status, not a forced cache reset.
+
+The new log entries distinguish `Starting progress UI through PSADT` from
+`Starting BIOS preparation worker through PSADT`. If the error persists after
+rebuilding, collect the surrounding Deployment.log and PSADT log lines plus the
+module version from your selected template's `PSAppDeployToolkit.psd1`. Other
+custom-framework parameter conflicts can produce the same generic message.
+
+### Missing actions or UI diagnostics
 
 If only Install Now and Defer appear, check AllowScheduleLater first: this is the
 intended v4 disabled state. A prompt older than v3.1 also lacks scheduling.

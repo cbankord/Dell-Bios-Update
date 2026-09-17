@@ -5,6 +5,12 @@ builds a fresh deployment from your approved Dell BIOS executable and your own
 prepared **PSADT 4.1.x template ZIP**. You do not need to edit the deployment
 functions or calculate/paste a SHA256.
 
+**Builder 4.0.1 includes the Install Now launch fix for PSADT 4.1.4-4.1.8.**
+If an older package reports a parameter-set error and exits 60001, restart this
+builder from the updated v4 copy and rebuild with your existing approved settings
+and custom ZIP. Replace the complete package and its generated Intune detection;
+do not delete endpoint state. See [the troubleshooting steps](../OPERATIONS.md#install-now-fails-with-a-parameter-set-error-and-60001).
+
 Use 64-bit **Windows PowerShell 5.1** on x64 Windows. The GUI uses WPF and runs as
 the packaging user; elevation is not required. Use an existing local NTFS output
 folder outside this repository, with a short path and sufficient free space for

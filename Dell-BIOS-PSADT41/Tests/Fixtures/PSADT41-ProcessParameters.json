@@ -1,0 +1,2984 @@
+{
+  "Schema": 1,
+  "Description": "Upstream PSADT 4.1 public parameter metadata only. Identical contracts share a hash. No function bodies, defaults, validators or Windows code are executed.",
+  "Contracts": {
+    "11fd93927a62ac5cb3f1c5a35c722ab607f43abdf6b8a55532913de384a1d007": {
+      "DefaultParameterSet": "Default_CreateWindow_Wait",
+      "Parameters": [
+        {
+          "Name": "FilePath",
+          "Type": "System.String",
+          "RequiredIn": [
+            "__AllParameterSets"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "ArgumentList",
+          "Type": "System.String[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "SecureArgumentList",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WorkingDirectory",
+          "Type": "System.String",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "Username",
+          "Type": "System.Security.Principal.NTAccount",
+          "RequiredIn": [
+            "Username_CreateWindow_Wait",
+            "Username_CreateWindow_NoWait",
+            "Username_CreateWindow_Timeout",
+            "Username_WindowStyle_Wait",
+            "Username_WindowStyle_NoWait",
+            "Username_WindowStyle_Timeout",
+            "Username_CreateNoWindow_Wait",
+            "Username_CreateNoWindow_NoWait",
+            "Username_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "UseLinkedAdminToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Username_CreateWindow_Wait",
+            "Username_CreateWindow_NoWait",
+            "Username_CreateWindow_Timeout",
+            "Username_WindowStyle_Wait",
+            "Username_WindowStyle_NoWait",
+            "Username_WindowStyle_Timeout",
+            "Username_CreateNoWindow_Wait",
+            "Username_CreateNoWindow_NoWait",
+            "Username_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "InheritEnvironmentVariables",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Username_CreateWindow_Wait",
+            "Username_CreateWindow_NoWait",
+            "Username_CreateWindow_Timeout",
+            "Username_WindowStyle_Wait",
+            "Username_WindowStyle_NoWait",
+            "Username_WindowStyle_Timeout",
+            "Username_CreateNoWindow_Wait",
+            "Username_CreateNoWindow_NoWait",
+            "Username_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "UseUnelevatedToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Wait",
+            "Default_CreateWindow_NoWait",
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Wait",
+            "Default_WindowStyle_NoWait",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "UseShellExecute",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "UseShellExecute_CreateWindow_Wait",
+            "UseShellExecute_CreateWindow_NoWait",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Wait",
+            "UseShellExecute_WindowStyle_NoWait",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "Verb",
+          "Type": "System.String",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "UseShellExecute_CreateWindow_Wait",
+            "UseShellExecute_CreateWindow_NoWait",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Wait",
+            "UseShellExecute_WindowStyle_NoWait",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "ExpandEnvironmentVariables",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WindowStyle",
+          "Type": "System.Diagnostics.ProcessWindowStyle",
+          "RequiredIn": [
+            "Default_WindowStyle_Wait",
+            "Default_WindowStyle_NoWait",
+            "Default_WindowStyle_Timeout",
+            "Username_WindowStyle_Wait",
+            "Username_WindowStyle_NoWait",
+            "Username_WindowStyle_Timeout",
+            "UseShellExecute_WindowStyle_Wait",
+            "UseShellExecute_WindowStyle_NoWait",
+            "UseShellExecute_WindowStyle_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "CreateNoWindow",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout",
+            "Username_CreateNoWindow_Wait",
+            "Username_CreateNoWindow_NoWait",
+            "Username_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "StreamEncoding",
+          "Type": "System.Text.Encoding",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout",
+            "Username_CreateNoWindow_Wait",
+            "Username_CreateNoWindow_NoWait",
+            "Username_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "NoStreamLogging",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout",
+            "Username_CreateNoWindow_Wait",
+            "Username_CreateNoWindow_NoWait",
+            "Username_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "WaitForMsiExec",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "MsiExecWaitTime",
+          "Type": "System.TimeSpan",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WaitForChildProcesses",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "KillChildProcessesWithParent",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "Timeout",
+          "Type": "System.TimeSpan",
+          "RequiredIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout",
+            "Username_CreateWindow_Timeout",
+            "Username_WindowStyle_Timeout",
+            "Username_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "TimeoutAction",
+          "Type": "System.Management.Automation.ActionPreference",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout",
+            "Username_CreateWindow_Timeout",
+            "Username_WindowStyle_Timeout",
+            "Username_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "NoTerminateOnTimeout",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout",
+            "Username_CreateWindow_Timeout",
+            "Username_WindowStyle_Timeout",
+            "Username_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "SuccessExitCodes",
+          "Type": "System.Int32[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "RebootExitCodes",
+          "Type": "System.Int32[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "IgnoreExitCodes",
+          "Type": "System.String[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "PriorityClass",
+          "Type": "System.Diagnostics.ProcessPriorityClass",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "ExitOnProcessFailure",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "NoWait",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "Default_CreateWindow_NoWait",
+            "Default_WindowStyle_NoWait",
+            "Default_CreateNoWindow_NoWait",
+            "Username_CreateWindow_NoWait",
+            "Username_WindowStyle_NoWait",
+            "Username_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateWindow_NoWait",
+            "UseShellExecute_WindowStyle_NoWait",
+            "UseShellExecute_CreateNoWindow_NoWait"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "PassThru",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        }
+      ]
+    },
+    "7f65b2348bd16453bbb5ed1270c8d5b8e173c8a9a6104d43d9e536ad63b3ea67": {
+      "DefaultParameterSet": "Default_CreateWindow_Wait",
+      "Parameters": [
+        {
+          "Name": "Username",
+          "Type": "System.Security.Principal.NTAccount",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "FilePath",
+          "Type": "System.String",
+          "RequiredIn": [
+            "__AllParameterSets"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "ArgumentList",
+          "Type": "System.String[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "SecureArgumentList",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WorkingDirectory",
+          "Type": "System.String",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "UseLinkedAdminToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "InheritEnvironmentVariables",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "ExpandEnvironmentVariables",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WindowStyle",
+          "Type": "System.Diagnostics.ProcessWindowStyle",
+          "RequiredIn": [
+            "Default_WindowStyle_Wait",
+            "Default_WindowStyle_NoWait",
+            "Default_WindowStyle_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "CreateNoWindow",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "StreamEncoding",
+          "Type": "System.Text.Encoding",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "NoStreamLogging",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "WaitForMsiExec",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "MsiExecWaitTime",
+          "Type": "System.TimeSpan",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WaitForChildProcesses",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "KillChildProcessesWithParent",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "Timeout",
+          "Type": "System.TimeSpan",
+          "RequiredIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "TimeoutAction",
+          "Type": "System.Management.Automation.ActionPreference",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "NoTerminateOnTimeout",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "SuccessExitCodes",
+          "Type": "System.Int32[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "RebootExitCodes",
+          "Type": "System.Int32[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "IgnoreExitCodes",
+          "Type": "System.String[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "PriorityClass",
+          "Type": "System.Diagnostics.ProcessPriorityClass",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "ExitOnProcessFailure",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "NoWait",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "Default_CreateWindow_NoWait",
+            "Default_WindowStyle_NoWait",
+            "Default_CreateNoWindow_NoWait"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "PassThru",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        }
+      ]
+    },
+    "e2b92f661a0aa7676af3e06caf242582d2867e91d24456ae70ff293fe30ae1a8": {
+      "DefaultParameterSet": "Default_CreateWindow_Wait",
+      "Parameters": [
+        {
+          "Name": "FilePath",
+          "Type": "System.String",
+          "RequiredIn": [
+            "__AllParameterSets"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "ArgumentList",
+          "Type": "System.String[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "SecureArgumentList",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WorkingDirectory",
+          "Type": "System.String",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "Username",
+          "Type": "System.Security.Principal.NTAccount",
+          "RequiredIn": [
+            "Username_CreateWindow_Wait",
+            "Username_CreateWindow_NoWait",
+            "Username_CreateWindow_Timeout",
+            "Username_WindowStyle_Wait",
+            "Username_WindowStyle_NoWait",
+            "Username_WindowStyle_Timeout",
+            "Username_CreateNoWindow_Wait",
+            "Username_CreateNoWindow_NoWait",
+            "Username_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "UseLinkedAdminToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Username_CreateWindow_Wait",
+            "Username_CreateWindow_NoWait",
+            "Username_CreateWindow_Timeout",
+            "Username_WindowStyle_Wait",
+            "Username_WindowStyle_NoWait",
+            "Username_WindowStyle_Timeout",
+            "Username_CreateNoWindow_Wait",
+            "Username_CreateNoWindow_NoWait",
+            "Username_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "UseHighestAvailableToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Username_CreateWindow_Wait",
+            "Username_CreateWindow_NoWait",
+            "Username_CreateWindow_Timeout",
+            "Username_WindowStyle_Wait",
+            "Username_WindowStyle_NoWait",
+            "Username_WindowStyle_Timeout",
+            "Username_CreateNoWindow_Wait",
+            "Username_CreateNoWindow_NoWait",
+            "Username_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "InheritEnvironmentVariables",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Username_CreateWindow_Wait",
+            "Username_CreateWindow_NoWait",
+            "Username_CreateWindow_Timeout",
+            "Username_WindowStyle_Wait",
+            "Username_WindowStyle_NoWait",
+            "Username_WindowStyle_Timeout",
+            "Username_CreateNoWindow_Wait",
+            "Username_CreateNoWindow_NoWait",
+            "Username_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "UseUnelevatedToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Wait",
+            "Default_CreateWindow_NoWait",
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Wait",
+            "Default_WindowStyle_NoWait",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "UseShellExecute",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "UseShellExecute_CreateWindow_Wait",
+            "UseShellExecute_CreateWindow_NoWait",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Wait",
+            "UseShellExecute_WindowStyle_NoWait",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "Verb",
+          "Type": "System.String",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "UseShellExecute_CreateWindow_Wait",
+            "UseShellExecute_CreateWindow_NoWait",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Wait",
+            "UseShellExecute_WindowStyle_NoWait",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "ExpandEnvironmentVariables",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WindowStyle",
+          "Type": "System.Diagnostics.ProcessWindowStyle",
+          "RequiredIn": [
+            "Default_WindowStyle_Wait",
+            "Default_WindowStyle_NoWait",
+            "Default_WindowStyle_Timeout",
+            "Username_WindowStyle_Wait",
+            "Username_WindowStyle_NoWait",
+            "Username_WindowStyle_Timeout",
+            "UseShellExecute_WindowStyle_Wait",
+            "UseShellExecute_WindowStyle_NoWait",
+            "UseShellExecute_WindowStyle_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "CreateNoWindow",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout",
+            "Username_CreateNoWindow_Wait",
+            "Username_CreateNoWindow_NoWait",
+            "Username_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "StreamEncoding",
+          "Type": "System.Text.Encoding",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout",
+            "Username_CreateNoWindow_Wait",
+            "Username_CreateNoWindow_NoWait",
+            "Username_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "NoStreamLogging",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout",
+            "Username_CreateNoWindow_Wait",
+            "Username_CreateNoWindow_NoWait",
+            "Username_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "WaitForMsiExec",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "MsiExecWaitTime",
+          "Type": "System.TimeSpan",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WaitForChildProcesses",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "KillChildProcessesWithParent",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "Timeout",
+          "Type": "System.TimeSpan",
+          "RequiredIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout",
+            "Username_CreateWindow_Timeout",
+            "Username_WindowStyle_Timeout",
+            "Username_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "TimeoutAction",
+          "Type": "System.Management.Automation.ActionPreference",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout",
+            "Username_CreateWindow_Timeout",
+            "Username_WindowStyle_Timeout",
+            "Username_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "NoTerminateOnTimeout",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout",
+            "Username_CreateWindow_Timeout",
+            "Username_WindowStyle_Timeout",
+            "Username_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "SuccessExitCodes",
+          "Type": "System.Int32[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "RebootExitCodes",
+          "Type": "System.Int32[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "IgnoreExitCodes",
+          "Type": "System.String[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "PriorityClass",
+          "Type": "System.Diagnostics.ProcessPriorityClass",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "ExitOnProcessFailure",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "NoWait",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "Default_CreateWindow_NoWait",
+            "Default_WindowStyle_NoWait",
+            "Default_CreateNoWindow_NoWait",
+            "Username_CreateWindow_NoWait",
+            "Username_WindowStyle_NoWait",
+            "Username_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateWindow_NoWait",
+            "UseShellExecute_WindowStyle_NoWait",
+            "UseShellExecute_CreateNoWindow_NoWait"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "PassThru",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        }
+      ]
+    },
+    "ae696dbe1f091a7336accbb7362187463c29014fdfb30cfe50262fac828050ce": {
+      "DefaultParameterSet": "Default_CreateWindow_Wait",
+      "Parameters": [
+        {
+          "Name": "Username",
+          "Type": "System.Security.Principal.NTAccount",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "FilePath",
+          "Type": "System.String",
+          "RequiredIn": [
+            "__AllParameterSets"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "ArgumentList",
+          "Type": "System.String[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "SecureArgumentList",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WorkingDirectory",
+          "Type": "System.String",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "UseLinkedAdminToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "UseHighestAvailableToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "InheritEnvironmentVariables",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "ExpandEnvironmentVariables",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WindowStyle",
+          "Type": "System.Diagnostics.ProcessWindowStyle",
+          "RequiredIn": [
+            "Default_WindowStyle_Wait",
+            "Default_WindowStyle_NoWait",
+            "Default_WindowStyle_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "CreateNoWindow",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "StreamEncoding",
+          "Type": "System.Text.Encoding",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "NoStreamLogging",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "WaitForMsiExec",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "MsiExecWaitTime",
+          "Type": "System.TimeSpan",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WaitForChildProcesses",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "KillChildProcessesWithParent",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "Timeout",
+          "Type": "System.TimeSpan",
+          "RequiredIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "TimeoutAction",
+          "Type": "System.Management.Automation.ActionPreference",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "NoTerminateOnTimeout",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "SuccessExitCodes",
+          "Type": "System.Int32[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "RebootExitCodes",
+          "Type": "System.Int32[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "IgnoreExitCodes",
+          "Type": "System.String[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "PriorityClass",
+          "Type": "System.Diagnostics.ProcessPriorityClass",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "ExitOnProcessFailure",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "NoWait",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "Default_CreateWindow_NoWait",
+            "Default_WindowStyle_NoWait",
+            "Default_CreateNoWindow_NoWait"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "PassThru",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        }
+      ]
+    },
+    "909a6f53cefd40e8b725ee5a266b7513dc5d4cd17cc4563bb704017bff738bfb": {
+      "DefaultParameterSet": "Default_CreateWindow_Wait",
+      "Parameters": [
+        {
+          "Name": "FilePath",
+          "Type": "System.String",
+          "RequiredIn": [
+            "__AllParameterSets"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "ArgumentList",
+          "Type": "System.String[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "SecureArgumentList",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WorkingDirectory",
+          "Type": "System.String",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "RunAsActiveUser",
+          "Type": "PSADT.Module.RunAsActiveUser",
+          "RequiredIn": [
+            "RunAsActiveUser_CreateWindow_Wait",
+            "RunAsActiveUser_CreateWindow_NoWait",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_WindowStyle_Wait",
+            "RunAsActiveUser_WindowStyle_NoWait",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateNoWindow_NoWait",
+            "RunAsActiveUser_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "UseLinkedAdminToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "RunAsActiveUser_CreateWindow_Wait",
+            "RunAsActiveUser_CreateWindow_NoWait",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_WindowStyle_Wait",
+            "RunAsActiveUser_WindowStyle_NoWait",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateNoWindow_NoWait",
+            "RunAsActiveUser_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "UseHighestAvailableToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "RunAsActiveUser_CreateWindow_Wait",
+            "RunAsActiveUser_CreateWindow_NoWait",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_WindowStyle_Wait",
+            "RunAsActiveUser_WindowStyle_NoWait",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateNoWindow_NoWait",
+            "RunAsActiveUser_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "InheritEnvironmentVariables",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "RunAsActiveUser_CreateWindow_Wait",
+            "RunAsActiveUser_CreateWindow_NoWait",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_WindowStyle_Wait",
+            "RunAsActiveUser_WindowStyle_NoWait",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateNoWindow_NoWait",
+            "RunAsActiveUser_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "UseUnelevatedToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Wait",
+            "Default_CreateWindow_NoWait",
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Wait",
+            "Default_WindowStyle_NoWait",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "UseShellExecute",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "UseShellExecute_CreateWindow_Wait",
+            "UseShellExecute_CreateWindow_NoWait",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Wait",
+            "UseShellExecute_WindowStyle_NoWait",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "Verb",
+          "Type": "System.String",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "UseShellExecute_CreateWindow_Wait",
+            "UseShellExecute_CreateWindow_NoWait",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Wait",
+            "UseShellExecute_WindowStyle_NoWait",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "ExpandEnvironmentVariables",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WindowStyle",
+          "Type": "System.Diagnostics.ProcessWindowStyle",
+          "RequiredIn": [
+            "Default_WindowStyle_Wait",
+            "Default_WindowStyle_NoWait",
+            "Default_WindowStyle_Timeout",
+            "RunAsActiveUser_WindowStyle_Wait",
+            "RunAsActiveUser_WindowStyle_NoWait",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "UseShellExecute_WindowStyle_Wait",
+            "UseShellExecute_WindowStyle_NoWait",
+            "UseShellExecute_WindowStyle_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "CreateNoWindow",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateNoWindow_NoWait",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "StreamEncoding",
+          "Type": "System.Text.Encoding",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateNoWindow_NoWait",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "NoStreamLogging",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateNoWindow_NoWait",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "WaitForMsiExec",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "MsiExecWaitTime",
+          "Type": "System.TimeSpan",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WaitForChildProcesses",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "KillChildProcessesWithParent",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "Timeout",
+          "Type": "System.TimeSpan",
+          "RequiredIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "TimeoutAction",
+          "Type": "System.Management.Automation.ActionPreference",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "NoTerminateOnTimeout",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "SuccessExitCodes",
+          "Type": "System.Int32[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_CreateWindow_Wait",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_CreateWindow_Wait",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_WindowStyle_Wait",
+            "UseShellExecute_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_CreateWindow_Wait",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "RebootExitCodes",
+          "Type": "System.Int32[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_CreateWindow_Wait",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_CreateWindow_Wait",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_WindowStyle_Wait",
+            "UseShellExecute_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_CreateWindow_Wait",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "IgnoreExitCodes",
+          "Type": "System.String[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_CreateWindow_Wait",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_CreateWindow_Wait",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_WindowStyle_Wait",
+            "UseShellExecute_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_CreateWindow_Wait",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "PriorityClass",
+          "Type": "System.Diagnostics.ProcessPriorityClass",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "ExitOnProcessFailure",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_CreateWindow_Wait",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_CreateWindow_Wait",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_WindowStyle_Wait",
+            "UseShellExecute_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_CreateWindow_Wait",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "NoWait",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "Default_CreateWindow_NoWait",
+            "Default_WindowStyle_NoWait",
+            "Default_CreateNoWindow_NoWait",
+            "RunAsActiveUser_CreateWindow_NoWait",
+            "RunAsActiveUser_WindowStyle_NoWait",
+            "RunAsActiveUser_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateWindow_NoWait",
+            "UseShellExecute_WindowStyle_NoWait",
+            "UseShellExecute_CreateNoWindow_NoWait"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "PassThru",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        }
+      ]
+    },
+    "80dd24499764386bc211244009b67588d54505615cc8a13b3148d5960fb891c1": {
+      "DefaultParameterSet": "Default_CreateWindow_Wait",
+      "Parameters": [
+        {
+          "Name": "Username",
+          "Type": "System.Security.Principal.NTAccount",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "FilePath",
+          "Type": "System.String",
+          "RequiredIn": [
+            "__AllParameterSets"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "ArgumentList",
+          "Type": "System.String[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "SecureArgumentList",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WorkingDirectory",
+          "Type": "System.String",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "UseLinkedAdminToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "UseHighestAvailableToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "InheritEnvironmentVariables",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "ExpandEnvironmentVariables",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WindowStyle",
+          "Type": "System.Diagnostics.ProcessWindowStyle",
+          "RequiredIn": [
+            "Default_WindowStyle_Wait",
+            "Default_WindowStyle_NoWait",
+            "Default_WindowStyle_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "CreateNoWindow",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "StreamEncoding",
+          "Type": "System.Text.Encoding",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "NoStreamLogging",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "WaitForMsiExec",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "MsiExecWaitTime",
+          "Type": "System.TimeSpan",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WaitForChildProcesses",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "KillChildProcessesWithParent",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "Timeout",
+          "Type": "System.TimeSpan",
+          "RequiredIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "TimeoutAction",
+          "Type": "System.Management.Automation.ActionPreference",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "NoTerminateOnTimeout",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "SuccessExitCodes",
+          "Type": "System.Int32[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "RebootExitCodes",
+          "Type": "System.Int32[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "IgnoreExitCodes",
+          "Type": "System.String[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "PriorityClass",
+          "Type": "System.Diagnostics.ProcessPriorityClass",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "ExitOnProcessFailure",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "NoWait",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "Default_CreateWindow_NoWait",
+            "Default_WindowStyle_NoWait",
+            "Default_CreateNoWindow_NoWait"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "PassThru",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        }
+      ]
+    },
+    "c96069ea3f32f02906e3a6f597617395144b6290c36fd6e9d505dc5a970ee487": {
+      "DefaultParameterSet": "Default_CreateWindow_Wait",
+      "Parameters": [
+        {
+          "Name": "FilePath",
+          "Type": "System.String",
+          "RequiredIn": [
+            "__AllParameterSets"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "ArgumentList",
+          "Type": "System.String[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "SecureArgumentList",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WorkingDirectory",
+          "Type": "System.String",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "RunAsActiveUser",
+          "Type": "PSADT.Module.RunAsActiveUser",
+          "RequiredIn": [
+            "RunAsActiveUser_CreateWindow_Wait",
+            "RunAsActiveUser_CreateWindow_NoWait",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_WindowStyle_Wait",
+            "RunAsActiveUser_WindowStyle_NoWait",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateNoWindow_NoWait",
+            "RunAsActiveUser_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "UseLinkedAdminToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "RunAsActiveUser_CreateWindow_Wait",
+            "RunAsActiveUser_CreateWindow_NoWait",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_WindowStyle_Wait",
+            "RunAsActiveUser_WindowStyle_NoWait",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateNoWindow_NoWait",
+            "RunAsActiveUser_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "UseHighestAvailableToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "RunAsActiveUser_CreateWindow_Wait",
+            "RunAsActiveUser_CreateWindow_NoWait",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_WindowStyle_Wait",
+            "RunAsActiveUser_WindowStyle_NoWait",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateNoWindow_NoWait",
+            "RunAsActiveUser_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "InheritEnvironmentVariables",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "RunAsActiveUser_CreateWindow_Wait",
+            "RunAsActiveUser_CreateWindow_NoWait",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_WindowStyle_Wait",
+            "RunAsActiveUser_WindowStyle_NoWait",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateNoWindow_NoWait",
+            "RunAsActiveUser_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "DenyUserTermination",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "RunAsActiveUser_CreateWindow_Wait",
+            "RunAsActiveUser_CreateWindow_NoWait",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_WindowStyle_Wait",
+            "RunAsActiveUser_WindowStyle_NoWait",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateNoWindow_NoWait",
+            "RunAsActiveUser_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "UseUnelevatedToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Wait",
+            "Default_CreateWindow_NoWait",
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Wait",
+            "Default_WindowStyle_NoWait",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "UseShellExecute",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "UseShellExecute_CreateWindow_Wait",
+            "UseShellExecute_CreateWindow_NoWait",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Wait",
+            "UseShellExecute_WindowStyle_NoWait",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "Verb",
+          "Type": "System.String",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "UseShellExecute_CreateWindow_Wait",
+            "UseShellExecute_CreateWindow_NoWait",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Wait",
+            "UseShellExecute_WindowStyle_NoWait",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "ExpandEnvironmentVariables",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WindowStyle",
+          "Type": "System.Diagnostics.ProcessWindowStyle",
+          "RequiredIn": [
+            "Default_WindowStyle_Wait",
+            "Default_WindowStyle_NoWait",
+            "Default_WindowStyle_Timeout",
+            "RunAsActiveUser_WindowStyle_Wait",
+            "RunAsActiveUser_WindowStyle_NoWait",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "UseShellExecute_WindowStyle_Wait",
+            "UseShellExecute_WindowStyle_NoWait",
+            "UseShellExecute_WindowStyle_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "CreateNoWindow",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateNoWindow_NoWait",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "StreamEncoding",
+          "Type": "System.Text.Encoding",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateNoWindow_NoWait",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "NoStreamLogging",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateNoWindow_NoWait",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "WaitForMsiExec",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "MsiExecWaitTime",
+          "Type": "System.TimeSpan",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WaitForChildProcesses",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "KillChildProcessesWithParent",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "Timeout",
+          "Type": "System.TimeSpan",
+          "RequiredIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "TimeoutAction",
+          "Type": "System.Management.Automation.ActionPreference",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "NoTerminateOnTimeout",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "SuccessExitCodes",
+          "Type": "System.Int32[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_CreateWindow_Wait",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_CreateWindow_Wait",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_WindowStyle_Wait",
+            "UseShellExecute_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_CreateWindow_Wait",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "RebootExitCodes",
+          "Type": "System.Int32[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_CreateWindow_Wait",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_CreateWindow_Wait",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_WindowStyle_Wait",
+            "UseShellExecute_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_CreateWindow_Wait",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "IgnoreExitCodes",
+          "Type": "System.String[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_CreateWindow_Wait",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_CreateWindow_Wait",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_WindowStyle_Wait",
+            "UseShellExecute_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_CreateWindow_Wait",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "PriorityClass",
+          "Type": "System.Diagnostics.ProcessPriorityClass",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "ExitOnProcessFailure",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_CreateWindow_Wait",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait",
+            "RunAsActiveUser_CreateNoWindow_Timeout",
+            "RunAsActiveUser_CreateNoWindow_Wait",
+            "RunAsActiveUser_CreateWindow_Timeout",
+            "RunAsActiveUser_CreateWindow_Wait",
+            "RunAsActiveUser_WindowStyle_Timeout",
+            "RunAsActiveUser_WindowStyle_Wait",
+            "UseShellExecute_CreateNoWindow_Timeout",
+            "UseShellExecute_CreateNoWindow_Wait",
+            "UseShellExecute_CreateWindow_Timeout",
+            "UseShellExecute_CreateWindow_Wait",
+            "UseShellExecute_WindowStyle_Timeout",
+            "UseShellExecute_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "NoWait",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "Default_CreateWindow_NoWait",
+            "Default_WindowStyle_NoWait",
+            "Default_CreateNoWindow_NoWait",
+            "RunAsActiveUser_CreateWindow_NoWait",
+            "RunAsActiveUser_WindowStyle_NoWait",
+            "RunAsActiveUser_CreateNoWindow_NoWait",
+            "UseShellExecute_CreateWindow_NoWait",
+            "UseShellExecute_WindowStyle_NoWait",
+            "UseShellExecute_CreateNoWindow_NoWait"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "PassThru",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        }
+      ]
+    },
+    "f2d629bcd1003b9c113c37195a1c3adf24b433ad5b3193be6bdf24c26e0669a1": {
+      "DefaultParameterSet": "Default_CreateWindow_Wait",
+      "Parameters": [
+        {
+          "Name": "Username",
+          "Type": "System.Security.Principal.NTAccount",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "FilePath",
+          "Type": "System.String",
+          "RequiredIn": [
+            "__AllParameterSets"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "ArgumentList",
+          "Type": "System.String[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "SecureArgumentList",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WorkingDirectory",
+          "Type": "System.String",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "UseLinkedAdminToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "UseHighestAvailableToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "InheritEnvironmentVariables",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "ExpandEnvironmentVariables",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "DenyUserTermination",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WindowStyle",
+          "Type": "System.Diagnostics.ProcessWindowStyle",
+          "RequiredIn": [
+            "Default_WindowStyle_Wait",
+            "Default_WindowStyle_NoWait",
+            "Default_WindowStyle_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "CreateNoWindow",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "StreamEncoding",
+          "Type": "System.Text.Encoding",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "NoStreamLogging",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "WaitForMsiExec",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "MsiExecWaitTime",
+          "Type": "System.TimeSpan",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WaitForChildProcesses",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "KillChildProcessesWithParent",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "Timeout",
+          "Type": "System.TimeSpan",
+          "RequiredIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "TimeoutAction",
+          "Type": "System.Management.Automation.ActionPreference",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "NoTerminateOnTimeout",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "SuccessExitCodes",
+          "Type": "System.Int32[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "RebootExitCodes",
+          "Type": "System.Int32[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "IgnoreExitCodes",
+          "Type": "System.String[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "PriorityClass",
+          "Type": "System.Diagnostics.ProcessPriorityClass",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "ExitOnProcessFailure",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "NoWait",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "Default_CreateWindow_NoWait",
+            "Default_WindowStyle_NoWait",
+            "Default_CreateNoWindow_NoWait"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "PassThru",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        }
+      ]
+    },
+    "b18d84e860962451ba9a2403d8c8fde2c3968f7054eb567a20b2ddfb9346286d": {
+      "DefaultParameterSet": "Default_CreateWindow_Wait",
+      "Parameters": [
+        {
+          "Name": "Username",
+          "Type": "System.Security.Principal.NTAccount",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "FilePath",
+          "Type": "System.String",
+          "RequiredIn": [
+            "__AllParameterSets"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "ArgumentList",
+          "Type": "System.String[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "SecureArgumentList",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WorkingDirectory",
+          "Type": "System.String",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "UseLinkedAdminToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "UseHighestAvailableToken",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "InheritEnvironmentVariables",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "ExpandEnvironmentVariables",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "DenyUserTermination",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WindowStyle",
+          "Type": "System.Diagnostics.ProcessWindowStyle",
+          "RequiredIn": [
+            "Default_WindowStyle_Wait",
+            "Default_WindowStyle_NoWait",
+            "Default_WindowStyle_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "CreateNoWindow",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "StreamEncoding",
+          "Type": "System.Text.Encoding",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "NoStreamLogging",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateNoWindow_NoWait",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "WaitForMsiExec",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "MsiExecWaitTime",
+          "Type": "System.TimeSpan",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "WaitForChildProcesses",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "KillChildProcessesWithParent",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "Timeout",
+          "Type": "System.TimeSpan",
+          "RequiredIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "TimeoutAction",
+          "Type": "System.Management.Automation.ActionPreference",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "NoTerminateOnTimeout",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateWindow_Timeout",
+            "Default_WindowStyle_Timeout",
+            "Default_CreateNoWindow_Timeout"
+          ]
+        },
+        {
+          "Name": "SuccessExitCodes",
+          "Type": "System.Int32[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_CreateWindow_Wait",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "RebootExitCodes",
+          "Type": "System.Int32[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_CreateWindow_Wait",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "IgnoreExitCodes",
+          "Type": "System.String[]",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_CreateWindow_Wait",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "PriorityClass",
+          "Type": "System.Diagnostics.ProcessPriorityClass",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        },
+        {
+          "Name": "ExitOnProcessFailure",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "Default_CreateNoWindow_Timeout",
+            "Default_CreateNoWindow_Wait",
+            "Default_CreateWindow_Timeout",
+            "Default_CreateWindow_Wait",
+            "Default_WindowStyle_Timeout",
+            "Default_WindowStyle_Wait"
+          ]
+        },
+        {
+          "Name": "NoWait",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [
+            "Default_CreateWindow_NoWait",
+            "Default_WindowStyle_NoWait",
+            "Default_CreateNoWindow_NoWait"
+          ],
+          "OptionalIn": []
+        },
+        {
+          "Name": "PassThru",
+          "Type": "System.Management.Automation.SwitchParameter",
+          "RequiredIn": [],
+          "OptionalIn": [
+            "__AllParameterSets"
+          ]
+        }
+      ]
+    }
+  },
+  "Releases": [
+    {
+      "Version": "4.1.0",
+      "Commands": [
+        {
+          "Name": "Start-ADTProcess",
+          "Source": "https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.0/src/PSAppDeployToolkit/Public/Start-ADTProcess.ps1",
+          "Contract": "11fd93927a62ac5cb3f1c5a35c722ab607f43abdf6b8a55532913de384a1d007"
+        },
+        {
+          "Name": "Start-ADTProcessAsUser",
+          "Source": "https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.0/src/PSAppDeployToolkit/Public/Start-ADTProcessAsUser.ps1",
+          "Contract": "7f65b2348bd16453bbb5ed1270c8d5b8e173c8a9a6104d43d9e536ad63b3ea67"
+        }
+      ]
+    },
+    {
+      "Version": "4.1.1",
+      "Commands": [
+        {
+          "Name": "Start-ADTProcess",
+          "Source": "https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.1/src/PSAppDeployToolkit/Public/Start-ADTProcess.ps1",
+          "Contract": "11fd93927a62ac5cb3f1c5a35c722ab607f43abdf6b8a55532913de384a1d007"
+        },
+        {
+          "Name": "Start-ADTProcessAsUser",
+          "Source": "https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.1/src/PSAppDeployToolkit/Public/Start-ADTProcessAsUser.ps1",
+          "Contract": "7f65b2348bd16453bbb5ed1270c8d5b8e173c8a9a6104d43d9e536ad63b3ea67"
+        }
+      ]
+    },
+    {
+      "Version": "4.1.2",
+      "Commands": [
+        {
+          "Name": "Start-ADTProcess",
+          "Source": "https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.2/src/PSAppDeployToolkit/Public/Start-ADTProcess.ps1",
+          "Contract": "e2b92f661a0aa7676af3e06caf242582d2867e91d24456ae70ff293fe30ae1a8"
+        },
+        {
+          "Name": "Start-ADTProcessAsUser",
+          "Source": "https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.2/src/PSAppDeployToolkit/Public/Start-ADTProcessAsUser.ps1",
+          "Contract": "ae696dbe1f091a7336accbb7362187463c29014fdfb30cfe50262fac828050ce"
+        }
+      ]
+    },
+    {
+      "Version": "4.1.3",
+      "Commands": [
+        {
+          "Name": "Start-ADTProcess",
+          "Source": "https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.3/src/PSAppDeployToolkit/Public/Start-ADTProcess.ps1",
+          "Contract": "e2b92f661a0aa7676af3e06caf242582d2867e91d24456ae70ff293fe30ae1a8"
+        },
+        {
+          "Name": "Start-ADTProcessAsUser",
+          "Source": "https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.3/src/PSAppDeployToolkit/Public/Start-ADTProcessAsUser.ps1",
+          "Contract": "ae696dbe1f091a7336accbb7362187463c29014fdfb30cfe50262fac828050ce"
+        }
+      ]
+    },
+    {
+      "Version": "4.1.4",
+      "Commands": [
+        {
+          "Name": "Start-ADTProcess",
+          "Source": "https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.4/src/PSAppDeployToolkit/Public/Start-ADTProcess.ps1",
+          "Contract": "909a6f53cefd40e8b725ee5a266b7513dc5d4cd17cc4563bb704017bff738bfb"
+        },
+        {
+          "Name": "Start-ADTProcessAsUser",
+          "Source": "https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.4/src/PSAppDeployToolkit/Public/Start-ADTProcessAsUser.ps1",
+          "Contract": "80dd24499764386bc211244009b67588d54505615cc8a13b3148d5960fb891c1"
+        }
+      ]
+    },
+    {
+      "Version": "4.1.5",
+      "Commands": [
+        {
+          "Name": "Start-ADTProcess",
+          "Source": "https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.5/src/PSAppDeployToolkit/Public/Start-ADTProcess.ps1",
+          "Contract": "909a6f53cefd40e8b725ee5a266b7513dc5d4cd17cc4563bb704017bff738bfb"
+        },
+        {
+          "Name": "Start-ADTProcessAsUser",
+          "Source": "https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.5/src/PSAppDeployToolkit/Public/Start-ADTProcessAsUser.ps1",
+          "Contract": "80dd24499764386bc211244009b67588d54505615cc8a13b3148d5960fb891c1"
+        }
+      ]
+    },
+    {
+      "Version": "4.1.6",
+      "Commands": [
+        {
+          "Name": "Start-ADTProcess",
+          "Source": "https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.6/src/PSAppDeployToolkit/Public/Start-ADTProcess.ps1",
+          "Contract": "c96069ea3f32f02906e3a6f597617395144b6290c36fd6e9d505dc5a970ee487"
+        },
+        {
+          "Name": "Start-ADTProcessAsUser",
+          "Source": "https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.6/src/PSAppDeployToolkit/Public/Start-ADTProcessAsUser.ps1",
+          "Contract": "f2d629bcd1003b9c113c37195a1c3adf24b433ad5b3193be6bdf24c26e0669a1"
+        }
+      ]
+    },
+    {
+      "Version": "4.1.7",
+      "Commands": [
+        {
+          "Name": "Start-ADTProcess",
+          "Source": "https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.7/src/PSAppDeployToolkit/Public/Start-ADTProcess.ps1",
+          "Contract": "c96069ea3f32f02906e3a6f597617395144b6290c36fd6e9d505dc5a970ee487"
+        },
+        {
+          "Name": "Start-ADTProcessAsUser",
+          "Source": "https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.7/src/PSAppDeployToolkit/Public/Start-ADTProcessAsUser.ps1",
+          "Contract": "f2d629bcd1003b9c113c37195a1c3adf24b433ad5b3193be6bdf24c26e0669a1"
+        }
+      ]
+    },
+    {
+      "Version": "4.1.8",
+      "Commands": [
+        {
+          "Name": "Start-ADTProcess",
+          "Source": "https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.8/src/PSAppDeployToolkit/Public/Start-ADTProcess.ps1",
+          "Contract": "c96069ea3f32f02906e3a6f597617395144b6290c36fd6e9d505dc5a970ee487"
+        },
+        {
+          "Name": "Start-ADTProcessAsUser",
+          "Source": "https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.8/src/PSAppDeployToolkit/Public/Start-ADTProcessAsUser.ps1",
+          "Contract": "b18d84e860962451ba9a2403d8c8fde2c3968f7054eb567a20b2ddfb9346286d"
+        }
+      ]
+    }
+  ]
+}

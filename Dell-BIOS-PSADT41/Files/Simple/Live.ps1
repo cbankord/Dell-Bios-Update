@@ -1,4 +1,4 @@
-# MedelaBIOS-FileVersion: 2.3.0
+# MedelaBIOS-FileVersion: 4.0.1
 # Temporary UI status only. SYSTEM owns the deadline; no restart scheduled task
 # or Windows shutdown timer is armed. UI files never contain credentials.
 function Get-MedelaProcessResult($Handle) {
@@ -85,7 +85,9 @@ function Start-MedelaLiveUI([string]$Root,[string]$Phase) {
     try {
         Write-MedelaLiveStatus $context $Phase
         $arguments='-NoProfile -STA -File "{0}" -Mode Live -StatusPath "{1}"' -f (Join-Path $Root 'UI/Show-BiosUI.ps1'),$context.Path
-        $context.Handle=Start-ADTProcessAsUser -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -ArgumentList $arguments -CreateNoWindow -NoStreamLogging -NoWait -PassThru -IgnoreExitCodes '*'
+        # PSADT 4.1.4+ puts IgnoreExitCodes in waiting parameter sets only.
+        # The live monitor reads the asynchronous result and checks its code.
+        $context.Handle=Start-ADTProcessAsUser -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -ArgumentList $arguments -CreateNoWindow -NoStreamLogging -NoWait -PassThru
         $result=Get-MedelaProcessResult $context.Handle
         if ($null -ne $result) { Write-MedelaUIFailure $result;throw 'The progress/restart UI exited during launch.' }
         return $context
@@ -103,9 +105,11 @@ function Stop-MedelaLiveUI($Context) {
 function Invoke-MedelaStaging([string]$Root,[string]$Files) {
     $ui=$null; $worker=$null; $uiLost=$false
     try {
+        Write-BiosLog 'Starting progress UI through PSADT (asynchronous).'
         $ui=Start-MedelaLiveUI $Root Preparing
         # No timeout and no KillChildProcessesWithParent: never kill a firmware
         # worker because a window closes, the session ends, or power changes.
+        Write-BiosLog 'Starting BIOS preparation worker through PSADT (asynchronous).'
         $worker=Invoke-MedelaInstaller $Root $Files -NoWait
         while ($null -eq ($result=Get-MedelaProcessResult $worker)) {
             try {

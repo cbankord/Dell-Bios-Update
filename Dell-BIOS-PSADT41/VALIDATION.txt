@@ -1,3 +1,50 @@
+V4.0.1 Install Now / PSADT parameter binding validation - 2026-09-17
+
+PASS: 615 assertions across six isolated PowerShell 7.4.7 processes on Linux:
+  60  Tests/Test-Deployment.ps1
+ 103  Tests/Test-Builder.ps1
+  34  Tests/V2/Test-Cache.ps1
+  54  Tests/V2/Test-SimpleDeployment.ps1
+  57  Tests/V2/Test-Live.ps1
+ 307  Tests/V4/Test-ProcessBinding.ps1
+Counts include parser/fixture assertions, not independent Windows E2E scenarios.
+Run each suite in its own process from Dell-BIOS-PSADT41:
+  pwsh -NoProfile -File <path above>
+
+The new suite reconstructs inert advanced functions from official parameter
+metadata for Start-ADTProcess and Start-ADTProcessAsUser at tags 4.1.0-4.1.8.
+PowerShell's actual binder reproduces AmbiguousParameterSet for all three old
+calls on 4.1.4-4.1.8 (including NoWait:$false), and accepts the corrected calls
+on all nine releases. Earlier releases accept the old combination too.
+The fixture records source URLs; Tests/Tools/Export-PSADTProcessParameters.ps1
+regenerates it by parsing reviewed sources without importing/executing them.
+
+The suite executes the real prompt, installer and staging wrappers, covering
+synchronous UI control codes, preflight, asynchronous progress before worker,
+actual result propagation for 0/3010/1618/60001, failed UI launch preventing worker
+launch, failed worker launch retiring transient status, and distinct safe log
+boundaries. No asynchronous call adds IgnoreExitCodes, Timeout or parent-kill
+options. Existing live tests exercise UI loss while a worker continues and
+guarded restart cancellation. Builder tests produce complete inert packages;
+cache/flow tests retain state and replacement protections.
+
+PASS: git diff --check and PowerShell parser coverage for all PS1/PSD1 files.
+NOT RUN: native Windows PowerShell 5.1, actual custom PSADT module execution,
+WPF, SYSTEM/user-session process creation, Intune, real BIOS, BitLocker or restart.
+Framework bodies, default expressions and validation callbacks are not executed
+by the metadata regression; Windows-only identity types have inert substitutes.
+This proves the parameter-set correction, not native Windows end-to-end behavior.
+
+Required pilot: rebuild with the same approved BIOS/settings and prepared PSADT
+4.1 ZIP using BuilderVersion 4.0.1. Deploy the full Source/package and matching
+new detection. On a pilot device validate Install Now -> visible preparation ->
+actual worker result -> guarded restart warning -> post-boot verification. Retain
+the existing power, credential, recovery and Intune restart-policy pilot gates.
+Do not force runtime replacement when an accepted appointment or firmware
+transaction is unresolved; follow OPERATIONS.md. No Main/v2/v3 change is included.
+
+Previous validation records follow.
+
 V4.0 scheduling option and custom window validation - 2026-09-17
 
 PASS: 569 assertions across 12 fresh PowerShell 7.4.7 processes on Linux:

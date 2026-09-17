@@ -1,3 +1,30 @@
+# v4.0.1 fix Install Now process binding - 2026-09-17
+
+- Reproduce the reported "Parameter set cannot be resolved" / wrapper exit
+  60001 with official PSADT 4.1.4-4.1.8 parameter definitions. These releases
+  exclude IgnoreExitCodes from NoWait parameter sets; 4.1.0-4.1.3 accepted the
+  previous combination. The progress launch can fail before the BIOS worker starts.
+- Remove IgnoreExitCodes from asynchronous progress/restart UI and BIOS worker
+  launches. Keep NoWait/PassThru and consume the actual Task result in the existing
+  monitor. Do not bind NoWait at all for synchronous/preflight calls, since even
+  NoWait:$false selects its parameter set. Keep IgnoreExitCodes for waiting calls
+  that deliberately inspect worker results or UI control exit codes themselves.
+- Log progress-UI and BIOS-worker launch boundaries without command arguments or
+  credentials. Preserve worker lifetime, actual exit codes, transaction locks,
+  firmware gates, BitLocker recovery, fixed deadlines and guarded restart behavior.
+- Bump Deployment.ps1 and Live.ps1 tattoos, plus BuilderVersion, to 4.0.1 so full
+  package/manifest/detection rebuilds deliver the correction through normal cache
+  refresh. Accepted work and unresolved firmware still block runtime replacement;
+  never delete state or replace individual cached files to force this patch.
+- Add a reproducible metadata-only fixture from all nine official 4.1 releases
+  and 307 binding assertions exercising real deployment wrappers with the actual
+  PowerShell binder. Cover the old failure, both launch modes, explicit false,
+  preflight, worker results 0/3010/1618/60001 and launch-failure cleanup. Previous
+  permissive mocks did not enforce these release-specific parameter restrictions.
+- Pass 615 assertions across six targeted PowerShell 7.4.7/Linux suites. No real
+  framework process, firmware or restart was executed. Windows PowerShell 5.1,
+  your custom PSADT ZIP, SYSTEM/session launch and Dell device pilot remain required.
+
 # v4.0 configurable scheduling and custom window chrome - 2026-09-17
 
 - Branch from v3 `243f384`; preserve Main, v2 and v3. Add the builder's

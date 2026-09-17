@@ -1,4 +1,4 @@
-# MedelaBIOS-FileVersion: 4.0.0
+# MedelaBIOS-FileVersion: 4.0.1
 # One PSADT invocation owns staging/restart. A temporary task can launch it later.
 function Assert-MedelaHost {
     if (-not [Environment]::Is64BitProcess -or [Security.Principal.WindowsIdentity]::GetCurrent().User.Value -ne 'S-1-5-18') { throw 'Run the deployment as SYSTEM in x64 Windows PowerShell.' }
@@ -87,7 +87,12 @@ function Invoke-MedelaInstaller([string]$Root,[string]$Files,[switch]$PreflightO
     $ps="$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
     $arguments='-NoProfile -NonInteractive -File "{0}" -PackageFiles "{1}"' -f (Join-Path $Root 'Runtime\Install-DellBIOS.ps1'),$Files
     if ($PreflightOnly) { $arguments+=' -PreflightOnly' }
-    $result=Start-ADTProcess -FilePath $ps -ArgumentList $arguments -WindowStyle Hidden -PassThru -IgnoreExitCodes '*' -NoWait:$NoWait
+    $processParams=@{FilePath=$ps;ArgumentList=$arguments;WindowStyle='Hidden';PassThru=$true}
+    # Do not bind a false NoWait switch: it still selects a NoWait parameter set.
+    # PSADT 4.1.4+ rejects IgnoreExitCodes together with NoWait. In asynchronous
+    # mode our monitor consumes the actual result/exit code instead.
+    if ($NoWait) { $processParams.NoWait=$true } else { $processParams.IgnoreExitCodes='*' }
+    $result=Start-ADTProcess @processParams
     if ($null -eq $result) { throw 'BIOS installer returned no process result.' }
     if ($NoWait) { return $result }
     return [int]$result.ExitCode

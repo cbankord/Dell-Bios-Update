@@ -229,7 +229,7 @@ throw 'The build must NEVER execute the template'
     $secondPreset=Import-PackagePreset (Join-Path $second.OutputDirectory 'Settings.psd1')
     Assert (-not $secondPolicy.AllowScheduleLater -and -not $secondManifest.DeploymentPolicy.AllowScheduleLater -and -not $secondPreset.AllowScheduleLater) 'Disabled scheduling survives full build, records and preset round trip'
     Assert ($secondPolicy.WindowHours -eq 48 -and $secondPolicy.RestartCountdownMinutes -eq 60 -and $secondPolicy.RestartReminderMinutes -eq 15) 'Scheduling toggle leaves deferral and restart policy intact'
-    Assert ($secondManifest.BuilderVersion -eq '4.0.0' -and (Test-Path (Join-Path $second.SourcePath 'Files/UI/WindowChrome.ps1')) -and (Test-Path (Join-Path $second.SourcePath 'Files/UI/Theme.xaml'))) 'V4 packages shared custom caption and theme resources'
+    Assert ($secondManifest.BuilderVersion -eq '4.0.1' -and (Test-Path (Join-Path $second.SourcePath 'Files/UI/WindowChrome.ps1')) -and (Test-Path (Join-Path $second.SourcePath 'Files/UI/Theme.xaml'))) 'V4 packages shared custom caption and theme resources'
     # WPF image decoding is a Windows boundary. Exercise real packaging/hash/
     # allowlist logic with inert icon bytes and mock only assembly load/decode.
     function Add-Type {param($AssemblyName)
