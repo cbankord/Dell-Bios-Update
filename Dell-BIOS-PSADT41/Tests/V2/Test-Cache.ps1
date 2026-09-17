@@ -17,11 +17,11 @@ try {
     $stateHash=(Get-FileHash $statePath).Hash
     Write-RuntimeManifest $files
     $plan=Get-CacheUpdatePlan $files $cache
-    Check ($plan.Count -eq 13 -and @($plan|Where-Object Reason -ne 'Missing').Count -eq 0) 'All managed files identified on first install'
+    Check ($plan.Count -eq 15 -and @($plan|Where-Object Reason -ne 'Missing').Count -eq 0) 'All managed files identified on first install'
     Check (@($plan|Where-Object Source -match 'BIOS-Password|BIOS-Config|ApprovedBIOS').Count -eq 0) 'Cache allowlist excludes credentials and firmware/configuration'
     $script:events=New-Object 'Collections.Generic.List[string]'
     Update-MedelaCache $files $cache $plan {param($m) $script:events.Add($m)}
-    Check ($events.Count -eq 13) 'Initial copies are recorded without secret data'
+    Check ($events.Count -eq 15) 'Initial copies are recorded without secret data'
     $plan=Get-CacheUpdatePlan $files $cache
     Check (@($plan|Where-Object Reason -ne 'Current').Count -eq 0) 'Exact installed bytes are current'
     $current=Join-Path $cache 'Runtime/Common.ps1'
@@ -104,5 +104,18 @@ try {
     [IO.File]::WriteAllBytes($logo,[byte[]]@(9,9,9,9))
     $plan=Get-CacheUpdatePlan $files $cache
     Check (@($plan|Where-Object { $_.Destination -eq 'UI/Assets/test-logo.png' -and $_.Reason -eq 'HashMismatch' }).Count -eq 1) 'Binary asset drift is detected without an inline tattoo'
+    [IO.File]::WriteAllText($brandPath,($brand.Replace("IconFile = ''","IconFile = 'Assets/test-icon.ico'")))
+    [IO.File]::WriteAllBytes((Join-Path $files 'UI/Assets/test-icon.ico'),[byte[]]@(1,2,3,4))
+    Write-RuntimeManifest $files
+    $plan=Get-CacheUpdatePlan $files $cache;Update-MedelaCache $files $cache $plan
+    $icon=Join-Path $cache 'UI/Assets/test-icon.ico'
+    Check ((Get-FileHash $icon).Hash -eq (Get-FileHash (Join-Path $files 'UI/Assets/test-icon.ico')).Hash) 'Custom icon is copied through the approved manifest'
+    [IO.File]::WriteAllBytes($icon,[byte[]]@(9,9,9,9))
+    $plan=Get-CacheUpdatePlan $files $cache
+    Check (@($plan|Where-Object { $_.Destination -eq 'UI/Assets/test-icon.ico' -and $_.Reason -eq 'HashMismatch' }).Count -eq 1) 'ICO drift is detected using its branding version and hash'
+    Update-MedelaCache $files $cache $plan
+    Check ((Get-FileHash $icon).Hash -eq (Get-FileHash (Join-Path $files 'UI/Assets/test-icon.ico')).Hash) 'Only approved icon bytes are restored'
+    [IO.File]::WriteAllText($brandPath,($brand.Replace("IconFile = ''","IconFile = '../BIOS-Password.psd1'")))
+    Reject {Write-RuntimeManifest $files} 'Icon configuration cannot publish credentials or escape UI/Assets'
     Write-Output "PASS: $count cache/version/repair assertions. Real file IO; no Windows ACL or firmware operations."
 } finally { Remove-Item -LiteralPath $temp -Recurse -Force }

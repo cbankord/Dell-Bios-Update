@@ -1,10 +1,11 @@
-# MedelaBIOS-FileVersion: 2.2.0
+# MedelaBIOS-FileVersion: 4.0.0
 @{
     CompanyName = 'Your company'
     AppTitle = 'Device care'
     Heading = 'A little maintenance. A stronger device.'
     Purpose = 'An approved BIOS update will improve the security and reliability of your Dell computer.'
     SupportText = 'Need help? Contact your IT service desk.'
+    IconFile = '' # Local Assets/app-icon.png or .ico; blank uses the built-in vector icon.
     LogoFile = '' # e.g. Assets\company-logo.png; PNG/JPG only; local relative path.
     BannerFile = '' # e.g. Assets\company-banner.jpg; optional, displayed above content.
     AccentColor = '#2457D6'

@@ -1,4 +1,4 @@
-# MedelaBIOS-FileVersion: 3.1.0
+# MedelaBIOS-FileVersion: 4.0.0
 # Called only by the trusted SYSTEM deployment while it holds Package.lock.
 function Get-MedelaScheduledPackagePath([string]$Root) { Join-Path $Root 'State/ScheduledPackage' }
 function Get-MedelaScheduledPackage([string]$Root) {
@@ -107,6 +107,7 @@ function New-MedelaScheduledPackage([string]$Root,[string]$Files,$Config) {
     } finally { if (-not $ready -and (Test-Path -LiteralPath $slot)) { Remove-Item -LiteralPath $slot -Recurse -Force } }
 }
 function Save-MedelaInstallSchedule([string]$Root,[string]$Files,$Config,$Policy,$State,[string]$StatePath,[string]$RequestedUtc) {
+    if (-not (Get-AllowScheduleLater $Policy)) { throw 'Installation scheduling is disabled for this package. Existing appointments and the original deadline remain unchanged.' }
     $null=Assert-MedelaScheduleChoice $RequestedUtc $State (Get-SimpleNow $State)
     New-MedelaScheduledPackage $Root $Files $Config
     $when=Assert-MedelaScheduleChoice $RequestedUtc $State (Get-SimpleNow $State)

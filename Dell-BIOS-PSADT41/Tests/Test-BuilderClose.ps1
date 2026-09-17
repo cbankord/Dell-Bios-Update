@@ -3,6 +3,7 @@
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version 3
 $root=Split-Path $PSScriptRoot -Parent
+. "$root/Files/UI/WindowChrome.ps1"
 $count=0
 function Assert($Condition,[string]$Name) { $script:count++; if (-not $Condition) { throw "FAIL: $Name" } }
 $tokens=$null; $errors=$null
@@ -45,12 +46,14 @@ $window | Add-Member ScriptMethod Close {
 $script:job=$null; $script:closeRequested=$false
 & $click
 Assert ($window.Closed -eq 1 -and $window.CleanExit) 'Close exits immediately while idle'
+Invoke-BiosCaptionAction $window Close
+Assert ($window.Closed -eq 2 -and $window.CleanExit) 'Custom caption Close uses the same immediate idle exit'
 $key=[pscustomobject]@{Key='Escape';Handled=$false}
 & $escape $window $key
-Assert ($key.Handled -and $window.Closed -eq 2) 'Escape uses the idle close path'
+Assert ($key.Handled -and $window.Closed -eq 3) 'Escape uses the idle close path'
 $key=[pscustomobject]@{Key='Enter';Handled=$false}
 & $escape $window $key
-Assert (-not $key.Handled -and $window.Closed -eq 2) 'Other keys do not exit the builder'
+Assert (-not $key.Handled -and $window.Closed -eq 3) 'Other keys do not exit the builder'
 
 foreach ($fail in @($false,$true)) {
     $partial=Join-Path ([IO.Path]::GetTempPath()) ('BuilderClose-'+[guid]::NewGuid()+'.tmp')
@@ -77,7 +80,7 @@ foreach ($fail in @($false,$true)) {
         Assert ($script:closeRequested -and $window.Closed -eq 0 -and -not $controls.CloseButton.IsEnabled) 'Active build queues close without exiting or stopping the worker'
         $key=[pscustomobject]@{Key='Escape';Handled=$false}
         & $escape $window $key
-        $window.Close() # Title-bar X/repeated close follows the same event.
+        Invoke-BiosCaptionAction $window Close # Actual custom caption dispatch.
         Assert (([regex]::Matches($controls.BuildLog.Text,'Close requested')).Count -eq 1) 'Repeated Close/Escape/X queues only one request'
         & $tick
         Assert (-not $script:job.Handle.IsCompleted -and [IO.File]::Exists($partial) -and $window.Closed -eq 0) 'Pending build and partial output are untouched by close polling'

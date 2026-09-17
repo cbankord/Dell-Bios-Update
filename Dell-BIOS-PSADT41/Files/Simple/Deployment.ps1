@@ -1,4 +1,4 @@
-# MedelaBIOS-FileVersion: 3.1.0
+# MedelaBIOS-FileVersion: 4.0.0
 # One PSADT invocation owns staging/restart. A temporary task can launch it later.
 function Assert-MedelaHost {
     if (-not [Environment]::Is64BitProcess -or [Security.Principal.WindowsIdentity]::GetCurrent().User.Value -ne 'S-1-5-18') { throw 'Run the deployment as SYSTEM in x64 Windows PowerShell.' }
@@ -58,13 +58,14 @@ function Enter-LegacyRetirement([string]$Root,$Config,[string]$StatePath,$Policy
         throw
     }
 }
-function Invoke-MedelaPrompt([string]$Root,[string]$Mode,[string]$Deadline,[int]$Minutes,[string]$Message='', [switch]$Overdue,[int]$RestartMinutes=60,[string]$ScheduledInstallUtc='') {
+function Invoke-MedelaPrompt([string]$Root,[string]$Mode,[string]$Deadline,[int]$Minutes,[string]$Message='', [switch]$Overdue,[int]$RestartMinutes=60,[string]$ScheduledInstallUtc='',[bool]$AllowScheduleLater=$true) {
     $ps="$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
     $ui=Join-Path $Root 'UI\Show-BiosUI.ps1'
     $encoded=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Message))
     $arguments='-NoProfile -STA -File "{0}" -Mode {1} -DeadlineUtc "{2}" -TimeoutMinutes {3} -RestartMinutes {4}' -f $ui,$Mode,$Deadline,$Minutes,$RestartMinutes
     if ($encoded) { $arguments+=' -Message64 '+$encoded }
     if ($Overdue) { $arguments+=' -Overdue' }
+    if (-not $AllowScheduleLater) { $arguments+=' -DisableScheduling' }
     if ($ScheduledInstallUtc) {
         # Normalize trusted state before placing it in a native command line.
         $arguments+=' -ScheduledInstallUtc "'+([datetimeoffset]::Parse($ScheduledInstallUtc)).ToUniversalTime().ToString('o')+'"'
@@ -76,6 +77,7 @@ function Invoke-MedelaPrompt([string]$Root,[string]$Mode,[string]$Deadline,[int]
     }
     if ($result.ExitCode -eq 15) {
         $reply=([string]$result.StdOut).Trim()
+        if (-not $AllowScheduleLater) { throw 'The user prompt requested scheduling while it is disabled. No schedule was created or changed.' }
         if ($Mode -ne 'Install' -or $reply -notmatch '\AMEDELA_INSTALL_UTC=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?(?:Z|\+00:00))\z') { throw 'The user prompt returned an invalid installation time.' }
         return [pscustomobject]@{ExitCode=15;ScheduledInstallUtc=$Matches[1]}
     }
@@ -133,7 +135,7 @@ function Invoke-MedelaDeployment([string]$Files) {
             $retained=Get-MedelaScheduledPackage $root
         }
         if ($null -ne $retained -and ($retained.PackageId -ne (Get-PackageId $config) -or $changesNeeded)) {
-            throw 'Retry: a retained scheduled package must finish before replacing its runtime or enrolling another BIOS package.'
+            throw 'Retry: honoring the previously accepted installation appointment with its retained package. New scheduling requests and runtime/policy changes wait until that work is resolved; the original deadline is unchanged.'
         }
         $held=Enter-LegacyRetirement $root $config $statePath $policy
         Update-MedelaCache $Files $root $plan {param($Message) Write-BiosLog $Message}
@@ -171,7 +173,7 @@ function Invoke-MedelaDeployment([string]$Files) {
             Start-SimpleNotice $state $now
             Save-ScheduleFile $state $statePath
             if (-not $scheduledDue) {
-                $choice=Invoke-MedelaPrompt $root Install $state.DeadlineUtc $policy.PromptTimeoutMinutes -Overdue:($now -ge [datetimeoffset]::Parse($state.DeadlineUtc)) -RestartMinutes $policy.RestartCountdownMinutes -ScheduledInstallUtc $state.ScheduledInstallUtc
+                $choice=Invoke-MedelaPrompt $root Install $state.DeadlineUtc $policy.PromptTimeoutMinutes -Overdue:($now -ge [datetimeoffset]::Parse($state.DeadlineUtc)) -RestartMinutes $policy.RestartCountdownMinutes -ScheduledInstallUtc $state.ScheduledInstallUtc -AllowScheduleLater (Get-AllowScheduleLater $policy)
                 $now=Get-SimpleNow $state
                 if ($choice -isnot [int] -and $choice.ExitCode -eq 15) {
                     Save-MedelaInstallSchedule $root $Files $config $policy $state $statePath $choice.ScheduledInstallUtc

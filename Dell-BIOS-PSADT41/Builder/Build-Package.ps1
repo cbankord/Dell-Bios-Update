@@ -6,6 +6,7 @@ $script:BuilderSource = Split-Path $PSScriptRoot -Parent
 . "$script:BuilderSource/Files/Common.ps1"
 . "$script:BuilderSource/Files/Simple/State.ps1"
 . "$script:BuilderSource/Files/Simple/Cache.ps1"
+. "$script:BuilderSource/Files/UI/WindowChrome.ps1"
 
 function Get-BuilderFailureMessage([Management.Automation.ErrorRecord]$Record) {
     # EndInvoke can wrap a PSSecurityException. Never print script source or
@@ -37,12 +38,12 @@ function New-PackageBuildSettings {
         MinimumBatteryPercent=51; MinimumBatteryRuntimeMinutes=0
         MinimumFreeSpaceGB=1; BitLockerRebootCount=1; EscrowDestination='EntraID'
         StagedDetectionHours=24; WindowHours=72; ReminderHours=4; PromptTimeoutMinutes=10
-        RestartCountdownMinutes=60; RestartReminderMinutes=15
+        AllowScheduleLater=$true; RestartCountdownMinutes=60; RestartReminderMinutes=15
         CompanyName='Your company'; AppTitle='Device care'
         Heading='A little maintenance. A stronger device.'
         Purpose='An approved BIOS update will improve the security and reliability of your Dell computer.'
         SupportText='Need help? Contact your IT service desk.'
-        LogoPath=''; BannerPath=''; AccentColor='#2457D6'; BackgroundColor='#F3F5FA'
+        LogoPath=''; BannerPath=''; IconPath=''; AccentColor='#2457D6'; BackgroundColor='#F3F5FA'
         SurfaceColor='#FFFFFF'; TextColor='#14213D'; MutedColor='#475569'
         ReadyMessage='Your BIOS update is ready. A restart is required to finish installing it. Save your work, keep your computer plugged into power, and do not turn it off until the update has finished and Windows returns.'
         PackageReviewed=$false
@@ -51,7 +52,7 @@ function New-PackageBuildSettings {
 function Write-BuilderData([string]$Path, [System.Collections.IDictionary]$Data) {
     # Data-only PSD1: quoting is literal, including apostrophes, $, backticks and Unicode.
     $lines = New-Object 'System.Collections.Generic.List[string]'
-    $lines.Add('# MedelaBIOS-FileVersion: 2.3.0')
+    $lines.Add('# MedelaBIOS-FileVersion: 4.0.0')
     $lines.Add('@{')
     foreach ($key in $Data.Keys) {
         if ($key -notmatch '^[A-Za-z][A-Za-z0-9]*$') { throw 'Invalid data field name.' }
@@ -84,6 +85,7 @@ function Import-PackagePreset([string]$Path) {
     foreach ($key in $data.Keys) {
         if ($key -in @('PreparationLeadMinutes','FinalWarningMinutes','SafetyRetryMinutes')) { continue }
         if (-not $settings.ContainsKey($key)) { throw 'Preset contains an unknown field. Passwords must never be stored in presets.' }
+        if ($key -in @('AllowScheduleLater','BiosPasswordRequired','RequireBattery','PackageReviewed') -and $data[$key] -isnot [bool]) { throw 'Preset Boolean settings must use literal $true or $false.' }
         $settings[$key]=$data[$key]
     }
     $settings.PackageReviewed=$false
@@ -112,11 +114,16 @@ function Protect-BuilderDirectory([string]$Path) {
     }
     Set-Acl -LiteralPath $Path -AclObject $acl -ErrorAction Stop
 }
+function Assert-BuilderIcon([string]$Path) {
+    if ([IO.Path]::GetExtension($Path) -notin @('.png','.ico') -or (Get-Item -LiteralPath $Path).Length -gt 1MB) { throw 'Choose a PNG or ICO title-bar icon no larger than 1 MB.' }
+    try { Add-Type -AssemblyName PresentationCore; $null=Read-BiosWindowIcon ([IO.Path]::GetFullPath($Path)) }
+    catch { Stop-BuilderValidation 'The title-bar icon could not be decoded. Choose a valid local PNG/ICO up to 1024 by 1024 and 1 MB.' }
+}
 function Assert-BuilderSettings([hashtable]$Settings) {
     $defaults=New-PackageBuildSettings
     foreach ($key in $defaults.Keys) { if (-not $Settings.ContainsKey($key)) { throw "Missing setting: $key." } }
     foreach ($key in $Settings.Keys) { if (-not $defaults.ContainsKey($key)) { throw 'Unknown build setting. Supply the password separately as a SecureString.' } }
-    foreach ($key in @('BiosPasswordRequired','RequireBattery','PackageReviewed')) {
+    foreach ($key in @('BiosPasswordRequired','RequireBattery','PackageReviewed','AllowScheduleLater')) {
         if ($Settings[$key] -isnot [bool]) { throw "$key must be Boolean." }
     }
     foreach ($key in @('MinimumBatteryPercent','MinimumBatteryRuntimeMinutes','MinimumFreeSpaceGB','BitLockerRebootCount','StagedDetectionHours','WindowHours','ReminderHours','PromptTimeoutMinutes','RestartCountdownMinutes','RestartReminderMinutes')) {
@@ -126,7 +133,7 @@ function Assert-BuilderSettings([hashtable]$Settings) {
     foreach ($key in @('BiosPath','FrameworkZip','OutputRoot')) {
         if ([string]::IsNullOrWhiteSpace($Settings[$key])) { throw "Choose $key." }
     }
-    foreach ($key in @('BiosPath','FrameworkZip','ContentPrepTool','LogoPath','BannerPath')) {
+    foreach ($key in @('BiosPath','FrameworkZip','ContentPrepTool','LogoPath','BannerPath','IconPath')) {
         if ($Settings[$key]) {
             if (-not (Test-Path -LiteralPath $Settings[$key] -PathType Leaf)) { throw "Selected $key file does not exist." }
             Assert-BuilderPath $Settings[$key]
@@ -148,6 +155,7 @@ function Assert-BuilderSettings([hashtable]$Settings) {
     foreach ($key in @('LogoPath','BannerPath')) {
         if ($Settings[$key] -and ([IO.Path]::GetExtension($Settings[$key]) -notin @('.png','.jpg','.jpeg') -or (Get-Item -LiteralPath $Settings[$key]).Length -gt 10MB)) { throw 'Brand images must be PNG/JPG files no larger than 10 MB.' }
     }
+    if ($Settings.IconPath) { Assert-BuilderIcon $Settings.IconPath }
     $config=Get-BuilderConfig $Settings ('A'*64)
     Assert-Config $config
     Assert-SimplePolicy (Get-BuilderPolicy $Settings)
@@ -159,7 +167,7 @@ function Get-BuilderConfig([hashtable]$Settings, [string]$Hash) {
 }
 function Get-BuilderPolicy([hashtable]$Settings) {
     $policy=@{Schema=3}
-    foreach ($key in @('WindowHours','ReminderHours','PromptTimeoutMinutes','RestartCountdownMinutes','RestartReminderMinutes')) { $policy[$key]=$Settings[$key] }
+    foreach ($key in @('WindowHours','ReminderHours','PromptTimeoutMinutes','RestartCountdownMinutes','RestartReminderMinutes','AllowScheduleLater')) { $policy[$key]=$Settings[$key] }
     return $policy
 }
 function Expand-BuilderZip([string]$ZipPath, [string]$Destination) {
@@ -322,7 +330,7 @@ function New-DellBiosPackage {
         foreach ($name in @('Common.ps1','Install-DellBIOS.ps1','Verify-AfterReboot.ps1')) {
             Copy-Item -LiteralPath (Join-Path "$script:BuilderSource/Files" $name) -Destination $files -Force
         }
-        foreach ($relative in @('Simple/Cache.ps1','Simple/State.ps1','Simple/Safety.ps1','Simple/Scheduling.ps1','Simple/Live.ps1','Simple/Deployment.ps1','UI/Window.xaml','UI/Show-BiosUI.ps1','UI/Assets/README.md')) {
+        foreach ($relative in @('Simple/Cache.ps1','Simple/State.ps1','Simple/Safety.ps1','Simple/Scheduling.ps1','Simple/Live.ps1','Simple/Deployment.ps1','UI/Window.xaml','UI/WindowChrome.ps1','UI/Theme.xaml','UI/Show-BiosUI.ps1','UI/Assets/README.md')) {
             $dest=Join-Path $files $relative
             $null=[IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($dest))
             Copy-Item -LiteralPath (Join-Path "$script:BuilderSource/Files" $relative) -Destination $dest -Force
@@ -351,7 +359,7 @@ function New-DellBiosPackage {
         foreach ($key in @('CompanyName','AppTitle','Heading','Purpose','SupportText','AccentColor','BackgroundColor','SurfaceColor','TextColor','MutedColor','ReadyMessage')) { $brand[$key]=$Settings[$key] }
         $brand.PowerMessage=if ($Settings.RequireBattery) { 'Connect AC power and charge the battery to at least {0}%. Keep the computer plugged in throughout the update.' -f $Settings.MinimumBatteryPercent } else { 'Keep the computer connected to AC power throughout the update.' }
         if ($Settings.MinimumBatteryRuntimeMinutes -gt 0) { $brand.PowerMessage+=' At least {0} minutes of estimated battery runtime is also required.' -f $Settings.MinimumBatteryRuntimeMinutes }
-        foreach ($pair in @(@('LogoPath','LogoFile','company-logo'),@('BannerPath','BannerFile','company-banner'))) {
+        foreach ($pair in @(@('LogoPath','LogoFile','company-logo'),@('BannerPath','BannerFile','company-banner'),@('IconPath','IconFile','app-icon'))) {
             if ($Settings[$pair[0]]) {
                 $name=$pair[2]+[IO.Path]::GetExtension($Settings[$pair[0]]).ToLowerInvariant()
                 Copy-Item -LiteralPath $Settings[$pair[0]] -Destination (Join-Path "$files/UI/Assets" $name) -Force
@@ -376,7 +384,7 @@ function New-DellBiosPackage {
         }
         $phase='writing build notes'
         $manifest=[ordered]@{
-            BuilderVersion='3.1.0'; BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
+            BuilderVersion='4.0.0'; BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
             FrameworkVersion=$framework.Version; FrameworkSHA256=$frameworkHash
             BIOS=$config; DeploymentPolicy=$policy; HasPassword=$Settings.BiosPasswordRequired
             OutputMode=$(if ($intuneWin) { 'IntuneWin' } else { 'SourceOnly' })
@@ -393,6 +401,7 @@ function New-DellBiosPackage {
             'Framework ZIP SHA256: ' + $frameworkHash
             'Approved BIOS SHA256: ' + $config.SHA256
             'Output mode: ' + $manifest.OutputMode
+            'Allow schedule later: ' + $policy.AllowScheduleLater
             'Original deployment script archived. Three deployment functions and BIOS metadata replaced.'
             'Configuration, branding, deferral policy and Intune scripts generated.'
             'Local shared password included: ' + $Settings.BiosPasswordRequired

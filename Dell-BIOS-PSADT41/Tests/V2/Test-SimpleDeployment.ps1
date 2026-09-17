@@ -48,8 +48,9 @@ try {
     }
     function Unregister-ScheduledTask {param($InputObject,[switch]$Confirm,$ErrorAction) $script:installTask=$null;$script:taskRemovals++}
     function Invoke-MedelaPrompt {
-        param($Root,$Mode,$Deadline,$Minutes,$Message,[switch]$Overdue,$RestartMinutes,$ScheduledInstallUtc)
+        param($Root,$Mode,$Deadline,$Minutes,$Message,[switch]$Overdue,$RestartMinutes,$ScheduledInstallUtc,[bool]$AllowScheduleLater=$true)
         $script:modes.Add($Mode)
+        if ($Mode -eq 'Install') { $script:offeredScheduling=$AllowScheduleLater }
         if($script:answers.Count -eq 0){throw 'Unexpected UI call'}
         $script:answers.Dequeue()
     }
@@ -153,6 +154,49 @@ try {
     Check ((Invoke-MedelaDeployment $files) -eq 0 -and -not (Test-Path (Get-MedelaScheduledPackagePath $cache))) 'Actual BIOS and recovered protection permit protected snapshot cleanup'
     Check ((SameTime (Read-ScheduleFile $path).DeadlineUtc $overdueDeadline)) 'Verified cleanup preserves original deadline'
 
+    # A changed policy cannot replace an accepted package or pending capsule.
+    # Exercise the complete hand-off: accepted source runs, verification retires
+    # it, then the incoming disabled policy can activate without a new window.
+    Fresh; $when=[datetimeoffset]::UtcNow.AddHours(2)
+    $answers.Enqueue([pscustomobject]@{ExitCode=15;ScheduledInstallUtc=$when.ToString('o')});$answers.Enqueue(14)
+    $null=Invoke-MedelaDeployment $files
+    $acceptedFiles=Join-Path $temp AcceptedFiles; Copy-Item -LiteralPath $files -Destination $acceptedFiles -Recurse
+    $incomingPolicy=Join-Path $files 'Simple/Policy.psd1'
+    [IO.File]::WriteAllText($incomingPolicy,((Get-Content $incomingPolicy -Raw) -replace 'AllowScheduleLater\s*=\s*\$true','AllowScheduleLater = $false'))
+    Write-RuntimeManifest $files
+    $stateHash=(Get-FileHash $path).Hash;$cachedPolicy=Join-Path $cache 'Runtime/Policy.psd1';$policyHash=(Get-FileHash $cachedPolicy).Hash
+    $modes.Clear()
+    Check ((Invoke-MedelaDeployment $files) -eq 1618 -and $modes.Count -eq 0 -and $launches -eq 0) 'Incoming disabled policy waits for accepted work without new UI or staging'
+    Check ((Get-FileHash $path).Hash -eq $stateHash -and (Get-FileHash $cachedPolicy).Hash -eq $policyHash -and $taskRegisters -eq 1) 'Policy migration does not replace runtime, state or accepted task'
+    $s=Read-ScheduleFile $path;$first=[datetimeoffset]::UtcNow.AddHours(-1)
+    $s.FirstNoticeUtc=$first.ToString('o');$s.DeadlineUtc=$first.AddHours(72).ToString('o');$s.ScheduledInstallUtc=[datetimeoffset]::UtcNow.AddMinutes(-1).ToString('o')
+    $s.NextNoticeUtc=[datetimeoffset]::UtcNow.AddHours(4).ToString('o');Save-ScheduleFile $s $path;$acceptedDeadline=$s.DeadlineUtc
+    $answers.Enqueue(13)
+    Check ((Invoke-MedelaDeployment $acceptedFiles) -eq 1618 -and $launches -eq 1 -and ($modes -join ',') -eq 'Restart') 'Retained accepted source executes when due without another scheduling choice'
+    Check ((Invoke-MedelaDeployment $files) -eq 1618 -and (Get-FileHash $cachedPolicy).Hash -eq $policyHash -and $launches -eq 1) 'Incoming policy cannot overwrite an unresolved staged transaction'
+    $script:txn=[pscustomobject]@{Status='Verified';SuspendedByUs='0'};$script:actual=$config.TargetVersion
+    Check ((Invoke-MedelaDeployment $files) -eq 0 -and -not (Test-Path (Get-MedelaScheduledPackagePath $cache))) 'Verified accepted work releases the retained source for policy migration'
+    Check (-not (Import-PowerShellDataFile $cachedPolicy).AllowScheduleLater -and (SameTime (Read-ScheduleFile $path).DeadlineUtc $acceptedDeadline)) 'Disabled policy activates after resolution without resetting the fixed deadline'
+
+    Fresh;$answers.Enqueue(11)
+    Check ((Invoke-MedelaDeployment $files) -eq 1618 -and -not $offeredScheduling -and $taskRegisters -eq 0 -and $null -eq $installTask) 'Fresh disabled deployment still defers and creates no installation task'
+    $disabledDeadline=(Read-ScheduleFile $path).DeadlineUtc
+    Expire-Reminder;$answers.Enqueue([pscustomobject]@{ExitCode=15;ScheduledInstallUtc=[datetimeoffset]::UtcNow.AddHours(1).ToString('o')})
+    Check ((Invoke-MedelaDeployment $files) -eq 60001 -and $taskRegisters -eq 0 -and -not (Test-Path (Get-MedelaScheduledPackagePath $cache))) 'Disabled privileged deployment refuses a forged scheduling response without creating work'
+    Check ((SameTime (Read-ScheduleFile $path).DeadlineUtc $disabledDeadline)) 'Rejected scheduling keeps the original deadline'
+    $answers.Enqueue(10);$answers.Enqueue(13)
+    Check ((Invoke-MedelaDeployment $files) -eq 1618 -and $launches -eq 1 -and $modes[-1] -eq 'Restart') 'Disabled scheduling leaves Install Now and its restart warning working'
+
+    # Disabled is a gate for new requests, never a reason to drop existing state.
+    Fresh;$answers.Enqueue(11);$null=Invoke-MedelaDeployment $files
+    $s=Read-ScheduleFile $path;$first=[datetimeoffset]::UtcNow.AddHours(-73)
+    $s.FirstNoticeUtc=$first.ToString('o');$s.DeadlineUtc=$first.AddHours(72).ToString('o');$s.ScheduledInstallUtc=$first.AddHours(60).ToString('o');$s.Phase='Scheduled'
+    Save-ScheduleFile $s $path;New-MedelaScheduledPackage $cache $files $config
+    $script:powerBad=$true;$modes.Clear();$answers.Enqueue(14)
+    Check ((Invoke-MedelaDeployment $files) -eq 1618 -and $launches -eq 0 -and $taskRegisters -eq 1) 'Disabled policy honors and repairs an existing due appointment but power still blocks staging'
+    $script:powerBad=$false;$answers.Enqueue(13);$modes.Clear()
+    Check ((Invoke-MedelaDeployment $files) -eq 1618 -and $launches -eq 1 -and ($modes -join ',') -eq 'Restart' -and $null -eq $installTask) 'Existing appointment under disabled policy stages safely and retires its task'
+
     $t=[datetimeoffset]'2026-09-01T12:00:00Z'
     $legacy=@{PackageId='unit';Phase='Scheduled';WindowHours=48;FirstNotifiedUtc=$t.ToString('o');DeadlineUtc=$t.AddHours(48).ToString('o');NextNoticeUtc=$t.AddHours(4).ToString('o');LastObservedUtc=$t.ToString('o');ScheduledUtc=$t.AddHours(20).ToString('o')}
     $migrated=Import-LegacyDeadline $legacy unit 72
@@ -168,9 +212,9 @@ try {
     $ast=[Management.Automation.Language.Parser]::ParseFile("$root/Files/UI/Show-BiosUI.ps1",[ref]$tokens,[ref]$errors)
     $fn=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Update-Prompt'},$true)
     . ([scriptblock]::Create($fn.Extent.Text))
-    $Mode='Install';$Demo=$false;$Overdue=$false;$deadline=[datetimeoffset]::UtcNow.AddDays(-1)
+    $Mode='Install';$Demo=$false;$Overdue=$false;$DisableScheduling=$false;$deadline=[datetimeoffset]::UtcNow.AddDays(-1)
     $script:expires=[datetimeoffset]::UtcNow.AddSeconds(-1);$script:choice=1;$script:accepted=$false
-    $c=@{Schedule=@{Visibility='Visible'};SchedulePanel=@{Visibility='Collapsed'};Secondary=@{Visibility='Visible'};StatusText=@{Text=''};Remaining=@{Text=''}}
+    $c=@{CaptionClose=@{IsEnabled=$true};Schedule=@{Visibility='Visible'};SchedulePanel=@{Visibility='Collapsed'};Secondary=@{Visibility='Visible'};StatusText=@{Text=''};Remaining=@{Text=''}}
     $window=[pscustomobject]@{Closed=$false};$window|Add-Member ScriptMethod Close {$this.Closed=$true}
     Update-Prompt
     Check ($c.Secondary.Visibility -eq 'Collapsed' -and $c.Schedule.Visibility -eq 'Collapsed' -and $script:choice -eq 10 -and $window.Closed) 'Overdue visible prompt removes schedule/defer and requests installation on timeout'

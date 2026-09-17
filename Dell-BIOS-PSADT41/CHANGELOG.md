@@ -1,3 +1,39 @@
+# v4.0 configurable scheduling and custom window chrome - 2026-09-17
+
+- Branch from v3 `243f384`; preserve Main, v2 and v3. Add the builder's
+  **Allow schedule later** checkbox, enabled by default, and literal Boolean
+  `AllowScheduleLater` across presets, generated policy, review and build records.
+  Legacy presets/policies retain enabled behavior; reject string Boolean values.
+- Before expiry, enabled packages show Install Now / Schedule Install / Defer;
+  disabled packages show Install Now / Defer. The prompt adapter and privileged
+  writer both reject disabled scheduling/rescheduling before creating state,
+  source or tasks. Expiry always removes schedule/defer without bypassing safety.
+  Deferrals, original deadline, 60-minute restart and 15-minute reminders persist.
+- Honor accepted appointments independently of the flag. Preserve the existing
+  package/firmware replacement guard: changed incoming code/policy waits until
+  retained accepted work runs, verifies and cleans its source. Document when the
+  new disabled policy activates and removal of competing older Intune assignments.
+  Keep task repair/due execution for existing intent, even under disabled policy.
+- Replace both standard title bars with WPF WindowChrome and branded icon/title,
+  labeled minimize/maximize/restore/close controls, native caption/resize behavior,
+  compact work-area bounds, scroll/wrap layout and shared focus/hover/high-contrast
+  resources. Custom Close goes through existing Closing guards: immediate or
+  post-cleanup builder exit, live update minimize, overdue close refusal.
+- Add separate Theme.xaml, presentation-only WindowChrome.ps1 and builder
+  Branding.psd1. Select a local PNG/ICO in the builder, preview it, validate decode,
+  size/dimensions and package it with a manifest hash. Use a vector device icon
+  when absent. Cache allowlist includes 15 core files plus approved brand assets;
+  ICO drift is repaired like other assets. No Medela parent/sibling ACL changes.
+- Extend preview with -DisableScheduling and combine with -Overdue; retain
+  progress/restart demos with no system actions. Update full-package/detection
+  rebuild, signing, preset, icon, migration and Windows pilot instructions.
+- Pass 569 assertions across 12 isolated PowerShell 7.4.7/Linux suites, including
+  complete inert builds for both flags and PNG/ICO packaging, byte-preserving
+  migration holds, due accepted execution, caption dispatch and async cleanup.
+  Add a separate Windows-only native WPF smoke script; it was NOT run here.
+  Actual PS5.1, WPF/DPI/Narrator, icon decoding, NTFS, SYSTEM PSADT/Task Scheduler,
+  Intune and Dell hardware pilots remain required. No endpoint update was run.
+
 # v3.1 restore Schedule Install - 2026-09-17
 
 - Restore the third action in the compact notice: Install Now / Schedule Install /

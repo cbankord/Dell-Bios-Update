@@ -1,4 +1,4 @@
-DELL BIOS V3.1 - GENERATED PACKAGE
+DELL BIOS V4 - GENERATED PACKAGE
 
 1. Source is your complete customized PSADT 4.1.x deployment. Review preserved
    bootstrap/extensions for additional installs or competing restart behavior.
@@ -38,7 +38,13 @@ DELL BIOS V3.1 - GENERATED PACKAGE
    REPLACE OLD ENROLLMENT-BASED DETECTION as well as package content.
    Uninstall/repair intentionally fail; never use them to reset firmware state.
 
-5. Install Now / Schedule Install / Defer is the branded notice. The fixed window
+5. AllowScheduleLater in Source/Files/Simple/Policy.psd1 controls installation
+   scheduling, not deferrals or the post-install restart countdown. Enabled
+   (default): Install Now / Schedule Install / Defer. Disabled: Install Now / Defer;
+   SYSTEM rejects new/rescheduled appointments and no fresh install task is made.
+   Existing accepted appointments are honored. Settings.psd1, BuildManifest.json
+   and Build.log record the setting. Old presets without it default to enabled.
+   The fixed window
    begins with the first active-user prompt launch attempt; retries/code updates
    never reset it. Schedule Install picks a local time at least five minutes ahead
    within that window. Defer/X/timeout keeps any saved appointment. After expiry,
@@ -71,7 +77,13 @@ DELL BIOS V3.1 - GENERATED PACKAGE
    verification; never delete firmware/recovery state to force its cleanup.
    Only the temporary post-boot verification task remains after staging.
 
-7. Existing v2 pilots: remove old competing assignments. The new package retires
+7. V3 or existing v4 appointments: remove competing older Intune assignments but
+   preserve the accepted local task and protected package. An incoming changed
+   package returns retry until accepted work runs, is verified and its private
+   source cleaned. Its disabled policy/runtime then activates. It never cancels
+   an appointment, replaces unresolved firmware or grants a new deferral window.
+   A disabled policy can still repair/honor existing accepted intent.
+   Existing v2 pilots: remove old competing assignments. The new package retires
    only its known Controller/UserUI tasks and old Program Files UI when firmware
    is safe, importing the original deadline. It holds if a BIOS transaction is
    unresolved. Do not delete state to force migration. Old protected ProgramData
@@ -82,6 +94,13 @@ DELL BIOS V3.1 - GENERATED PACKAGE
    password, power/space/model holds, escrow and post-boot BIOS/BitLocker recovery.
    Verify the local schedule picker, reschedule, original deadline, missed times,
    task launch from the retained framework, safe retries and private source cleanup.
+   Test both Allow schedule later states, old presets and accepted-work migration.
+   Verify custom caption dragging, resize, minimize/maximize/restore, keyboard and
+   screen-reader labels at 100/150/200% DPI, small screens and high contrast.
+   Live progress/restart Close minimizes; overdue Close cannot defer. Builder
+   Close is immediate while idle or waits for active-build cleanup. Icons are
+   local PNG/ICO assets; a vector device icon is used when no icon is selected.
+   Preview: Files/UI/Show-BiosUI.ps1 -Demo [-DisableScheduling] [-Overdue].
    Verify progress, minimize/X, 15-minute sound/recenter, one-hour expiry, sleep /
    Modern Standby, 50% vs 51%, AC loss, UI/host loss and application-blocked restart.
    Portable tests are not real firmware or Windows integration validation.

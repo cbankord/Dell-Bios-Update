@@ -1,3 +1,68 @@
+V4.0 scheduling option and custom window validation - 2026-09-17
+
+PASS: 569 assertions across 12 fresh PowerShell 7.4.7 processes on Linux:
+  58  Tests/Test-Deployment.ps1
+ 103  Tests/Test-Builder.ps1
+  22  Tests/Test-BuilderClose.ps1
+  14  Tests/V2/Test-Guards.ps1
+  34  Tests/V2/Test-Cache.ps1
+  54  Tests/V2/Test-SimpleDeployment.ps1
+  13  Tests/V2/Test-Migration.ps1
+  57  Tests/V2/Test-Live.ps1
+  52  Tests/V2/Test-CachePermissions.ps1
+  75  Tests/V2/Test-Scheduling.ps1
+  24  Tests/V2/Test-ScheduledRecovery.ps1
+  63  Tests/V4/Test-Experience.ps1
+Counts include parser/fixture assertions, not independent Windows E2E scenarios.
+Reproduce each suite in its own process from Dell-BIOS-PSADT41:
+  pwsh -NoProfile -File <path above>
+
+New coverage executes real builder/state/cache/deployment functions and actual
+UI event callbacks, using inert files and modeled Windows boundaries:
+- Complete generated packages with both Boolean values; defaults and old presets,
+  explicit false round-trip, invalid Boolean strings, policy/build records and
+  unchanged deferral/restart settings. Custom framework integration remains valid.
+- New disabled schedules and reschedules fail before task/source/state mutation.
+  Forged UI scheduling replies fail in the adapter and privileged deployment.
+  Fresh disabled deployments defer without creating installation tasks.
+- Changed incoming policy holds without changing cached policy, accepted state
+  or task. The accepted source stages when due, unresolved firmware blocks
+  replacement, and verified cleanup permits disabled policy activation with the
+  exact original deadline. Existing due state under disabled policy repairs its
+  task and proceeds only when power is safe.
+- Enabled/disabled/predeadline/overdue UI paths, stale schedule/defer clicks,
+  preview close, overdue timeout and close guard, live progress/restart minimize,
+  Restart Now phase gate and caption maximize/restore dispatch.
+- Builder custom Close reaches the real idle/active cleanup guard, including
+  repeated requests, successful/failed worker cleanup and credential disposal.
+- PNG/ICO are copied through real builds and hashed in 16-entry asset manifests;
+  native decoding is mocked. Cache detects and repairs ICO byte drift. Invalid
+  paths, traversal, executable extensions and empty mocked-decode input fail.
+- Both XAML caption structures are checked for resizing, hit testing and labels;
+  work-area bounds are exercised at simulated 100/150/200% sizes. This does NOT
+  prove layout, accessibility, native event routing or actual DPI handling.
+- Existing model/power/hash/password/BitLocker/recovery, transaction/lock, task
+  cleanup, credential exclusion and shared Medela permission regressions pass.
+
+PASS: git diff --check; all PS1/PSD1 sources parse and all XAML is well formed.
+NOT RUN: Tests/V4/Test-WindowsUI.ps1 (Windows PowerShell 5.1 / STA required).
+That separate inert smoke script loads actual WPF resources, default/custom icon
+and caption click routing/Closing guards. It does not stage BIOS or create tasks.
+WindowsRegistryIntegration was not run. No real Dell/content-prep EXE, endpoint
+firmware, BitLocker, scheduled task, restart or Intune assignment was changed.
+
+Required Windows pilot: both flag states and old presets with your real custom
+PSADT 4.1 ZIP, PNG/ICO decode/rendering, builder cleanup/console exit, mixed DPI and
+small displays at 100/150/200%, keyboard/hover/focus/Narrator/high contrast, live
+SYSTEM user-session prompts, real v3 accepted-source migration and task retries,
+Intune runtime/detection/restart policy, NTFS parent/sibling preservation and the
+existing hardware safety/recovery gates. Follow OPERATIONS.md before rollout.
+The disabled incoming package waits for accepted work to resolve; it does not
+rewrite an old package in place. Remove competing old Intune assignments so they
+cannot offer an earlier policy. Main/v2/v3 are preserved; these changes are on v4.
+
+Previous validation records follow.
+
 V3.1 Schedule Install validation - 2026-09-17
 
 PASS: 465 assertions across 11 fresh PowerShell 7.4.7 processes on Linux:

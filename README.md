@@ -1,10 +1,16 @@
-# Dell BIOS deployment — v3
+# Dell BIOS deployment — v4
 
-V3.1 restores **Install Now / Schedule Install / Defer**. Users choose an
-installation date and local time within the original deferral window (72 hours
-by default). Rescheduling never extends that deadline. After expiry, only
-Install Now is offered. Scheduling chooses when preparation starts; the existing
-60-minute restart warning begins only after successful staging.
+V4 adds **Allow schedule later** to the package builder, enabled by default.
+Enabled packages offer **Install Now / Schedule Install / Defer**; disabled
+packages offer **Install Now / Defer** and reject scheduling in SYSTEM code too.
+After the original deadline (72 hours by default), only Install Now remains.
+The option controls installation time, independently of the existing 60-minute
+post-staging restart countdown. Old presets retain scheduling by default.
+
+Both windows use a custom title bar with a replaceable PNG/ICO icon, native
+dragging/resizing, minimize/maximize/close controls and a shared accessible theme.
+Branding remains separate from firmware logic. Preview supports both checkbox
+states and overdue notices without changing the device.
 
 One temporary SYSTEM task runs the retained approved package at the chosen time
 and retries unmet prerequisites every 15 minutes. It retires after staging; the
@@ -28,6 +34,9 @@ safety settings and branding. The builder creates a new deployment and, optional
 [Builder](Dell-BIOS-PSADT41/Builder/README.md) ·
 [Changes](Dell-BIOS-PSADT41/CHANGELOG.md)
 
-Main remains the original version; v2 remains at v2.3. Older scheduler code
-remains available in Git history. Windows pilot validation is required before
-fleet deployment.
+V4 branches from v3 commit `243f384`; Main, v2 and v3 are preserved. Accepted
+appointments finish using their retained package before an incoming runtime or
+disabled policy activates; no deadline or unresolved transaction is overwritten.
+Retire competing old Intune assignments as described in Operations. See
+[validation results](Dell-BIOS-PSADT41/VALIDATION.txt) for automated checks and the
+remaining Windows PowerShell 5.1/WPF/PSADT/device pilot requirements.

@@ -1,4 +1,4 @@
-# MedelaBIOS-FileVersion: 3.1.0
+# MedelaBIOS-FileVersion: 4.0.0
 function ConvertFrom-StateJson([string]$Json) {
     if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')) { ConvertFrom-Json -InputObject $Json -DateKind String }
     else { ConvertFrom-Json -InputObject $Json }
@@ -25,7 +25,14 @@ function Save-ScheduleFile($State,[string]$Path) {
     else { [IO.File]::Move(($Path+'.new'),$Path) }
 }
 function Get-PackageId($Config) { 'v2-'+$Config.TargetVersion+'-'+$Config.SHA256.ToLowerInvariant() }
+function Get-AllowScheduleLater($Policy) {
+    # Old v3 policy/presets omit this field and retain their enabled behavior.
+    if (-not $Policy.ContainsKey('AllowScheduleLater')) { return $true }
+    if ($Policy.AllowScheduleLater -isnot [bool]) { throw 'AllowScheduleLater must be Boolean.' }
+    return $Policy.AllowScheduleLater
+}
 function Assert-SimplePolicy($Policy) {
+    $null=Get-AllowScheduleLater $Policy
     foreach ($name in @('WindowHours','ReminderHours','PromptTimeoutMinutes','RestartCountdownMinutes','RestartReminderMinutes')) { if ($Policy[$name] -isnot [int]) { throw "Invalid $name." } }
     if ($Policy.Schema -ne 3 -or $Policy.WindowHours -lt 1 -or $Policy.WindowHours -gt 168 -or $Policy.ReminderHours -lt 1 -or $Policy.ReminderHours -gt 12 -or $Policy.PromptTimeoutMinutes -lt 1 -or $Policy.PromptTimeoutMinutes -gt 30) { throw 'Invalid simple deployment policy.' }
     if ($Policy.RestartCountdownMinutes -lt 15 -or $Policy.RestartCountdownMinutes -gt 120 -or $Policy.RestartReminderMinutes -lt 1 -or $Policy.RestartReminderMinutes -gt 30 -or $Policy.RestartReminderMinutes -ge $Policy.RestartCountdownMinutes) { throw 'Invalid restart countdown/reminder policy.' }

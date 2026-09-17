@@ -92,6 +92,15 @@ throw 'The build must NEVER execute the template'
     [IO.File]::WriteAllText((Join-Path $template 'PSAppDeployToolkit.Extensions/custom.ps1'),"throw 'do not run extensions during build'")
     $zip=Join-Path $fixture 'Custom Framework.zip'; [IO.Compression.ZipFile]::CreateFromDirectory($template,$zip)
     $settings=New-PackageBuildSettings
+    Assert ($settings.AllowScheduleLater -is [bool] -and $settings.AllowScheduleLater -and $settings.IconPath -eq '') 'New packages default to enabled scheduling and built-in icon'
+    $legacyPreset=Join-Path $fixture 'v3-preset.psd1'
+    Write-BuilderData $legacyPreset @{WindowHours=48;CompanyName='Legacy company'}
+    $legacySettings=Import-PackagePreset $legacyPreset
+    Assert ($legacySettings.AllowScheduleLater -and $legacySettings.IconPath -eq '' -and $legacySettings.WindowHours -eq 48) 'Old preset gains scheduling/icon defaults without changing its window'
+    Write-BuilderData $legacyPreset @{AllowScheduleLater=$false}
+    Assert (-not (Import-PackagePreset $legacyPreset).AllowScheduleLater) 'Explicit false survives preset loading'
+    Write-BuilderData $legacyPreset @{AllowScheduleLater='false'}
+    Reject {Import-PackagePreset $legacyPreset} 'String false cannot silently enable scheduling in the checkbox'
     $settings.FrameworkZip=$zip; $settings.BiosPath=Join-Path $fixture 'Approved Dell.exe'
     [IO.File]::WriteAllText($settings.BiosPath,'Inert BIOS fixture, NEVER execute')
     $settings.OutputRoot=$fixture; $settings.Models=@("Dell Pro Max 16 MC16250", "Dell O'Brien `$model")
@@ -122,9 +131,10 @@ throw 'The build must NEVER execute the template'
     $brand=Import-PowerShellDataFile (Join-Path $source 'Files/UI/Branding.psd1')
     Assert ($brand.CompanyName -ceq $settings.CompanyName -and $brand.PowerMessage -match '51%') 'Branding is data and power text follows actual threshold'
     $policy=Import-PowerShellDataFile (Join-Path $source 'Files/Simple/Policy.psd1')
+    Assert ($policy.AllowScheduleLater -eq $true -and (Get-Content (Join-Path $result.OutputDirectory 'Build.log') -Raw).Contains('Allow schedule later: True')) 'Enabled scheduling reaches policy and build notes'
     Assert ($policy.WindowHours -eq 48 -and $policy.Schema -eq 3 -and $policy.RestartCountdownMinutes -eq 60 -and $policy.RestartReminderMinutes -eq 15) 'Configured deferral and restart deadlines are packaged'
     $cachePlan=Get-CacheUpdatePlan (Join-Path $source 'Files') (Join-Path $fixture 'EmptyCache')
-    Assert ($cachePlan.Count -eq 13 -and @($cachePlan | Where-Object Reason -ne 'Missing').Count -eq 0) 'Runtime manifest validates the complete simple payload'
+    Assert ($cachePlan.Count -eq 15 -and @($cachePlan | Where-Object Reason -ne 'Missing').Count -eq 0) 'Runtime manifest validates the complete simple payload'
     Assert (-not (Test-Path (Join-Path $source 'Files/Scheduler')) -and -not (Test-Path (Join-Path $source 'Files/Install-Scheduler.ps1'))) 'Builder does not package the retired daemon'
     $generated=Get-Content -LiteralPath (Join-Path $source 'Invoke-AppDeployToolkit.ps1') -Raw
     Assert ($generated.Contains("CustomField='preserve `$ and { braces }'") -and $generated.Contains('NEVER execute the template')) 'Custom metadata and bootstrap retained'
@@ -211,8 +221,38 @@ throw 'The build must NEVER execute the template'
     }
     # Repeated builds never overwrite the previous artifact; password-free fleets omit the file.
     $settings.BiosPasswordRequired=$false
+    $settings.AllowScheduleLater=$false
     $second=New-DellBiosPackage $settings
     Assert ($second.OutputDirectory -ne $result.OutputDirectory -and -not (Test-Path -LiteralPath (Join-Path $second.SourcePath 'Files/BIOS-Password.psd1'))) 'New build directory and no password file for password-free configuration'
+    $secondPolicy=Import-PowerShellDataFile (Join-Path $second.SourcePath 'Files/Simple/Policy.psd1')
+    $secondManifest=Get-Content (Join-Path $second.OutputDirectory 'BuildManifest.json') -Raw|ConvertFrom-Json
+    $secondPreset=Import-PackagePreset (Join-Path $second.OutputDirectory 'Settings.psd1')
+    Assert (-not $secondPolicy.AllowScheduleLater -and -not $secondManifest.DeploymentPolicy.AllowScheduleLater -and -not $secondPreset.AllowScheduleLater) 'Disabled scheduling survives full build, records and preset round trip'
+    Assert ($secondPolicy.WindowHours -eq 48 -and $secondPolicy.RestartCountdownMinutes -eq 60 -and $secondPolicy.RestartReminderMinutes -eq 15) 'Scheduling toggle leaves deferral and restart policy intact'
+    Assert ($secondManifest.BuilderVersion -eq '4.0.0' -and (Test-Path (Join-Path $second.SourcePath 'Files/UI/WindowChrome.ps1')) -and (Test-Path (Join-Path $second.SourcePath 'Files/UI/Theme.xaml'))) 'V4 packages shared custom caption and theme resources'
+    # WPF image decoding is a Windows boundary. Exercise real packaging/hash/
+    # allowlist logic with inert icon bytes and mock only assembly load/decode.
+    function Add-Type {param($AssemblyName)
+        if ($AssemblyName -ne 'PresentationCore') {Microsoft.PowerShell.Utility\Add-Type -AssemblyName $AssemblyName}
+    }
+    function Read-BiosWindowIcon {param($Path) if((Get-Item -LiteralPath $Path).Length -eq 0){throw 'inert decode rejection'}; [pscustomobject]@{InertIcon=$true}}
+    try {
+        foreach ($extension in @('.png','.ico')) {
+            $settings.IconPath=Join-Path $fixture ('test-icon'+$extension)
+            [IO.File]::WriteAllBytes($settings.IconPath,[byte[]]@(1,2,3,4))
+            $iconBuild=New-DellBiosPackage $settings
+            $iconFiles=Join-Path $iconBuild.SourcePath Files
+            $iconBrand=Import-PowerShellDataFile (Join-Path $iconFiles UI/Branding.psd1)
+            $asset=Join-Path $iconFiles ('UI/'+$iconBrand.IconFile)
+            $iconManifest=Read-ApprovedRuntimeManifest $iconFiles
+            Assert ($iconBrand.IconFile -eq ('Assets/app-icon'+$extension) -and (Get-FileHash $asset).Hash -eq (Get-FileHash $settings.IconPath).Hash) ('Custom '+$extension+' icon copied literally to branded asset')
+            Assert (@($iconManifest.Files | Where-Object Destination -eq ('UI/'+$iconBrand.IconFile)).Count -eq 1 -and $iconManifest.Files.Count -eq 16) ('Custom '+$extension+' icon enters cache repair/detection manifest')
+        }
+        [IO.File]::WriteAllBytes($settings.IconPath,[byte[]]@())
+        Reject {Assert-BuilderSettings $settings} 'Undecodable icon fails before a package build'
+        $bad=$settings.Clone();$bad.IconPath=$settings.BiosPath
+        Reject {Assert-BuilderSettings $bad} 'Executable cannot be selected as an icon'
+    } finally {Remove-Item Function:Add-Type;Remove-Item Function:Read-BiosWindowIcon;$settings.IconPath=''}
     $global:DellBuilderTestSignatureValid=$false
     $before=@(Get-ChildItem -LiteralPath $fixture -Directory -Filter 'DellBIOS-*').Count
     Reject { New-DellBiosPackage $settings } 'Invalid Dell signature fails build'

@@ -1,9 +1,10 @@
-# MedelaBIOS-FileVersion: 3.1.0
+# MedelaBIOS-FileVersion: 4.0.0
 #requires -Version 5.1
 # One-shot unprivileged prompt. No firmware, tasks, pipe, state writes or restart.
 param(
     [switch]$Demo,
     [switch]$Overdue,
+    [switch]$DisableScheduling,
     [ValidateSet('Install','Restart','Progress','Live','Info')][string]$Mode='Install',
     [string]$DeadlineUtc='',
     [string]$ScheduledInstallUtc='',
@@ -26,28 +27,21 @@ try {
     if ($Demo -and -not $DeadlineUtc) { $DeadlineUtc=[datetimeoffset]::UtcNow.AddHours(72).ToString('o') }
     $deadline=if ($DeadlineUtc) { [datetimeoffset]::Parse($DeadlineUtc) } else { [datetimeoffset]::MaxValue }
     Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase,System.Windows.Forms
+    . (Join-Path $PSScriptRoot 'WindowChrome.ps1')
     $brand=Import-PowerShellDataFile (Join-Path $PSScriptRoot 'Branding.psd1')
     [xml]$xaml=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Window.xaml') -Raw
     $reader=New-Object Xml.XmlNodeReader $xaml
     $window=[Windows.Markup.XamlReader]::Load($reader)
     $c=@{}
-    foreach ($name in @('Logo','Banner','Company','Heading','Purpose','StatusCard','StatusText','Progress','Deadline','Remaining','Power','Support','ActionBar','Primary','Secondary','Schedule','SchedulePanel','InstallDate','InstallTime','ScheduleError','ConfirmSchedule','Back')) {
+    foreach ($name in @('Logo','Banner','Company','Heading','Purpose','StatusCard','StatusText','Progress','Deadline','Remaining','Power','Support','ActionBar','Primary','Secondary','Schedule','SchedulePanel','InstallDate','InstallTime','ScheduleError','ConfirmSchedule','Back','CaptionClose')) {
         $c[$name]=$window.FindName($name)
         if ($null -eq $c[$name]) { throw "Missing UI control: $name" }
     }
-    $area=[Windows.SystemParameters]::WorkArea
-    $window.MinWidth=[math]::Min($window.MinWidth,[math]::Max(240,$area.Width-24))
-    $window.MinHeight=[math]::Min($window.MinHeight,[math]::Max(240,$area.Height-24))
-    $window.Width=[math]::Min($window.Width,[math]::Max($window.MinWidth,$area.Width-24))
-    $window.Height=[math]::Min($window.Height,[math]::Max($window.MinHeight,$area.Height-24))
     $window.Title=$brand.AppTitle
     if ($Demo) { $window.Title+=' (Preview - no deployment actions)' }
-    $window.Background=$brand.BackgroundColor; $window.Foreground=$brand.TextColor
-    $c.StatusCard.Background=$brand.SurfaceColor; $c.ActionBar.Background=$brand.SurfaceColor
-    $c.Primary.Background=$brand.AccentColor; $c.Primary.Foreground='White'
+    Initialize-BiosWindowChrome $window (Join-Path $PSScriptRoot 'Theme.xaml') $brand (Get-BiosBrandIconPath $PSScriptRoot $brand)
     $c.Company.Text=$brand.CompanyName; $c.Heading.Text=$brand.Heading
     $c.Purpose.Text=$brand.Purpose; $c.Power.Text=$brand.PowerMessage; $c.Support.Text=$brand.SupportText
-    $c.Support.Foreground=$brand.MutedColor
     foreach ($pair in @(@('Logo','LogoFile'),@('Banner','BannerFile'))) {
         $relative=$brand[$pair[1]]
         if ($relative) {
@@ -59,12 +53,13 @@ try {
         }
     }
     $c.StatusText.Text='Install Now, choose an installation time, or Defer. After preparation, you will have '+$RestartMinutes+' minutes to save your work before a guarded automatic restart. Defer keeps the original deadline and any existing installation time.'
-    if ($Mode -ne 'Install') { $c.Schedule.Visibility='Collapsed' }
+    if ($DisableScheduling -and $Mode -eq 'Install') { $c.StatusText.Text='Choose Install Now or Defer. After preparation, you will have '+$RestartMinutes+' minutes to save your work before a guarded automatic restart. Deferring keeps the original deadline.' }
+    if ($Mode -ne 'Install' -or $DisableScheduling) { $c.Schedule.Visibility='Collapsed' }
     if ($Mode -eq 'Install') {
         $suggested=[datetime]::Now.AddMinutes(15)
         if ($ScheduledInstallUtc) {
             $suggested=([datetimeoffset]::Parse($ScheduledInstallUtc)).LocalDateTime
-            $c.StatusText.Text='Installation scheduled: '+$suggested.ToString('ddd, MMM d, yyyy h:mm tt')+'. Install Now starts sooner; Schedule Install changes the time; Defer keeps this appointment. The restart warning begins after preparation.'
+            $c.StatusText.Text='Installation scheduled: '+$suggested.ToString('ddd, MMM d, yyyy h:mm tt')+'. Install Now starts sooner; Defer keeps this appointment. '+$(if ($DisableScheduling) {'This previously accepted time remains in effect; new scheduling is disabled.'} else {'Schedule Install changes the time.'})+' The restart warning begins after preparation.'
         }
         # Overdue or missed appointments must not make DatePicker initialization
         # fail before the Install Now-only prompt can appear.
@@ -89,6 +84,9 @@ try {
     }
     [Windows.Automation.AutomationProperties]::SetName($c.Primary,($c.Primary.Content -replace '_',''))
     [Windows.Automation.AutomationProperties]::SetName($c.Secondary,($c.Secondary.Content -replace '_',''))
+    if ($Mode -eq 'Live') { $c.CaptionClose.ToolTip='Minimize update window'; [Windows.Automation.AutomationProperties]::SetName($c.CaptionClose,'Minimize update window') }
+    elseif ($Demo) { $c.CaptionClose.ToolTip='Close preview' }
+    elseif ($Mode -eq 'Install') { $c.CaptionClose.ToolTip='Defer until the next notice; any accepted appointment remains in effect' }
     $c.Deadline.Text=if ($DeadlineUtc -and $Mode -eq 'Install') { 'Install deferral deadline: '+$deadline.ToLocalTime().ToString('ddd, MMM d, yyyy h:mm tt zzz') } else { '' }
     $script:expires=[datetimeoffset]::UtcNow.AddMinutes($TimeoutMinutes)
     $script:demoRestartAt=[datetimeoffset]::UtcNow.AddMinutes($RestartMinutes)
@@ -160,8 +158,9 @@ try {
         }
         if ($Mode -eq 'Install') {
             $isOverdue=$Overdue -or $now -ge $deadline
+            $c.CaptionClose.IsEnabled=$Demo -or -not $isOverdue
             $c.Secondary.Visibility=if ($isOverdue) {'Collapsed'} else {'Visible'}
-            $c.Schedule.Visibility=if ($isOverdue) {'Collapsed'} else {'Visible'}
+            $c.Schedule.Visibility=if ($isOverdue -or $DisableScheduling) {'Collapsed'} else {'Visible'}
             if ($isOverdue) {
                 $c.SchedulePanel.Visibility='Collapsed'
                 $c.StatusText.Text='The deferral deadline has passed. Save your work and connect AC power. Preparation will start after this notice; every firmware safety check must still pass.'
@@ -180,6 +179,7 @@ try {
     function Confirm-InstallSchedule {
         try {
             $now=[datetimeoffset]::UtcNow
+            if ($DisableScheduling) { $c.SchedulePanel.Visibility='Collapsed'; $c.ScheduleError.Text='Installation scheduling is disabled for this package.'; return }
             if ($Overdue -or $now -ge $deadline) { Update-Prompt; return }
             if ($null -eq $c.InstallDate.SelectedDate -or $c.InstallTime.Text -notmatch '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$') { throw 'Select a date and enter a time as HH:mm, for example 14:30.' }
             $local=[datetime]::SpecifyKind(([datetime]$c.InstallDate.SelectedDate).Date.Add([timespan]::ParseExact(($c.InstallTime.Text+':00'),'hh\:mm\:ss',[Globalization.CultureInfo]::InvariantCulture)),[DateTimeKind]::Unspecified)
@@ -192,7 +192,7 @@ try {
         } catch { $c.ScheduleError.Text=$_.Exception.Message }
     }
     $c.Schedule.Add_Click({
-        if ($Mode -ne 'Install' -or $Overdue -or [datetimeoffset]::UtcNow -ge $deadline) { Update-Prompt; return }
+        if ($Mode -ne 'Install' -or $DisableScheduling -or $Overdue -or [datetimeoffset]::UtcNow -ge $deadline) { Update-Prompt; return }
         $c.SchedulePanel.Visibility='Visible'; $c.ScheduleError.Text=''
     })
     $c.ConfirmSchedule.Add_Click({ Confirm-InstallSchedule })

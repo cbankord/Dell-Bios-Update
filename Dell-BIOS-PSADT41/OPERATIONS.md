@@ -1,5 +1,78 @@
 # Medela BIOS operations and Windows pilot
 
+## Moving from v3 to v4
+
+V4 branches from latest v3 (`243f384`) and keeps the existing package identity,
+deadline state and firmware recovery workflow. Main/v2/v3 remain unchanged.
+Rebuild with the v4 builder and deploy the **complete package and matching new
+Intune detection**. New presentation helpers and policy cannot be delivered by
+copying only `Show-BiosUI.ps1`. Changed managed files use 4.0.0 tattoos; unchanged
+files retain their own versions. There are 15 core managed files plus brand assets.
+
+**Allow schedule later** defaults to enabled, including imported v3 presets
+without that field. `$false` removes Schedule Install and prevents new/rescheduled
+appointments in privileged code, while preserving deferrals, the fixed deadline
+and the post-install restart countdown. Use literal Booleans, not quoted strings.
+
+| Existing work | V4 migration behavior |
+|---|---|
+| No accepted appointment or unresolved firmware | Apply verified runtime/policy safely; preserve any enrolled original deadline |
+| Accepted appointment with retained package | Changed incoming package logs a hold and returns 1618 before cache/state replacement or a new notice |
+| Accepted work reaches its chosen time | Original retained source/task runs with all safety checks and visible progress, without another scheduling notice |
+| Staged/ambiguous firmware or protection recovery pending | Preserve runtime/transaction/recovery until definitively resolved |
+| Accepted work verified and private source cleaned | Apply incoming runtime/policy on the next attempt; no fresh deadline |
+| Existing accepted state already belongs to the running disabled policy | Keep/repair its task and honor it when due; reject all new schedules/reschedules |
+
+This is a hand-off, not an immediate rewrite of an accepted v3 package. Remove
+competing older Intune assignments when rolling out v4 so an older package cannot
+independently display its enabled scheduling policy. Leave its accepted local
+task/private source intact. The incoming disabled package never offers scheduling;
+its new runtime/settings take effect after the retained work resolves. A different
+BIOS package also waits. Never edit private state, remove recovery tasks or delete
+`State/ScheduledPackage` to force the transition. A persistent failure requires IT
+review using the retained logs and original recovery workflow.
+
+## V4 window and policy pilot
+
+Portable regressions exercise real decision code with inert Windows boundaries.
+They do not validate actual WPF rendering, Windows PowerShell 5.1 or firmware.
+Run the native smoke check as a signed-in standard user from the repository:
+
+```powershell
+powershell.exe -NoProfile -STA -File .\Tests\V4\Test-WindowsUI.ps1
+# Optional: also exercise decoding your actual branding file.
+powershell.exe -NoProfile -STA -File .\Tests\V4\Test-WindowsUI.ps1 -IconPath C:\Branding\device-care.ico
+```
+
+It loads both real XAML windows, theme/icon and caption handlers with an inert
+Closing guard. It does not load deployment logic, create tasks or flash/restart.
+Then complete these manual checks in addition to the firmware pilot below:
+
+- Build and save/reload both checkbox states. Import an old preset with no flag;
+  verify enabled. Check policy, Settings.psd1, BuildManifest.json and Build.log.
+- Preview `-Demo`, `-Demo -DisableScheduling`, and each with `-Overdue`. Confirm
+  three/two/one installation actions respectively. Preview Progress and Restart;
+  preview Close exits without real work. Test the packaged icon on the caption
+  and taskbar, the default icon, and rejected invalid image input.
+- At 100%, 150% and 200%, on a small display and between mixed-DPI monitors, drag,
+  resize, maximize/restore and minimize both apps. All fields/actions must remain
+  reachable with scrolling/wrapping. Test high contrast, Tab/Shift+Tab, access keys,
+  Enter/Space, Alt+F4, visible focus/hover and Narrator labels/status announcements.
+- Test the builder caption/footer Close and Escape while idle, building, handling
+  failure and after completion. A queued close must wait for cleanup/disposal,
+  leave completed output intact and return to the launching terminal without Ctrl+C.
+- Under real PSADT SYSTEM launch, test live progress/restart caption Close and
+  Minimize: neither terminates firmware nor cancels the countdown. Test overdue
+  Close/Alt+F4 and a stale Defer click. Test reminders after dragging/minimizing.
+- With a fresh disabled deployment, verify no `ManagedDellBIOS-ScheduledInstall`
+  task/source snapshot is created; Defer still retains the original deadline.
+  Create an enabled appointment, then deliver a disabled v4 package. Confirm the
+  migration hold, accepted task execution, retained deadline and later activation.
+  Repeat with missed time, sign-out, unsafe power and unresolved staged firmware.
+- Confirm ordinary Medela parent/sibling ACLs and application access are unchanged.
+  Pilot your custom PSADT 4.1 bootstrap, Intune retry/detection and the existing
+  60-minute/15-minute guarded restart behavior. Keep Intune on No specific action.
+
 ## Moving from the older v2 scheduler
 
 Rebuild with the current builder and replace both the Intune package and its
@@ -79,8 +152,8 @@ with IT; this release does not silently relocate the cache or offer a safety
 bypass. Do not remove this check, reset the shared ACL, or delete firmware state
 to make an unsafe location pass.
 
-Rebuild with the updated v3 builder and replace both the Intune package and its
-generated detection script. Changed v3.1 runtime files have 3.1.0 tattoos; unchanged runtime
+Rebuild with the updated v4 builder and replace both the Intune package and its
+generated detection script. Changed v4 runtime files have 4.0.0 tattoos; unchanged runtime
 files retain their own versions. Never edit just a cached script or reuse the old
 runtime manifest/detection hashes. Pending firmware recovery still blocks code
 replacement until that transaction is resolved.
@@ -108,7 +181,8 @@ refresh, sign-out, reboot and reinstallation cannot reset it. Missing enrolled
 state and corrupt/extended deadlines fail closed. Existing pending deadlines
 retain their original duration even if future policy chooses another value.
 
-Before the deadline, the notice offers Install Now, Schedule Install and Defer.
+Before the deadline, the notice offers Install Now and Defer, plus Schedule
+Install when AllowScheduleLater is enabled.
 Schedule Install uses a local date picker and editable 24-hour HH:mm time, at least
 five minutes ahead and no later than the original deadline. Defer/X/timeout keeps
 any saved appointment. A skipped/repeated DST time is rejected. A reschedule
@@ -191,11 +265,13 @@ kill or bypass of model/power/signature/hash/escrow checks is introduced.
 
 ## Troubleshooting
 
-If only Install Now and Defer appear, the prompt predates v3.1. Rebuild using the
-v3 builder and deploy the entire new Source/package plus matching detection.
+If only Install Now and Defer appear, check AllowScheduleLater first: this is the
+intended v4 disabled state. A prompt older than v3.1 also lacks scheduling.
+To enable it, rebuild with the v4 checkbox selected and deploy the entire new
+Source/package plus matching detection, subject to accepted-work migration holds.
 Do not copy only XAML or a cached script: scheduling also needs the new helper,
 state integration and manifest. Confirm the first-line tattoo in the package and
-cached `UI/Show-BiosUI.ps1` is 3.1.0. If firmware is already current, use preview;
+cached `UI/Show-BiosUI.ps1` is 4.0.0. If firmware is already current, use preview;
 a healthy target-or-newer BIOS intentionally skips the live install notice.
 
 Use the latest package's `Files\UI\Show-BiosUI.ps1 -Demo` in fresh Windows

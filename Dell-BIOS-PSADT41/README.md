@@ -1,4 +1,4 @@
-# Dell BIOS v3.1 — scheduled installation and guarded restart
+# Dell BIOS v4 — configurable scheduling and custom windows
 
 Build with `Builder/Start-PackageBuilder.cmd`, using your approved Dell BIOS EXE
 and prepared PSADT 4.1.x ZIP. Review the generated `READ-ME-FIRST.txt` before upload.
@@ -11,9 +11,10 @@ Intune scripts and a runtime integrity manifest. No BIOS/password is in Git.
    under `%ProgramData%\Medela\DellBIOS` (`C:\ProgramData\Medela\DellBIOS` normally).
 2. The compact branded UI runs once in the signed-in standard user's session.
    **Install Now** starts preparation through SYSTEM after all safety checks.
-   **Schedule Install** opens a local date/time picker within the original window.
+   **Schedule Install**, when enabled in the builder, opens a local date/time picker within the original window.
    **Defer**, closing the window or timing out before the deadline returns a retry,
-   keeping any existing appointment. The schedule can be changed before expiry.
+   keeping any existing appointment. The schedule can be changed before expiry
+   only while scheduling is enabled.
    The notice shows days/hours/minutes until Install Now becomes the only option.
 3. A fixed window (72 hours by default) is saved immediately before the first
    prompt launch into an active user session. This is a delivery-attempt timestamp,
@@ -83,12 +84,69 @@ managed restart uses `/r /t 0` without `/f`; applications may block it. No Windo
 countdown is armed, since a nonzero shutdown timeout implies forced app closure.
 See [Microsoft's shutdown options](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/shutdown).
 
+## Allow schedule later and migration
+
+The builder's **Allow schedule later** checkbox defaults to enabled. Its literal
+Boolean `AllowScheduleLater` is saved in `Settings.psd1`, generated
+`Source/Files/Simple/Policy.psd1`, `BuildManifest.json` and `Build.log`.
+Old presets/policies without the field default to enabled; invalid types such as
+the string `'false'` are rejected. Loading a preset still clears passwords and review.
+
+| Policy / time | Installation actions |
+|---|---|
+| Enabled, before original deadline | Install Now, Schedule Install, Defer |
+| Disabled, before original deadline | Install Now, Defer |
+| Either setting, deadline expired | Install Now only; firmware safety checks still mandatory |
+
+This setting controls **installation scheduling**, not the post-install restart
+countdown or deferrals. A fresh disabled deployment creates no installation task
+or retained scheduled package. Both the prompt adapter and SYSTEM schedule writer
+reject new/rescheduled appointments when disabled, including forged UI replies.
+The original deadline persists across policy changes. Already accepted work is
+never cancelled because the setting changed: its task can still be repaired and
+its due appointment runs after the normal safety gates.
+
+**Migration is a guarded hand-off.** If v3/v4 already retained a package for an
+appointment, a changed incoming package returns `1618` before replacing runtime
+or offering new choices. That accepted source runs at its saved time without a
+second scheduling notice. The new runtime/policy activates only after the accepted
+work is verified and its private source cleaned. Unresolved firmware/protection
+continues to block replacement. Remove competing old Intune assignments so they
+cannot independently offer the old policy; leave the accepted local task/source
+intact. See [the migration procedure](OPERATIONS.md#moving-from-v3-to-v4).
+
+## Custom windows and branding
+
+Builder and deployment windows share `Files/UI/Theme.xaml` and
+`Files/UI/WindowChrome.ps1`. WPF
+[WindowChrome](https://learn.microsoft.com/en-us/dotnet/api/system.windows.shell.windowchrome?view=windowsdesktop-9.0)
+retains native caption dragging, resizing and the system menu while the custom
+title bar displays the icon, application name and labeled controls. The builder
+starts at 920x740 device-independent units and the notice at 600x510; work-area
+bounds, scrollable content and wrapping actions support smaller displays.
+Keyboard focus/hover are visible; Windows high contrast overrides brand colors.
+
+Select a **Title-bar icon** in the builder: local PNG/ICO, at most 1 MB and
+1024x1024 pixels. It previews in the builder, is copied automatically to
+`Files/UI/Assets/app-icon.*`, and is pinned in the runtime manifest. Blank uses
+the built-in vector device icon. App title, logos, colors and notification copy
+remain in `Files/UI/Branding.psd1`; layout/default icon/styles are in the XAML.
+The builder's own title/colors/default icon are in `Builder/Branding.psd1`.
+
+Custom Close routes through existing guards: the builder exits immediately when
+idle or after active-build cleanup; live preparation/restart Close minimizes;
+overdue install Close is disabled and Alt+F4 is guarded. Minimize never cancels
+firmware or a restart countdown. Predeadline notice Close means Defer; preview
+Close exits without system actions. Maximize toggles Restore. Native dragging,
+keyboard navigation, assistive technology and 100/150/200% scaling still require
+the documented Windows pilot; portable tests do not render WPF.
+
 ## Storage and automatic file refresh
 
 | Location under `C:\ProgramData\Medela\DellBIOS` | Contents / access |
 |---|---|
 | `Runtime` | Versioned helper scripts and policy; SYSTEM/Administrators |
-| `UI` | Prompt, branding and PNG/JPG assets; users read/execute only |
+| `UI` | Prompt, shared presentation helpers/theme, branding and PNG/JPG/ICO assets; users read/execute only |
 | `State` | Original deadlines, selected install time, enrollment, manifest and locks; SYSTEM/Administrators |
 | `State/ScheduledPackage` | Temporary complete source, including credential file when required; SYSTEM/Administrators only |
 | `Recovery` | Guarded firmware copy, post-boot scripts and logs; SYSTEM/Administrators |
@@ -119,7 +177,7 @@ user-readable UI or version/hash manifest.
 Each managed PowerShell file has its own version marker, for example:
 
 ```powershell
-# MedelaBIOS-FileVersion: 3.1.0
+# MedelaBIOS-FileVersion: 4.0.0
 ```
 
 XAML uses the same marker inside an XML comment. The build-generated
@@ -211,11 +269,15 @@ As a standard user, from a package or the repository folder:
 
 ```powershell
 powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo
+powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo -DisableScheduling
+powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo -Overdue
+powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo -Overdue -DisableScheduling
 powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo -Mode Progress
 powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo -Mode Restart
 ```
 
-Preview includes the Schedule Install picker and cannot create a task, stage/restart,
+Preview defaults to scheduling enabled; `-DisableScheduling` simulates the unchecked
+builder option and `-Overdue` simulates expiry. It cannot create a task, stage/restart,
 or change deployment state. The restart preview
 counts down and demonstrates reminders, then closes without restarting. For a
 shorter UI pilot use `-Demo -Mode Restart -RestartMinutes 15 -RestartReminderMinutes 1`.

@@ -8,12 +8,15 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
 [xml]$xaml=Get-Content -LiteralPath "$PSScriptRoot/Window.xaml" -Raw
 $reader=New-Object Xml.XmlNodeReader $xaml
 $window=[Windows.Markup.XamlReader]::Load($reader)
+$builderBrand=Import-PowerShellDataFile (Join-Path $PSScriptRoot 'Branding.psd1')
+$window.Title=$builderBrand.AppTitle
+Initialize-BiosWindowChrome $window (Join-Path $script:BuilderSource 'Files/UI/Theme.xaml') $builderBrand (Get-BiosBrandIconPath $PSScriptRoot $builderBrand)
 $script:fields=@{}; $script:kind=@{}; $script:job=$null; $script:lastOutput=''; $script:closeRequested=$false
 $controls=@{}
 foreach ($name in @('Tabs','FilesPanel','DeploymentPanel','ExperiencePanel','ReviewText','Reviewed','BuildButton','OpenButton','Progress','BuildLog','LoadButton','SaveButton','CloseButton')) { $controls[$name]=$window.FindName($name) }
 function Add-Heading($Panel,[string]$Title,[string]$Help) {
     $text=New-Object Windows.Controls.TextBlock; $text.Text=$Title; $text.FontSize=21; $text.FontWeight='SemiBold'; $text.Margin='0,12,0,6'; $null=$Panel.Children.Add($text)
-    $note=New-Object Windows.Controls.TextBlock; $note.Text=$Help; $note.Foreground='#475569'; $note.Margin='0,0,0,16'; $null=$Panel.Children.Add($note)
+    $note=New-Object Windows.Controls.TextBlock; $note.Text=$Help; $note.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty,'MutedBrush'); $note.Margin='0,0,0,16'; $null=$Panel.Children.Add($note)
 }
 function Add-Field($Panel,[string]$Key,[string]$Label,[string]$Type='Text',[string]$Help='') {
     $box=New-Object Windows.Controls.StackPanel; $box.Margin='0,0,0,12'
@@ -23,10 +26,10 @@ function Add-Field($Panel,[string]$Key,[string]$Label,[string]$Type='Text',[stri
     elseif ($Type -eq 'Password') { $inputControl=New-Object Windows.Controls.PasswordBox; $inputControl.Padding='10,8' }
     elseif ($Type -eq 'Escrow') { $inputControl=New-Object Windows.Controls.ComboBox; $inputControl.Padding='10,8'; $null=$inputControl.Items.Add('EntraID'); $null=$inputControl.Items.Add('ADDS') }
     else { $inputControl=New-Object Windows.Controls.TextBox }
-    $inputControl.Name=$Key; [Windows.Automation.AutomationProperties]::SetName($inputControl,$Label)
+    $inputControl.Name=$Key; [Windows.Automation.AutomationProperties]::SetName($inputControl,($Label -replace '_',''))
     $caption.Target=$inputControl
     if ($Type -in @('Multi','Models')) { $inputControl.AcceptsReturn=$true; $inputControl.TextWrapping='Wrap'; $inputControl.MinHeight=70; $inputControl.VerticalScrollBarVisibility='Auto' }
-    if ($Type -in @('Bios','Zip','Tool','Image','Folder')) {
+    if ($Type -in @('Bios','Zip','Tool','Image','Icon','Folder')) {
         $browse=New-Object Windows.Controls.Button; $browse.Content='Browse...'; $browse.Tag=@{Control=$inputControl;Type=$Type}; [Windows.Automation.AutomationProperties]::SetName($browse,('Browse for '+$Label))
         [Windows.Controls.DockPanel]::SetDock($browse,'Right'); $null=$row.Children.Add($browse)
         $browse.Add_Click({ param($sender,$e)
@@ -35,13 +38,13 @@ function Add-Field($Panel,[string]$Key,[string]$Label,[string]$Type='Text',[stri
                 try { if ($dialog.ShowDialog() -eq 'OK') { $sender.Tag.Control.Text=$dialog.SelectedPath } } finally { $dialog.Dispose() }
             } else {
                 $dialog=New-Object Microsoft.Win32.OpenFileDialog
-                $dialog.Filter=switch ($sender.Tag.Type) { Zip {'PSADT template ZIP (*.zip)|*.zip'} Image {'PNG or JPEG images|*.png;*.jpg;*.jpeg'} default {'Executable (*.exe)|*.exe'} }
+                $dialog.Filter=switch ($sender.Tag.Type) { Zip {'PSADT template ZIP (*.zip)|*.zip'} Image {'PNG or JPEG images|*.png;*.jpg;*.jpeg'} Icon {'Title-bar icon (*.png;*.ico)|*.png;*.ico'} default {'Executable (*.exe)|*.exe'} }
                 if ($dialog.ShowDialog($window)) { $sender.Tag.Control.Text=$dialog.FileName }
             }
         })
     }
     $null=$row.Children.Add($inputControl); $null=$box.Children.Add($row)
-    if ($Help) { $note=New-Object Windows.Controls.TextBlock; $note.Text=$Help; $note.FontSize=12; $note.Foreground='#475569'; $null=$box.Children.Add($note) }
+    if ($Help) { $note=New-Object Windows.Controls.TextBlock; $note.Text=$Help; $note.FontSize=12; $note.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty,'MutedBrush'); $null=$box.Children.Add($note) }
     $null=$Panel.Children.Add($box); $script:fields[$Key]=$inputControl; $script:kind[$Key]=$Type
 }
 Add-Heading $controls.FilesPanel 'Start with your approved files' 'Choose a prepared PSADT 4.1.x deployment template ZIP. A single enclosing folder is fine. Your module, extensions and framework customization are preserved.'
@@ -66,14 +69,27 @@ Add-Field $controls.DeploymentPanel EscrowDestination 'Recovery key _escrow' Esc
 Add-Field $controls.ExperiencePanel PromptTimeoutMinutes '_Install prompt timeout (minutes)' Int '1-30; default 10. Defer on timeout before the original deadline; request preparation after an overdue notice.'
 Add-Field $controls.ExperiencePanel RestartCountdownMinutes '_Restart countdown (minutes)' Int '15-120; default 60. SYSTEM rechecks power before automatically requesting a restart. Unsafe power/sleep/session loss cancels this countdown.'
 Add-Field $controls.ExperiencePanel RestartReminderMinutes 'Restart reminder _interval (minutes)' Int '1-30; default 15, less than the countdown. Restore/center the window and play the Windows alert sound.'
-Add-Heading $controls.ExperiencePanel 'Deferrals and reminders' 'The deadline is saved at the first user prompt launch attempt. Future builds cannot extend it. Users can schedule installation within this window.'
-Add-Field $controls.ExperiencePanel WindowHours '_Deferral window (hours)' Int '1-168; default 72. Unlimited deferrals before this deadline. Install Now, Schedule Install and Defer until expiry.'
+Add-Heading $controls.ExperiencePanel 'Deferrals and reminders' 'The deadline is saved at the first user prompt launch attempt. Future builds cannot extend it. Optional installation scheduling stays within this window.'
+Add-Field $controls.ExperiencePanel AllowScheduleLater '_Allow schedule later' Bool 'Offer Schedule Install before the original deadline. Clear to offer Install Now and Defer only. This does not change deferrals or the post-install restart countdown. Previously accepted appointments are honored.'
+Add-Field $controls.ExperiencePanel WindowHours '_Deferral window (hours)' Int '1-168; default 72. Unlimited deferrals before this deadline. After expiry, only Install Now remains available.'
 Add-Field $controls.ExperiencePanel ReminderHours '_Reminder interval (hours)' Int '1-12; default 4. Minimum time between notices. Intune or the chosen install appointment supplies retries.'
 Add-Heading $controls.ExperiencePanel 'Your branding' 'These settings remain separate from deployment logic. Choose high-contrast colors; preview and test the generated interface on Windows.'
 foreach ($entry in @(@('CompanyName','Company name'),@('AppTitle','Window title'),@('Heading','Heading'),@('Purpose','Update purpose'),@('SupportText','Support text'),@('ReadyMessage','Restart-required message'))) { Add-Field $controls.ExperiencePanel $entry[0] $entry[1] Multi }
+Add-Field $controls.ExperiencePanel IconPath 'Title-bar icon (optional)' Icon 'Local PNG or ICO, up to 1 MB and 1024 x 1024. Used by the builder preview and packaged app. Leave blank for the built-in device icon.'
 Add-Field $controls.ExperiencePanel LogoPath 'Company logo (optional)' Image 'PNG/JPG, up to 10 MB. Leave blank to show company text only.'
 Add-Field $controls.ExperiencePanel BannerPath 'Banner image (optional)' Image
 foreach ($entry in @(@('AccentColor','Accent'),@('BackgroundColor','Background'),@('SurfaceColor','Cards'),@('TextColor','Text'),@('MutedColor','Secondary text'))) { Add-Field $controls.ExperiencePanel $entry[0] ($entry[1]+' color (#RRGGBB)') }
+function Set-BuilderIconPreview {
+    try {
+        $path=$script:fields.IconPath.Text.Trim()
+        if (-not $path) { $path=Get-BiosBrandIconPath $PSScriptRoot $builderBrand }
+        $window.Icon=if ($path) { Read-BiosWindowIcon ([IO.Path]::GetFullPath($path)) } else { $window.FindResource('DefaultAppIcon') }
+        $script:fields.IconPath.ToolTip='Icon preview; this icon will be included in the generated package.'
+    } catch {
+        $window.Icon=$window.FindResource('DefaultAppIcon')
+        $script:fields.IconPath.ToolTip='Icon could not be previewed. Choose a valid local PNG/ICO; the build validates it again.'
+    }
+}
 function Set-FormSettings([hashtable]$Settings) {
     foreach ($key in $script:fields.Keys) {
         if (-not $Settings.ContainsKey($key)) { continue }
@@ -86,6 +102,7 @@ function Set-FormSettings([hashtable]$Settings) {
         }
     }
     $script:fields.Password.Clear(); $script:fields.PasswordConfirm.Clear(); $controls.Reviewed.IsChecked=$false
+    Set-BuilderIconPreview
     $script:fields.Password.IsEnabled=[bool]$Settings.BiosPasswordRequired; $script:fields.PasswordConfirm.IsEnabled=[bool]$Settings.BiosPasswordRequired
 }
 function Get-FormSettings {
@@ -113,7 +130,7 @@ function Update-Review {
     try {
         $s=Get-FormSettings
         $mode=if ($s.ContentPrepTool) {'Source + Intune scripts + .intunewin'} else {'Source + Intune scripts (.intunewin tool not selected)'}
-        $controls.ReviewText.Text="Models: $($s.Models -join ', ')`nTarget: $($s.TargetVersion)`nPower: AC required; battery minimum $($s.MinimumBatteryPercent)%`nDeadline: $($s.WindowHours) hours from first user prompt attempt`nReminder: $($s.ReminderHours) hours minimum; install prompt timeout: $($s.PromptTimeoutMinutes) minutes`nAfter staging: automatic restart countdown $($s.RestartCountdownMinutes) minutes; sound/recenter every $($s.RestartReminderMinutes) minutes`nOutput: $mode`nPassword: excluded from this review and presets"
+        $controls.ReviewText.Text="Models: $($s.Models -join ', ')`nTarget: $($s.TargetVersion)`nPower: AC required; battery minimum $($s.MinimumBatteryPercent)%`nDeadline: $($s.WindowHours) hours from first user prompt attempt`nAllow schedule later: $($s.AllowScheduleLater) (installation time only)`nReminder: $($s.ReminderHours) hours minimum; install prompt timeout: $($s.PromptTimeoutMinutes) minutes`nAfter staging: automatic restart countdown $($s.RestartCountdownMinutes) minutes; sound/recenter every $($s.RestartReminderMinutes) minutes`nOutput: $mode`nPassword: excluded from this review and presets"
     } catch { $controls.ReviewText.Text=$_.Exception.Message }
 }
 $defaults=New-PackageBuildSettings
@@ -127,6 +144,7 @@ foreach ($field in $script:fields.Values) {
     elseif ($field -is [Windows.Controls.ComboBox]) { $field.Add_SelectionChanged({ $controls.Reviewed.IsChecked=$false }) }
     elseif ($field -is [Windows.Controls.PasswordBox]) { $field.Add_PasswordChanged({ $controls.Reviewed.IsChecked=$false }) }
 }
+$script:fields.IconPath.Add_TextChanged({ Set-BuilderIconPreview })
 $script:fields.BiosPasswordRequired.Add_Click({ $script:fields.Password.IsEnabled=[bool]$script:fields.BiosPasswordRequired.IsChecked; $script:fields.PasswordConfirm.IsEnabled=$script:fields.Password.IsEnabled })
 $controls.LoadButton.Add_Click({
     $dialog=New-Object Microsoft.Win32.OpenFileDialog; $dialog.Filter='Builder preset (*.psd1)|*.psd1'

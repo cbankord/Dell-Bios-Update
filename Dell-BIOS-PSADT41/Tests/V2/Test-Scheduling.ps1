@@ -58,6 +58,8 @@ try {
     Start-SimpleNotice $state ([datetimeoffset]::UtcNow); Assert-SimpleState $state $state.PackageId
     $deadline=$state.DeadlineUtc; $path=Join-Path $cache 'State/appointment.json'
     $when=[datetimeoffset]::UtcNow.AddHours(2);$when=$when.AddTicks(-($when.Ticks%[timespan]::TicksPerSecond))
+    Reject {Save-MedelaInstallSchedule $cache $files $config @{ReminderHours=4;AllowScheduleLater=$false} $state $path $when.ToString('o')} 'Disabled policy rejects even a valid fresh scheduling request'
+    Check ($registrations -eq 0 -and -not (Test-Path (Get-MedelaScheduledPackagePath $cache)) -and -not (Test-Path $path)) 'Disabled scheduling creates no task, private copy or saved appointment'
     Save-MedelaInstallSchedule $cache $files $config @{ReminderHours=4} $state $path $when.ToString('o')
     Check ((SameTime (Read-ScheduleFile $path).DeadlineUtc $deadline) -and $state.Phase -eq 'Scheduled') 'Scheduling preserves fixed deadline'
     Check ($state.ScheduledInstallUtc -eq $when.ToString('o') -and $task.Triggers[0].StartBoundary.EndsWith('Z')) 'Persisted schedule and UTC task boundary agree'
@@ -66,6 +68,9 @@ try {
     Check ($task.Actions[0].Execute -eq (Join-Path $slot 'Source/Invoke-AppDeployToolkit.exe') -and $task.Actions[0].WorkingDirectory -eq (Join-Path $slot Source)) 'Task uses retained complete framework, not expiring Intune content'
     Check (-not (($logs -join '')+(Get-Content (Join-Path $slot Ready.json) -Raw)).Contains('INERT-TEST-SECRET')) 'No credential in logs or ready metadata'
     $copies=$protected.Count; $before=$registrations
+    $beforeState=(Get-FileHash $path).Hash
+    Reject {Save-MedelaInstallSchedule $cache $files $config @{ReminderHours=4;AllowScheduleLater=$false} $state $path $when.AddHours(1).ToString('o')} 'Disabled scheduling rejects rescheduling an accepted appointment'
+    Check ((Get-FileHash $path).Hash -ceq $beforeState -and $registrations -eq $before -and $null -ne $task) 'Rejected reschedule preserves deadline, selected time, task and package'
     Sync-MedelaInstallTask $cache $state
     Check ($registrations -eq $before) 'Matching task is left unchanged'
     $later=$when.AddHours(1)
@@ -108,7 +113,7 @@ try {
     Check ($errors.Count -eq 0) 'UI parses'
     $fn=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Confirm-InstallSchedule'},$true)
     . ([scriptblock]::Create($fn.Extent.Text))
-    $Overdue=$false;$deadline=[datetimeoffset]::UtcNow.AddHours(72)
+    $Overdue=$false;$DisableScheduling=$false;$deadline=[datetimeoffset]::UtcNow.AddHours(72)
     $selected=[datetime]::Now.AddHours(2)
     $c=@{InstallDate=@{SelectedDate=$selected.Date};InstallTime=@{Text=$selected.ToString('HH:mm')};ScheduleError=@{Text=''}}
     $window=[pscustomobject]@{Closed=$false};$window|Add-Member ScriptMethod Close {$this.Closed=$true}
@@ -123,7 +128,7 @@ try {
     $script:updateCalled=$false;function Update-Prompt {$script:updateCalled=$true}
     $Overdue=$true;Confirm-InstallSchedule
     Check ($script:updateCalled -and -not $window.Closed) 'Overdue click cannot commit a schedule'
-    function Start-ADTProcessAsUser {param($FilePath,$ArgumentList,[switch]$CreateNoWindow,[switch]$NoStreamLogging,[switch]$PassThru,$IgnoreExitCodes) $script:reply}
+    function Start-ADTProcessAsUser {param($FilePath,$ArgumentList,[switch]$CreateNoWindow,[switch]$NoStreamLogging,[switch]$PassThru,$IgnoreExitCodes) $script:promptArgs=$ArgumentList;$script:reply}
     $script:reply=[pscustomobject]@{ExitCode=15;StdOut=('MEDELA_INSTALL_UTC='+$when.ToString('o')+"`r`n");StdErr=''}
     $answer=Invoke-MedelaPrompt $cache Install $state.DeadlineUtc 10
     Check ($answer.ExitCode -eq 15 -and $answer.ScheduledInstallUtc -ceq $when.ToString('o')) 'PSADT StdOut response reaches SYSTEM validator without command evaluation'
@@ -132,5 +137,7 @@ try {
     }
     $script:reply.StdOut='MEDELA_INSTALL_UTC='+$when.ToString('o')
     Reject {Invoke-MedelaPrompt $cache Info $state.DeadlineUtc 1} 'Other prompt modes cannot submit schedules'
+    Reject {Invoke-MedelaPrompt $cache Install $state.DeadlineUtc 10 -AllowScheduleLater $false} 'SYSTEM adapter rejects a forged UI schedule response while disabled'
+    Check ($script:promptArgs.Contains('-DisableScheduling')) 'Disabled SYSTEM policy is supplied to the standard-user UI'
     Write-Output "PASS: $count scheduling/package/task/UI assertions. Real file IO/state; Windows task, trust and ACL boundaries mocked. No EXE run."
 } finally {Remove-Item -LiteralPath $temp -Recurse -Force}
