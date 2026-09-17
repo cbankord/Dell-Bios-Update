@@ -1,3 +1,28 @@
+# v2.2 simple deployment and Medela file refresh - 2026-09-17
+
+- Replace the resident broker, recurring UI/controller tasks and calendar picker
+  with one-shot branded Install Now / Defer and Restart Now / Restart Later.
+  PSADT launches the standard-user prompt; SYSTEM alone stages/restarts. Intune
+  supplies retries. Remove background forced-restart timers; retain guarded
+  post-boot verification and BitLocker recovery.
+- Keep managed runtime/UI/state/recovery under ProgramData\Medela\DellBIOS.
+  Add first-line MedelaBIOS-FileVersion tattoos and generated SHA256 manifests.
+  Refresh missing/unversioned/older/drifted files, skip exact matches, reject
+  newer cached versions, validate before copying and commit the manifest last.
+  Preserve state and repair interrupted refreshes on the next invocation.
+- Hold code replacement during unresolved firmware/protection recovery. Retire
+  known legacy tasks/UI only under transaction locks; migrate the original
+  deadline, remove the old Program Files UI and retain protected legacy evidence.
+- Change detection to actual BIOS/protection/resolved transaction. Return 1618
+  for deferrals/no user/pending restart/holds; never pass internal 3010 to Intune.
+  Include approved runtime hashes so Intune can request a file repair when the
+  BIOS is already current. Regenerate detection after final runtime signing.
+- Adapt the builder and presets to simple policy, generate the runtime manifest,
+  preserve custom PSADT 4.1 framework files, and document signing order.
+- Replace obsolete daemon tests with real cache IO/repair, state migration,
+  one-shot flow and UI callback tests. Windows ACL/session/WPF/firmware integration
+  remains a required pilot, not a portable-test claim.
+
 # v2 visible manual launch and UI diagnostics - 2026-09-16
 
 - Fix direct UI launches staying hidden behind the reminder cooldown or an

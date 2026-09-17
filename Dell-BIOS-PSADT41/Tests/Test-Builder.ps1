@@ -85,7 +85,7 @@ throw 'The build must NEVER execute the template'
         $tokens=$null; $errors=$null
         $null=[Management.Automation.Language.Parser]::ParseInput($rewritten,[ref]$tokens,[ref]$errors)
         Assert ($errors.Count -eq 0 -and $rewritten.Contains("AppVersion='2.7.3'")) 'Template parses with Windows PowerShell 5.1 dictionary sorting semantics'
-        Assert ($rewritten.Contains('Start-ADTProcessAsUser') -and $rewritten.Contains('preserve nested data') -and $rewritten.Contains('NEVER execute the template')) 'PS5-compatible edits retain BIOS function and custom bootstrap'
+        Assert ($rewritten.Contains('Invoke-MedelaDeployment') -and $rewritten.Contains('preserve nested data') -and $rewritten.Contains('NEVER execute the template')) 'PS5-compatible edits retain BIOS function and custom bootstrap'
     } finally { Remove-Item Function:Sort-Object }
     [IO.File]::WriteAllText((Join-Path $template 'custom-config.txt'),'preserve my branding')
     $null=[IO.Directory]::CreateDirectory((Join-Path $template 'PSAppDeployToolkit.Extensions'))
@@ -121,11 +121,14 @@ throw 'The build must NEVER execute the template'
     Assert ($password.Password -ceq $passwordText) 'Password metacharacters round trip literally'
     $brand=Import-PowerShellDataFile (Join-Path $source 'Files/UI/Branding.psd1')
     Assert ($brand.CompanyName -ceq $settings.CompanyName -and $brand.PowerMessage -match '51%') 'Branding is data and power text follows actual threshold'
-    $policy=Import-PowerShellDataFile (Join-Path $source 'Files/Scheduler/Policy.psd1')
-    Assert ($policy.WindowHours -eq 48) 'Configured deadline is packaged'
+    $policy=Import-PowerShellDataFile (Join-Path $source 'Files/Simple/Policy.psd1')
+    Assert ($policy.WindowHours -eq 48 -and $policy.Schema -eq 3) 'Configured simple deadline is packaged'
+    $cachePlan=Get-CacheUpdatePlan (Join-Path $source 'Files') (Join-Path $fixture 'EmptyCache')
+    Assert ($cachePlan.Count -eq 11 -and @($cachePlan | Where-Object Reason -ne 'Missing').Count -eq 0) 'Runtime manifest validates the complete simple payload'
+    Assert (-not (Test-Path (Join-Path $source 'Files/Scheduler')) -and -not (Test-Path (Join-Path $source 'Files/Install-Scheduler.ps1'))) 'Builder does not package the retired daemon'
     $generated=Get-Content -LiteralPath (Join-Path $source 'Invoke-AppDeployToolkit.ps1') -Raw
     Assert ($generated.Contains("CustomField='preserve `$ and { braces }'") -and $generated.Contains('NEVER execute the template')) 'Custom metadata and bootstrap retained'
-    Assert ($generated.Contains('Start-ADTProcessAsUser') -and -not $generated.Contains("'old install'")) 'BIOS Install function replaces the old function'
+    Assert ($generated.Contains('Invoke-MedelaDeployment') -and -not $generated.Contains("'old install'")) 'BIOS Install function replaces the old function'
     Assert ($generated.Contains('Close-ADTSession -ExitCode 60001') -and -not $generated.Contains("'old uninstall'")) 'Firmware uninstall and repair explicitly fail'
     Assert ($generated.Contains("AppVersion='2.7.3'") -and $generated.Contains('AppRebootExitCodes=@()') -and $generated.Contains('AppProcessesToClose=@()')) 'App metadata prevents inherited close-app and restart codes'
     Assert ((Get-Content -LiteralPath (Join-Path $source 'custom-config.txt') -Raw) -eq 'preserve my branding') 'Custom framework file preserved'
@@ -150,6 +153,60 @@ throw 'The build must NEVER execute the template'
         $null=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)
         Assert ($errors.Count -eq 0 -and (Get-Content -LiteralPath $path -Raw).Contains($config.SHA256)) "Standalone $name parses and targets copied payload"
     }
+    # Execute the GENERATED detection in isolated runspaces. All Windows APIs
+    # are inert mocks. An exit cannot terminate this test process. Exercise the
+    # contract Intune consumes: actual BIOS plus healthy resolved protection,
+    # never enrollment, staging, or a nominally matching version alone.
+    $detection=Join-Path $result.OutputDirectory 'Intune/Detect-BIOS.ps1'
+    $expectedRuntime=Read-ApprovedRuntimeManifest (Join-Path $source 'Files')
+    foreach ($case in @(
+        @{Name='Current protected firmware';Version='2.7.3';Transaction='';Protection='On';Model=$settings.Models[0];Expected=$true},
+        @{Name='Newer verified firmware';Version='2.8.0';Transaction='Verified';Protection='On';Model=$settings.Models[0];Expected=$true},
+        @{Name='Below target without transaction';Version='2.6.0';Transaction='';Protection='On';Model=$settings.Models[0];Expected=$false},
+        @{Name='Staged capsule is not detection';Version='2.6.0';Transaction='Staged';Protection='Off';Model=$settings.Models[0];Expected=$false},
+        @{Name='Matching version with unresolved transaction';Version='2.7.3';Transaction='Staged';Protection='On';Model=$settings.Models[0];Expected=$false},
+        @{Name='Matching version with suspended protection';Version='2.7.3';Transaction='Verified';Protection='Off';Model=$settings.Models[0];Expected=$false},
+        @{Name='Incomplete transaction record';Version='2.7.3';Transaction='Incomplete';Protection='On';Model=$settings.Models[0];Expected=$false},
+        @{Name='Wrong model';Version='2.7.3';Transaction='Verified';Protection='On';Model='Not approved';Expected=$false},
+        @{Name='Current BIOS with older or drifted runtime';Version='2.7.3';Transaction='Verified';Protection='On';Model=$settings.Models[0];Cache='Drift';Expected=$false},
+        @{Name='Current BIOS with missing runtime';Version='2.7.3';Transaction='Verified';Protection='On';Model=$settings.Models[0];Cache='Missing';Expected=$false}
+    )) {
+        $runspace=[PowerShell]::Create()
+        try {
+            $null=$runspace.AddScript({
+                param($Detection,$Case,$ExpectedRuntime)
+                function Get-CimInstance { param($ClassName)
+                    if ($ClassName -eq 'Win32_ComputerSystem') { [pscustomobject]@{Manufacturer='Dell Inc.';Model=$Case.Model} }
+                    elseif ($ClassName -eq 'Win32_BIOS') { [pscustomobject]@{SMBIOSBIOSVersion=$Case.Version} }
+                    else { throw 'Unexpected mocked CIM query.' }
+                }
+                function Import-Module { param($Name) if ($Name -ne 'BitLocker') { throw 'Unexpected module.' } }
+                function Get-BitLockerVolume { param($MountPoint) [pscustomobject]@{VolumeStatus='FullyEncrypted';ProtectionStatus=$Case.Protection} }
+                function Test-Path { param($LiteralPath)
+                    if ($LiteralPath -ne 'HKLM:\SOFTWARE\ManagedDellBIOS') { throw 'Unexpected registry path.' }
+                    return [bool]$Case.Transaction
+                }
+                function Get-ItemProperty { param($LiteralPath)
+                    if ($Case.Transaction -eq 'Incomplete') { return [pscustomobject]@{SuspendedByUs='0'} }
+                    [pscustomobject]@{Status=$Case.Transaction;SuspendedByUs='0'}
+                }
+                function Get-FileHash { param($LiteralPath,$Algorithm)
+                    if ($Case['Cache'] -eq 'Missing') { throw 'Inert missing runtime file.' }
+                    if ($Case['Cache'] -eq 'Drift') { return [pscustomobject]@{Hash=('0'*64)} }
+                    $matches=@($ExpectedRuntime.Files | Where-Object { $LiteralPath.Replace('\','/').EndsWith($_.Destination) })
+                    if ($matches.Count -ne 1 -or $Algorithm -ne 'SHA256') { throw 'Unexpected cache hash request.' }
+                    [pscustomobject]@{Hash=$matches[0].SHA256}
+                }
+                & $Detection
+                [pscustomobject]@{DetectionExit=$LASTEXITCODE}
+            }).AddArgument($detection).AddArgument($case).AddArgument($expectedRuntime)
+            $output=@($runspace.Invoke())
+            $status=@($output | Where-Object { $_ -isnot [string] })
+            $successText=@($output | Where-Object { $_ -is [string] -and $_ -like 'BIOS verified:*' })
+            $expectedCode=if ($case.Expected) {0} else {1}
+            Assert ($status.Count -eq 1 -and $status[0].DetectionExit -eq $expectedCode -and (($successText.Count -eq 1) -eq $case.Expected)) ('Generated detection: '+$case.Name)
+        } finally { $runspace.Dispose() }
+    }
     # Repeated builds never overwrite the previous artifact; password-free fleets omit the file.
     $settings.BiosPasswordRequired=$false
     $second=New-DellBiosPackage $settings
@@ -160,7 +217,7 @@ throw 'The build must NEVER execute the template'
     Assert (@(Get-ChildItem -LiteralPath $fixture -Directory -Filter 'DellBIOS-*').Count -eq $before) 'Failure cleans partial output'
     $global:DellBuilderTestSignatureValid=$true
     # Numeric/range and review gates are effective, not decorative GUI fields.
-    foreach ($case in @(@('MinimumBatteryPercent',50),@('MinimumBatteryRuntimeMinutes',241),@('BitLockerRebootCount',0),@('MinimumFreeSpaceGB',0),@('WindowHours',0),@('WindowHours',169),@('WindowHours',1.5),@('FinalWarningMinutes',14),@('PackageReviewed',$false))) {
+    foreach ($case in @(@('MinimumBatteryPercent',50),@('MinimumBatteryRuntimeMinutes',241),@('BitLockerRebootCount',0),@('MinimumFreeSpaceGB',0),@('WindowHours',0),@('WindowHours',169),@('WindowHours',1.5),@('PromptTimeoutMinutes',0),@('PackageReviewed',$false))) {
         $bad=$settings.Clone(); $bad[$case[0]]=$case[1]
         Reject { Assert-BuilderSettings $bad } ('Reject invalid '+$case[0]+'='+$case[1])
     }

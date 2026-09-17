@@ -18,8 +18,7 @@ and signing policy still applies; the launcher does not override that policy.
    build. Without it, the result is complete deployment source plus Intune scripts.
 2. **Deployment:** enter exact CIM model names, target/prerequisite BIOS versions,
    shared administrator password twice, power/disk thresholds and recovery settings.
-3. **Experience:** set the deferral window, reminders and preparation/restart
-   intervals. Enter company text, colors and optional logo/banner images.
+3. **Experience:** set the deferral window, reminder cooldown and prompt timeout. Enter company text, colors and optional logo/banner images.
 4. **Build:** review the settings, confirm that you reviewed the approved firmware
    and trusted template, then build. The GUI remains responsive during packaging.
    Select **Open output** and follow the generated `READ-ME-FIRST.txt`.
@@ -50,12 +49,10 @@ The utility is optional, is not bundled, and is never downloaded silently.
 | Minimum free space | `1`; 1-1024 GB | Free space required on the Windows volume before staging |
 | BitLocker reboot count | `1`; 1-3 | Finite suspension around staging; recovery workflow still verifies/resumes |
 | Recovery key escrow | `EntraID` or `ADDS` | Successful backup required before suspension |
-| StagedDetectionHours | `24`; 1-24 | **Legacy compatibility only. V2 enrollment detection does not use it.** |
-| Deferral window | `72`; 1-168 hours | Fixed window from first delivered notice; persisted at enrollment for each deployment |
-| Reminder interval | `4`; 1-12 hours | Unlimited reminder deferrals within the original window |
-| Preparation lead | `30`; warning through 60 minutes | How early staging may begin before the selected restart |
-| Final warning | `15`; 15-60 minutes | Minimum automatic restart warning after successful staging or a recovered safety hold |
-| Safety retry | `5`; 1-30 minutes | Retry after recoverable prerequisite failure; never resets deadline |
+| StagedDetectionHours | `24`; legacy preset/config field | Hidden in the wizard; actual-BIOS detection does not use it |
+| Deferral window | `72`; 1-168 hours | Fixed window from first active-user prompt launch attempt; retained across retries |
+| Reminder interval | `4`; 1-12 hours | Minimum between notices; Intune supplies the actual retry timing |
+| Prompt timeout | `10`; 1-30 minutes | Install: defer before deadline, request preparation after expiry; restart: no automatic reboot |
 
 “Battery time” means the **estimated remaining runtime in minutes**, not a sleep,
 charging delay or BIOS execution timeout. It uses
@@ -68,12 +65,14 @@ Validate telemetry on each model before enabling this gate. The native
 is not used because it can be unknown on AC. No estimate guarantees physical
 battery life or substitutes for AC and percentage checks.
 
-Changing the window in a future package cannot extend an existing device's
-original deadline. Existing v2 state without a stored window is interpreted as
-72 hours, including when its first notice has not yet been delivered. Same BIOS
-version/hash reenrollment retains the existing runtime and policy; it is not an
-in-place policy/branding upgrade. See [OPERATIONS.md](../OPERATIONS.md) for safe
-maintenance of an enrolled controller.
+Changing policy cannot extend an existing deployment's original deadline. Same
+BIOS/hash reinstallation now refreshes older, missing or drifted runtime files
+under `C:\ProgramData\Medela\DellBIOS` using version tattoos and a SHA256 manifest.
+It does not overwrite newer code or pending firmware recovery. There is no
+Program Files installation or recurring controller/UI task. Old presets may
+contain PreparationLeadMinutes, FinalWarningMinutes or SafetyRetryMinutes;
+import drops these retired scheduler settings. Review the new experience before
+building. See [OPERATIONS.md](../OPERATIONS.md) for automatic legacy retirement.
 
 ## What the ZIP must contain
 
@@ -108,7 +107,9 @@ builder cannot certify arbitrary customization. Its BIOS runtime files, config,
 policy, UI files and `Files/ApprovedBIOS.exe` replace matching paths in the copied
 framework. Original ZIP and repository files are not changed. Existing signatures
 on edited scripts are invalidated; re-sign final scripts if your policy requires
-it and then rebuild `.intunewin` from that signed Source.
+it, regenerate RuntimeManifest.json and the Intune scripts after signing, and
+then rebuild `.intunewin` from that signed Source. Upload the matching detection
+script with the package. See [the refresh/signing procedure](../README.md#storage-and-automatic-file-refresh).
 
 ## Output
 
@@ -116,10 +117,11 @@ it and then rebuild `.intunewin` from that signed Source.
 |---|---|
 | `Source/` | Complete customized PSADT package with approved BIOS and generated runtime settings |
 | `Intune/Require-Model.ps1` | Standalone x64 requirement; Boolean equals True |
-| `Intune/Detect-BIOS.ps1` | Controller enrollment or actual target BIOS detection |
+| `Intune/Detect-BIOS.ps1` | Actual target BIOS, protection, resolved transaction and expected runtime hashes |
 | `Intune/Audit-BIOSAndBitLocker.ps1` | Actual firmware and protection compliance |
 | `Package/*.intunewin` | Upload artifact, only when the content prep tool was selected and succeeded |
 | `Settings.psd1` | Nonsecret reusable preset with review reset |
+| `Source/Files/RuntimeManifest.json` | Per-file versions and SHA256 for runtime repair; no credentials |
 | `BuildManifest.json`, `Build.log` | Versions, payload/framework hashes, policy and build records; no secret or password-file hash |
 | `OriginalTemplate/` | Original deployment script for local review, outside the deployable source |
 | `READ-ME-FIRST.txt` | Exact Intune commands, restart policy, credential and pilot instructions |
@@ -137,7 +139,7 @@ local data file, as in the existing deployment. It is never saved in presets,
 review text, build logs or manifests. Do not enable PowerShell transcription while
 entering secrets via scripts; use `Read-Host -AsSecureString` or the GUI. SYSTEM,
 local administrators and privileged monitoring can still recover the password
-from the package/runtime/Dell command line. `.intunewin` is not a credential vault.
+from the package/Dell command line. `.intunewin` is not a credential vault.
 Moving output can change its permissions; protect and dispose of it accordingly.
 
 The builder uses a fixed runtime file allowlist from the repository and never
@@ -176,6 +178,12 @@ defaults. The engine accepts the password only through a separate SecureString
 parameter; do not add one to the settings hashtable.
 
 ## Troubleshooting and Windows pilot
+
+The requested user prompt uses PSADT's session helper. Microsoft does not support
+interactive Intune installs or user-session UI workarounds; the helper does not
+remove that limitation. Review [the Intune guidance](https://learn.microsoft.com/en-us/intune/app-management/deployment/add-win32#step-2-program)
+and [package configuration](../README.md#intune-configuration), including an install
+timeout that allows all prompts and staging to finish, before deployment.
 
 Build errors identify the phase without echoing file contents or password parse
 errors. Invalid settings are reported before extraction. For extraction failures,

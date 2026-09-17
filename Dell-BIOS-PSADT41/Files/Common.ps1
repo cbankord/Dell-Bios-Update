@@ -1,8 +1,9 @@
+# MedelaBIOS-FileVersion: 2.2.0
 # Windows PowerShell 5.1; deliberately rejects legacy Axx version strings.
 Set-StrictMode -Version 3
 $ErrorActionPreference = 'Stop'
 $script:StateKey = 'HKLM:\SOFTWARE\ManagedDellBIOS'
-$script:WorkDir = Join-Path $env:ProgramData 'ManagedDellBIOS'
+$script:WorkDir = Join-Path $env:ProgramData 'Medela\DellBIOS\Recovery'
 $script:TaskName = 'ManagedDellBIOS-VerifyAndResume'
 
 function Convert-BiosVersion([string]$Text) {

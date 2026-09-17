@@ -6,8 +6,8 @@ $null=New-Item -ItemType Directory -Path $dir
 $env:ProgramData=$dir
 try {
     . "$root/Files/Common.ps1"
-    . "$root/Files/Scheduler/Core.ps1"
-    . "$root/Files/Scheduler/Windows.ps1"
+    . "$root/Files/Simple/State.ps1"
+    . "$root/Files/Simple/Safety.ps1"
     $script:count=0
     function Check($v,$n) { $script:count++; if (-not $v) { throw "FAIL: $n" } }
     function Reject([scriptblock]$body,$n) { $failed=$false;try{&$body}catch{$failed=$true};Check $failed $n }
@@ -38,10 +38,10 @@ try {
     Assert-RestartSafe $cfg $txn boot
     Check $true 'Intentionally unencrypted device permits matching staged restart'
     $path=Join-Path $dir state.json
-    $state=New-ScheduleState unit ([datetimeoffset]::UtcNow)
+    $state=New-SimpleState unit 72
     Save-ScheduleFile $state $path
     $reloaded=Read-ScheduleFile $path
-    Assert-ScheduleState $reloaded unit
+    Assert-SimpleState $reloaded unit
     Check ($reloaded.PackageId -eq 'unit') 'Durable state roundtrip'
     $state.Phase='Pending';Save-ScheduleFile $state $path
     $reloaded=Read-ScheduleFile $path

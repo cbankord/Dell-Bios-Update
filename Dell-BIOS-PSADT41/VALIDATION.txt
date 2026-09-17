@@ -1,129 +1,119 @@
-V2 and package-builder validation performed 2026-09-16
+V2.2 Medela cache and simple deployment validation - 2026-09-17
 
-PASS: 290 assertions across six fresh PowerShell 7.6.6 processes on Linux:
-  50  Tests/Test-Deployment.ps1
- 113  Tests/V2/Test-Scheduler.ps1
-   9  Tests/V2/Test-Transport.ps1
+PASS: 217 assertions across six fresh PowerShell 7.4.7 processes on Linux:
+  47  Tests/Test-Deployment.ps1
+  86  Tests/Test-Builder.ps1
   14  Tests/V2/Test-Guards.ps1
-  30  Tests/V2/Test-UIStartup.ps1
-  74  Tests/Test-Builder.ps1
-Counts include parser assertions in more than one suite; they are not 290 unique
-end-to-end scenarios. The optional WindowsRegistryIntegration mode was not run.
+  30  Tests/V2/Test-Cache.ps1
+  27  Tests/V2/Test-SimpleDeployment.ps1
+  13  Tests/V2/Test-Migration.ps1
+Counts include parsing and fixture assertions; these are not 217 independent
+Windows end-to-end scenarios. Optional WindowsRegistryIntegration was not run.
 
-Covered:
-- Parse all PS1/PSD1 sources and well-formed XAML.
-- Registry writer mocked create-once behavior and actionable damaged-state errors.
-- Local password requirements, sanitized parse errors, and native argv escaping.
-- AC/unknown-power and 50% vs 51% battery gates using inert native/CIM telemetry.
-- First delivered notice starts the persisted duration (72 hours by default);
-  enrollment/status alone does not. Configured windows, changing policy before/
-  after first notice and old schema-2 migration preserve the original duration.
-- Optional battery runtime: below/equal threshold, absent/zero/implausible data,
-  disabled gate and compatibility with earlier configs.
-- 100 deferrals, repeated acknowledgements and reschedules preserve the deadline.
-- Reject past/late/unzoned schedule times, unknown actions and extra fields.
-- Deadline expiry disables deferral/scheduling; preparation locks further changes.
-- Local/UTC conversion and both spring/fall daylight-saving ambiguities.
-- Missing, corrupt and mismatched schedule state fails closed.
-- Real temporary-file create/read/atomic replacement, without production paths.
-- Bounded framed JSON roundtrip and invalid/truncated frame rejection.
-- Compile Windows peer/session and input-desktop C# declarations without invoking them.
-- Compact XAML structure keeps the three choices outside the scrolling content;
-  date picker initially collapses. Pure UI action mapping covers first notice,
-  pending, overdue, staging, completed and older-controller responses.
-- Install Now intent persists without moving the deadline, can be rescheduled
-  before preparation, rejects duplicates and unsafe phases, and never launches
-  a worker from the UI/request handler. Older state migrates with no intent.
-- Actual engine with mocked boundaries: immediate guarded launch, no early
-  restart, full post-staging warning, power hold/retry, sleep catch-up notice and
-  ambiguous transaction rejection for Install Now.
-- Mocked engine: missed deadline warnings, pre-stage power holds, restoration,
-  near-schedule launch, successful staging, final warning, power-loss restart hold,
-  post-boot verification and blocked reflashing after failure/ambiguous crash.
-- Actual restart guard with mocked BitLocker: wrong boot/hash/status, missing
-  transaction, unowned suspension, active protection, locked OS volume and
-  unexpected encryption changes all block a restart.
-- A verified marker alone does not bypass post-boot health checks.
-- Actual UI polling, rendering, activation and queued-acknowledgement functions
-  with inert window/dispatcher/IPC boundaries: manual launch after deferral,
-  initially unavailable controller, disabled stale actions, recovery, original
-  deadline preservation, repeat/background suppression, preview/live instance
-  separation, minimized-window restore and manual inspection after completion.
-- Locked desktop and close/lock between showing and acknowledgement do not
-  start the deadline. Repeated polling errors are logged once until recovery.
-- Actual task-registration and PSADT wrapper functions with mocked launch/task
-  commands generate background-mode user arguments and retain enrollment exit
-  behavior. Named Windows events and WPF dispatch/activation are NOT exercised.
+Covered by actual code with inert files and mocked Windows boundaries:
+- All PS1/PSD1 sources parse; frontend and builder XAML are well formed.
+- Registry create-once state writer, damaged-state errors, secret handling,
+  native argument escaping, AC and strict 50% vs 51% battery gates, optional
+  runtime telemetry limits and compatibility with earlier configuration.
+- Builder extraction and PSADT AST integration preserve custom module bytes,
+  metadata, extensions and bootstrap without executing template code. Includes
+  the Windows PowerShell 5.1 dictionary-sort compatibility regression.
+- Actual asynchronous GUI worker scriptblock rejects denied engine loading with
+  actionable, sanitized diagnostics. This does not reproduce Windows policy.
+- New builds generate simple policy, first-line version tattoos and the approved
+  runtime manifest. Source builds do not package the retired scheduler.
+- Copied BIOS hashes feed generated settings/scripts. Local password round trips;
+  presets, manifests, progress and logs exclude it and its file hash. No secret
+  is copied into the public runtime/UI cache.
+- ZIP path traversal, rooted/ADS/reserved/colliding/link entries, embedded secret,
+  unsupported/ambiguous templates, duplicate functions and settings validation.
+- Inert optional content-prep orchestration, tool signer rejection and cleanup.
+  No Microsoft utility or Dell executable was actually run.
+- Ten generated detection scenarios in isolated PowerShell runspaces: compliant
+  current/newer BIOS, below-target firmware, staging, unresolved/incomplete
+  transaction, suspended protection, wrong model, changed and missing runtime.
+  Detection reads expected runtime hashes, requesting repair even when BIOS is
+  already current; staging/enrollment alone cannot satisfy detection.
+- Real cache file IO: initial copies, skip exact matches without rewriting them,
+  older/unversioned/missing/drifted files, refuse newer versions, reject modified
+  source manifests and path/secret injection, verify binary branding assets.
+- Interrupt the second file replacement: installed manifest remains unchanged;
+  the next invocation identifies and repairs the remaining file. Original state
+  bytes survive refresh. Per-file replacement is atomic; the whole file set is
+  not a single filesystem transaction.
+- Unresolved firmware or protection ownership blocks code replacement. Unchanged
+  runtime can prompt for restart of a matching already-staged transaction.
+- Actual one-shot orchestration: no user/no new deadline, first prompt attempt,
+  unlimited repeated deferral without extension, reminder cooldown, missing
+  enrolled state failure, stage once, Restart Later, guarded Restart Now, power
+  holds, no reflash on retries, actual BIOS plus protection before success, and
+  no completion while protection ownership remains unresolved.
+- UI callbacks with inert controls: overdue Defer removal, normal close blocked,
+  visible overdue timeout requests preparation, earlier timeout defers, SYSTEM
+  overdue flag survives a backward UI clock change, restart timeout never reboots.
+- Real legacy state/locks with task/process mocks: reject active/staged firmware,
+  unsafe phases, held old firmware lock and unexpected task actions; import the
+  exact expired deadline/window; retire only the two known tasks and exact UI
+  process; remove old Program Files UI, retain protected diagnostic data; hold
+  locks through the transition, refuse reappearing tasks, preserve retry state.
+- Actual restart guards with BitLocker mocks: wrong boot/hash/status, missing
+  transaction, unowned suspension, locked drive and unexpected encryption fail.
 
-- Actual GUI worker scriptblock in a separate runspace: simulated authorization
-  failure stops execution, wrapped exceptions show troubleshooting, and raw
-  private error details are omitted. This does not reproduce Windows policy.
-- PS5 dictionary-sort compatibility regression: emulate unavailable named-key
-  lookup on hashtable inputs and exercise the real AST rewrite. Reproduced the
-  exact generated-script syntax failure before the fix; parses and preserves
-  custom content after explicit numeric sorting. This is not live Windows PS5.
-- Inert source-only builds preserve custom module bytes, extensions and bootstrap
-  logic while integrating standard PSADT functions/metadata with the AST.
-- Copied firmware hash feeds config and all standalone Intune scripts.
-- Password metacharacters round trip without execution. Secrets are excluded from
-  presets, manifests, logs and progress; no password-file hash is recorded.
-- Preset approval reset, unknown/secret fields rejected, settings validation,
-  unique output, no-password packaging, handled failure cleanup and original
-  inputs retained. Output ACL creation is mocked, not verified on Windows.
-- ZIP traversal/rooted/ADS/reserved/case-collision/symlink/embedded-secret rejects,
-  wrapped roots, ambiguous/unsupported templates, and missing/duplicate functions.
-- Content prep orchestration with an inert mock: correct source/output separation,
-  output reporting/hash, failure cleanup. Non-Microsoft signer rejected before
-  native execution. No Microsoft content prep executable actually ran.
-
-PASS: AST integration against the official PSADT 4.1.0 frontend retrieved from
-its 4.1.0 tag; parsed/rewritten only, no template code was executed.
 PASS: git diff --check.
-Manual source/API review: PSADT 4.1 Start-ADTProcessAsUser, ScheduledTasks group
-principals, named-pipe ACL/client access rights, and Windows session constants.
-The client uses specific PipeAccessRights rather than GENERIC_WRITE, avoiding
-an accidental request for the pipe-instance creation right.
 
-Reproduce from Dell-BIOS-PSADT41, using separate processes:
-  pwsh -NoProfile -File ./Tests/Test-Builder.ps1
+Reproduce from Dell-BIOS-PSADT41, in separate processes:
   pwsh -NoProfile -File ./Tests/Test-Deployment.ps1
-  pwsh -NoProfile -File ./Tests/V2/Test-Scheduler.ps1
-  pwsh -NoProfile -File ./Tests/V2/Test-Transport.ps1
+  pwsh -NoProfile -File ./Tests/Test-Builder.ps1
   pwsh -NoProfile -File ./Tests/V2/Test-Guards.ps1
-  pwsh -NoProfile -File ./Tests/V2/Test-UIStartup.ps1
-On Windows, additionally run the same suites with powershell.exe, plus:
+  pwsh -NoProfile -File ./Tests/V2/Test-Cache.ps1
+  pwsh -NoProfile -File ./Tests/V2/Test-SimpleDeployment.ps1
+  pwsh -NoProfile -File ./Tests/V2/Test-Migration.ps1
+
+On Windows, additionally run all suites using powershell.exe, then:
   powershell.exe -NoProfile -File .\Tests\Test-Deployment.ps1 -WindowsRegistryIntegration
   powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo
+  powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo -Mode Restart
   .\Builder\Start-PackageBuilder.cmd
 
-NOT TESTED / MUST PILOT:
-- Windows PowerShell 5.1 execution, WPF rendering, screen reader/scaling behavior.
-- Builder GUI browse/preset/password/async flows, protected output ACLs, actual
-  Authenticode verification and Microsoft tool execution; no real .intunewin built.
-- Custom PSADT module/extensions/top-level code and optional battery runtime on
-  the actual fleet. A preserved custom framework may contain competing behavior.
-- Actual Windows ACL inheritance, named-pipe ownership/impersonation and active
-  session checks; task Group activation, logon, SYSTEM and user launch behavior.
-- Named-event duplicate activation, Windows startup error dialogs, actual WPF
-  host/apartment checks and preview close/shutdown; paired cached UI/launcher
-  upgrade with preserved state and background-mode task arguments.
-- Intune packaging/detection delivery, competing tenant restart policies, sleep,
-  locked desktop, logoff, app-blocked restart and controller recovery on Windows.
-- Actual Dell executable/password, firmware staging/boot, Authenticode chain,
-  recovery-key retrieval, BitLocker escrow/suspension/resume and hardware telemetry.
-- A malicious client/administrator penetration test. The protocol and directory
-  protections were reviewed in source, not certified by live security testing.
+NOT TESTED / WINDOWS PILOT REQUIRED:
+- Windows PowerShell 5.1 execution, WPF rendering/scaling/accessibility, GUI
+  browse/password/preset/async behavior, standard-user session launch via the
+  chosen PSADT 4.1.x framework, sign-out/lock/timeout behavior and real UI exits.
+- Windows ownership/ACL inheritance and reparse rejection, particularly a shared
+  pre-existing Medela parent. Security boundaries were mocked, not certified.
+- Real legacy scheduled-task/process retirement, Windows file replacement/locking,
+  recovery-task registration and boot-time execution, SYSTEM privileges.
+- Real Authenticode chains, custom framework behavior, signed final scripts and
+  content-prep execution; no deployable firmware or .intunewin was produced here.
+- Intune detection/retry/timeout, actual file repair on a current-BIOS device,
+  assignment migration, competing tenant restart policies and offline/sleep cases.
+  Microsoft documents interactive Intune installations and user-session UI
+  workarounds as unsupported. A successful PSADT pilot does not remove that
+  platform support limitation. See:
+  https://learn.microsoft.com/en-us/intune/app-management/deployment/add-win32#step-2-program
+- Real Dell EXE/model/password, staging/boot/actual firmware verification, physical
+  battery/AC/runtime telemetry, escrow/retrieval and BitLocker suspension/resume.
+  Never interrupt a live BIOS updater to test failure paths.
 
-MANUAL EXAMPLE CONFIGURATION BLOCKERS (inherited and intentionally preserved):
-- SHA256 is 65 characters. Recalculate it from the approved EXE; do not trim it.
-- PB14250 model vs PA13250-named executable compatibility remains unverified.
-- PackageReviewed=false; real BIOS EXE, password and PSADT distribution absent.
-- Generated Intune scripts cannot be produced against an unapproved/missing EXE.
+Behavioral limits intentionally documented in README.md and OPERATIONS.md:
+- No resident controller or exact-date scheduling. Intune supplies the next
+  invocation; reminder hours are a cooldown, not a guaranteed notification time.
+- Deadline starts at the first active-user prompt launch ATTEMPT, not proof of
+  visible display or reading; launch failure/retry cannot reset it.
+- No forced reboot countdown. Only explicit Restart Now requests the guarded
+  managed restart. Monitor staged updates and outstanding owned suspension.
+- File tattoo/hash identify version and integrity, not publisher authenticity.
+  The reviewed package and enterprise signing policy establish runtime trust.
+  After signing runtime scripts, regenerate both manifest and Intune detection.
+- New files use ProgramData\Medela\DellBIOS. Old protected ProgramData diagnostic
+  records and firmware transaction identity remain for recovery continuity.
 
-The builder bypasses these sample values by generating new configuration from
-selected inputs, verified copied firmware and explicit local review. Tests use
-only inert executables with mocked trust boundaries. Never treat test artifacts
-as approved firmware or deployable .intunewin files.
+MANUAL EXAMPLE CONFIGURATION BLOCKERS (unchanged; do not deploy as-is):
+- Example SHA256 is 65 characters: recalculate from the approved EXE; do not trim.
+- PB14250 model vs PA13250-named executable compatibility is unverified.
+- PackageReviewed=false; real BIOS EXE/password/PSADT distribution are absent.
+The builder replaces these sample values from selected reviewed inputs and copied
+firmware. Test fixtures are inert and must never be deployed.
 
-No production BIOS, protection state, scheduled task, restart or Intune assignment
-was changed by these tests. Main remains v1; this implementation is on v2.
+No production firmware, BitLocker state, task, restart or Intune assignment was
+changed by these checks. Main remains v1; changes belong to v2.

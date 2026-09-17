@@ -4,7 +4,8 @@
 Set-StrictMode -Version 3
 $script:BuilderSource = Split-Path $PSScriptRoot -Parent
 . "$script:BuilderSource/Files/Common.ps1"
-. "$script:BuilderSource/Files/Scheduler/Core.ps1"
+. "$script:BuilderSource/Files/Simple/State.ps1"
+. "$script:BuilderSource/Files/Simple/Cache.ps1"
 
 function Get-BuilderFailureMessage([Management.Automation.ErrorRecord]$Record) {
     # EndInvoke can wrap a PSSecurityException. Never print script source or
@@ -35,8 +36,7 @@ function New-PackageBuildSettings {
         BiosPasswordRequired=$true; RequireBattery=$true
         MinimumBatteryPercent=51; MinimumBatteryRuntimeMinutes=0
         MinimumFreeSpaceGB=1; BitLockerRebootCount=1; EscrowDestination='EntraID'
-        StagedDetectionHours=24; WindowHours=72; ReminderHours=4
-        PreparationLeadMinutes=30; FinalWarningMinutes=15; SafetyRetryMinutes=5
+        StagedDetectionHours=24; WindowHours=72; ReminderHours=4; PromptTimeoutMinutes=10
         CompanyName='Your company'; AppTitle='Device care'
         Heading='A little maintenance. A stronger device.'
         Purpose='An approved BIOS update will improve the security and reliability of your Dell computer.'
@@ -50,6 +50,7 @@ function New-PackageBuildSettings {
 function Write-BuilderData([string]$Path, [System.Collections.IDictionary]$Data) {
     # Data-only PSD1: quoting is literal, including apostrophes, $, backticks and Unicode.
     $lines = New-Object 'System.Collections.Generic.List[string]'
+    $lines.Add('# MedelaBIOS-FileVersion: 2.2.0')
     $lines.Add('@{')
     foreach ($key in $Data.Keys) {
         if ($key -notmatch '^[A-Za-z][A-Za-z0-9]*$') { throw 'Invalid data field name.' }
@@ -80,6 +81,7 @@ function Import-PackagePreset([string]$Path) {
     $data=Import-PowerShellDataFile -LiteralPath $Path
     $settings=New-PackageBuildSettings
     foreach ($key in $data.Keys) {
+        if ($key -in @('PreparationLeadMinutes','FinalWarningMinutes','SafetyRetryMinutes')) { continue }
         if (-not $settings.ContainsKey($key)) { throw 'Preset contains an unknown field. Passwords must never be stored in presets.' }
         $settings[$key]=$data[$key]
     }
@@ -116,7 +118,7 @@ function Assert-BuilderSettings([hashtable]$Settings) {
     foreach ($key in @('BiosPasswordRequired','RequireBattery','PackageReviewed')) {
         if ($Settings[$key] -isnot [bool]) { throw "$key must be Boolean." }
     }
-    foreach ($key in @('MinimumBatteryPercent','MinimumBatteryRuntimeMinutes','MinimumFreeSpaceGB','BitLockerRebootCount','StagedDetectionHours','WindowHours','ReminderHours','PreparationLeadMinutes','FinalWarningMinutes','SafetyRetryMinutes')) {
+    foreach ($key in @('MinimumBatteryPercent','MinimumBatteryRuntimeMinutes','MinimumFreeSpaceGB','BitLockerRebootCount','StagedDetectionHours','WindowHours','ReminderHours','PromptTimeoutMinutes')) {
         if ($Settings[$key] -isnot [int]) { throw "$key must be a whole number." }
     }
     if ($Settings.MinimumFreeSpaceGB -gt 1024) { throw 'Minimum free space must be 1-1024 GB.' }
@@ -147,7 +149,7 @@ function Assert-BuilderSettings([hashtable]$Settings) {
     }
     $config=Get-BuilderConfig $Settings ('A'*64)
     Assert-Config $config
-    Assert-SchedulerPolicy (Get-BuilderPolicy $Settings)
+    Assert-SimplePolicy (Get-BuilderPolicy $Settings)
 }
 function Get-BuilderConfig([hashtable]$Settings, [string]$Hash) {
     $config=@{FileName='ApprovedBIOS.exe'; SHA256=$Hash}
@@ -155,8 +157,8 @@ function Get-BuilderConfig([hashtable]$Settings, [string]$Hash) {
     return $config
 }
 function Get-BuilderPolicy([hashtable]$Settings) {
-    $policy=@{Schema=2}
-    foreach ($key in @('WindowHours','ReminderHours','PreparationLeadMinutes','FinalWarningMinutes','SafetyRetryMinutes')) { $policy[$key]=$Settings[$key] }
+    $policy=@{Schema=3}
+    foreach ($key in @('WindowHours','ReminderHours','PromptTimeoutMinutes')) { $policy[$key]=$Settings[$key] }
     return $policy
 }
 function Expand-BuilderZip([string]$ZipPath, [string]$Destination) {
@@ -316,10 +318,10 @@ function New-DellBiosPackage {
         $files=Join-Path $source 'Files'; $null=[IO.Directory]::CreateDirectory($files)
         # Copy a fixed runtime allowlist. Never copy local passwords, BIOS binaries,
         # generated packages or unrelated files from the builder checkout.
-        foreach ($name in @('Common.ps1','Install-DellBIOS.ps1','Verify-AfterReboot.ps1','Install-Scheduler.ps1')) {
+        foreach ($name in @('Common.ps1','Install-DellBIOS.ps1','Verify-AfterReboot.ps1')) {
             Copy-Item -LiteralPath (Join-Path "$script:BuilderSource/Files" $name) -Destination $files -Force
         }
-        foreach ($relative in @('Scheduler/Core.ps1','Scheduler/Engine.ps1','Scheduler/Start-Broker.ps1','Scheduler/Transport.ps1','Scheduler/Windows.ps1','UI/Window.xaml','UI/Client.ps1','UI/Show-BiosUI.ps1','UI/Assets/README.md')) {
+        foreach ($relative in @('Simple/Cache.ps1','Simple/State.ps1','Simple/Safety.ps1','Simple/Deployment.ps1','UI/Window.xaml','UI/Show-BiosUI.ps1','UI/Assets/README.md')) {
             $dest=Join-Path $files $relative
             $null=[IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($dest))
             Copy-Item -LiteralPath (Join-Path "$script:BuilderSource/Files" $relative) -Destination $dest -Force
@@ -333,7 +335,7 @@ function New-DellBiosPackage {
         catch { Stop-BuilderValidation 'The copied BIOS did not pass the SHA256 and Dell Authenticode checks. Verify the approved EXE and its certificate chain on this computer.' }
         Write-BuilderData (Join-Path $files 'BIOS-Config.psd1') $config
         $policy=Get-BuilderPolicy $Settings
-        Write-BuilderData (Join-Path $files 'Scheduler/Policy.psd1') $policy
+        Write-BuilderData (Join-Path $files 'Simple/Policy.psd1') $policy
         $phase='writing local credentials'; & $Progress 'Writing protected package settings (credentials are excluded from build notes and presets)...'
         if ($Settings.BiosPasswordRequired) {
             $pointer=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($BiosPassword)
@@ -356,7 +358,8 @@ function New-DellBiosPackage {
             } else { $brand[$pair[1]]='' }
         }
         Write-BuilderData (Join-Path $files 'UI/Branding.psd1') $brand
-        $phase='generating Intune scripts'; & $Progress 'Generating model requirements, enrollment detection and firmware audit scripts...'
+        Write-RuntimeManifest $files
+        $phase='generating Intune scripts'; & $Progress 'Generating model requirements, actual BIOS detection and firmware audit scripts...'
         $null=& "$script:BuilderSource/Build-IntuneScripts.ps1" -PackageRoot $source -OutputDirectory (Join-Path $build 'Intune')
         $phase='checking generated scripts'
         foreach ($file in Get-ChildItem -LiteralPath $source -Recurse -File | Where-Object Extension -in @('.ps1','.psd1')) {
@@ -372,9 +375,9 @@ function New-DellBiosPackage {
         }
         $phase='writing build notes'
         $manifest=[ordered]@{
-            BuilderVersion='2.1.0'; BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
+            BuilderVersion='2.2.0'; BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
             FrameworkVersion=$framework.Version; FrameworkSHA256=$frameworkHash
-            BIOS=$config; Scheduler=$policy; HasPassword=$Settings.BiosPasswordRequired
+            BIOS=$config; DeploymentPolicy=$policy; HasPassword=$Settings.BiosPasswordRequired
             OutputMode=$(if ($intuneWin) { 'IntuneWin' } else { 'SourceOnly' })
             IntuneWinSHA256=$(if ($intuneWin) { (Get-FileHash -LiteralPath $intuneWin -Algorithm SHA256).Hash } else { '' })
             RuntimeFiles=@(Get-ChildItem -LiteralPath $files -File -Recurse | Where-Object { $_.Name -ne 'BIOS-Password.psd1' } | ForEach-Object {
@@ -390,7 +393,7 @@ function New-DellBiosPackage {
             'Approved BIOS SHA256: ' + $config.SHA256
             'Output mode: ' + $manifest.OutputMode
             'Original deployment script archived. Three deployment functions and BIOS metadata replaced.'
-            'Configuration, branding, scheduling policy and Intune scripts generated.'
+            'Configuration, branding, deferral policy and Intune scripts generated.'
             'Local shared password included: ' + $Settings.BiosPasswordRequired
             'Password content and password-file hashes are deliberately excluded from these records.'
         ),(New-Object Text.UTF8Encoding($true)))

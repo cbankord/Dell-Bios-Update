@@ -63,16 +63,13 @@ Add-Field $controls.DeploymentPanel MinimumBatteryRuntimeMinutes 'Minimum estima
 Add-Field $controls.DeploymentPanel MinimumFreeSpaceGB 'Minimum free _space (GB)' Int '1-1024 GB on the Windows volume.'
 Add-Field $controls.DeploymentPanel BitLockerRebootCount 'BitLocker reboot _count' Int '1-3. A finite suspension immediately around staging, never days before it.'
 Add-Field $controls.DeploymentPanel EscrowDestination 'Recovery key _escrow' Escrow
-Add-Field $controls.DeploymentPanel StagedDetectionHours 'StagedDetectionHours (legacy compatibility only)' Int '1-24. Retained in the config for older tools. V2 enrollment detection does not use this value, and it does not control deferrals or restarts.'
-Add-Heading $controls.ExperiencePanel 'Schedule and reminders' 'The original deadline is fixed when the first notice is delivered. Changes to a future build never extend the deadline of a device already enrolled.'
-Add-Field $controls.ExperiencePanel WindowHours '_Deferral window (hours)' Int '1-168; default 72. Unlimited reminder deferrals within this one window. No new window when overdue.'
-Add-Field $controls.ExperiencePanel ReminderHours '_Reminder interval (hours)' Int '1-12; default 4. Closing the notice does not cancel the selected restart.'
-Add-Field $controls.ExperiencePanel PreparationLeadMinutes '_Preparation lead (minutes)' Int 'At least the final warning and at most 60; default 30.'
-Add-Field $controls.ExperiencePanel FinalWarningMinutes 'Final restart _warning (minutes)' Int '15-60; default 15. The actual restart may be later if staging or safety checks take longer.'
-Add-Field $controls.ExperiencePanel SafetyRetryMinutes 'Safety _retry interval (minutes)' Int '1-30; default 5.'
-Add-Heading $controls.ExperiencePanel 'Your branding' 'These settings remain separate from scheduling logic. Choose high-contrast colors; preview and test the generated interface on Windows.'
+Add-Field $controls.ExperiencePanel PromptTimeoutMinutes '_Prompt timeout (minutes)' Int '1-30; default 10. Before the deadline: defer on timeout. Overdue install: request preparation after the visible notice. Restart prompts never force a restart.'
+Add-Heading $controls.ExperiencePanel 'Deferrals and reminders' 'The deadline is saved at the first user prompt launch attempt. Future builds cannot extend it. Intune supplies retries.'
+Add-Field $controls.ExperiencePanel WindowHours '_Deferral window (hours)' Int '1-168; default 72. Unlimited deferrals before this deadline. Checked on each Intune attempt.'
+Add-Field $controls.ExperiencePanel ReminderHours '_Reminder interval (hours)' Int '1-12; default 4. Minimum time between notices. Intune controls the actual retry timing.'
+Add-Heading $controls.ExperiencePanel 'Your branding' 'These settings remain separate from deployment logic. Choose high-contrast colors; preview and test the generated interface on Windows.'
 foreach ($entry in @(@('CompanyName','Company name'),@('AppTitle','Window title'),@('Heading','Heading'),@('Purpose','Update purpose'),@('SupportText','Support text'),@('ReadyMessage','Restart-required message'))) { Add-Field $controls.ExperiencePanel $entry[0] $entry[1] Multi }
-Add-Field $controls.ExperiencePanel LogoPath 'Company logo (optional)' Image 'PNG/JPG, up to 10 MB. Leave blank for the built-in mark.'
+Add-Field $controls.ExperiencePanel LogoPath 'Company logo (optional)' Image 'PNG/JPG, up to 10 MB. Leave blank to show company text only.'
 Add-Field $controls.ExperiencePanel BannerPath 'Banner image (optional)' Image
 foreach ($entry in @(@('AccentColor','Accent'),@('BackgroundColor','Background'),@('SurfaceColor','Cards'),@('TextColor','Text'),@('MutedColor','Secondary text'))) { Add-Field $controls.ExperiencePanel $entry[0] ($entry[1]+' color (#RRGGBB)') }
 function Set-FormSettings([hashtable]$Settings) {
@@ -114,7 +111,7 @@ function Update-Review {
     try {
         $s=Get-FormSettings
         $mode=if ($s.ContentPrepTool) {'Source + Intune scripts + .intunewin'} else {'Source + Intune scripts (.intunewin tool not selected)'}
-        $controls.ReviewText.Text="Models: $($s.Models -join ', ')`nTarget: $($s.TargetVersion)`nPower: AC required; battery minimum $($s.MinimumBatteryPercent)%`nDeadline: $($s.WindowHours) hours from first notice`nReminder: $($s.ReminderHours) hours; restart warning: $($s.FinalWarningMinutes) minutes`nOutput: $mode`nPassword: excluded from this review and presets"
+        $controls.ReviewText.Text="Models: $($s.Models -join ', ')`nTarget: $($s.TargetVersion)`nPower: AC required; battery minimum $($s.MinimumBatteryPercent)%`nDeadline: $($s.WindowHours) hours from first user prompt attempt`nReminder: $($s.ReminderHours) hours minimum; prompt timeout: $($s.PromptTimeoutMinutes) minutes`nOutput: $mode`nPassword: excluded from this review and presets"
     } catch { $controls.ReviewText.Text=$_.Exception.Message }
 }
 $defaults=New-PackageBuildSettings

@@ -1,3 +1,4 @@
+# MedelaBIOS-FileVersion: 2.2.0
 #requires -Version 5.1
 #requires -RunAsAdministrator
 . "$PSScriptRoot\Common.ps1"

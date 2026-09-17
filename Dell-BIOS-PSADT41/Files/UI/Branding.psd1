@@ -1,3 +1,4 @@
+# MedelaBIOS-FileVersion: 2.2.0
 @{
     CompanyName = 'Your company'
     AppTitle = 'Device care'

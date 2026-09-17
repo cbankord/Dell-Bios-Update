@@ -1,7 +1,8 @@
+# MedelaBIOS-FileVersion: 2.2.0
 #requires -Version 5.1
 #requires -RunAsAdministrator
 [CmdletBinding()]
-param([switch]$PreflightOnly)
+param([switch]$PreflightOnly, [string]$PackageFiles = $PSScriptRoot)
 
 . "$PSScriptRoot\Common.ps1"
 $exitCode = 60001
@@ -14,7 +15,7 @@ $biosPassword = $null
 try {
     if (-not [Environment]::Is64BitProcess) { throw '64-bit Windows PowerShell is required.' }
     if ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value -ne 'S-1-5-18') { throw 'Run as LocalSystem, including pilot tests.' }
-    $config = Import-PowerShellDataFile "$PSScriptRoot\BIOS-Config.psd1"
+    $config = Import-PowerShellDataFile (Join-Path $PackageFiles 'BIOS-Config.psd1')
     Initialize-SecureDirectory
     Assert-Config $config
     Assert-Model $config
@@ -42,8 +43,8 @@ try {
         return
     }
     if ($current -lt (Convert-BiosVersion $config.MinimumCurrentVersion)) { throw 'Install the Dell prerequisite BIOS version first.' }
-    $biosPassword = Get-BiosPassword $config $PSScriptRoot
-    $payload = Join-Path $PSScriptRoot $config.FileName
+    $biosPassword = Get-BiosPassword $config $PackageFiles
+    $payload = Join-Path $PackageFiles $config.FileName
     Assert-Payload $payload $config
     Assert-NoPendingReboot
     Assert-Power $config
@@ -109,7 +110,7 @@ try {
     Assert-Power $config
     Set-StateValue 'Status' 'Launching'
     $dellLog = Join-Path $script:WorkDir ('Dell-{0}.log' -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
-    Write-BiosLog "Launching approved Dell BIOS $current -> $target. Reboot is managed by the v2 SYSTEM scheduler."
+    Write-BiosLog "Launching approved Dell BIOS $current -> $target. A user restart prompt follows staging; no updater-controlled restart."
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
     $startInfo.FileName = $cachedExe
     $startInfo.Arguments = '/s /l="{0}"' -f $dellLog

@@ -5,15 +5,18 @@ param(
     [string]$OutputDirectory = (Join-Path $PackageRoot 'Intune')
 )
 . "$PSScriptRoot\Files\Common.ps1"
+. "$PSScriptRoot\Files\Simple\Cache.ps1"
 $config = Import-PowerShellDataFile (Join-Path $PackageRoot 'Files/BIOS-Config.psd1')
 Assert-Config $config
 Assert-Payload (Join-Path (Join-Path $PackageRoot 'Files') $config.FileName) $config
 $json = ($config | ConvertTo-Json -Depth 5 -Compress).Replace("'", "''")
+$runtimeJson = ((Read-ApprovedRuntimeManifest (Join-Path $PackageRoot 'Files')) | ConvertTo-Json -Depth 5 -Compress).Replace("'", "''")
 $header = @'
 # Generated from BIOS-Config.psd1. Regenerate for EVERY model/version/hash change.
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 3
 $config = '__CONFIG_JSON__' | ConvertFrom-Json
+$runtime = '__RUNTIME_JSON__' | ConvertFrom-Json
 function Convert-BiosVersion([string]$Text) {
     if ($Text -notmatch '^\d+\.\d+(\.\d+){0,2}$') { throw 'Unsupported version.' }
     $parts = @($Text.Split('.'))
@@ -22,6 +25,7 @@ function Convert-BiosVersion([string]$Text) {
 }
 '@
 $header = $header.Replace('__CONFIG_JSON__', $json)
+$header = $header.Replace('__RUNTIME_JSON__', $runtimeJson)
 $model = @'
     if (-not [Environment]::Is64BitProcess) { throw 'Use 64-bit script execution.' }
     $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
@@ -29,20 +33,25 @@ $model = @'
 '@
 $detect = @'
     $current = Convert-BiosVersion (Get-CimInstance Win32_BIOS -ErrorAction Stop).SMBIOSBIOSVersion.Trim()
-    if ($current -ge (Convert-BiosVersion $config.TargetVersion)) { Write-Output "BIOS verified: $current"; exit 0 }
-    # V2 detects controller enrollment, not completed firmware. Audit is separate.
-    $path = Join-Path $env:ProgramData 'ManagedDellBIOS\Schedule-v2.json'
-    $state = Get-Content -LiteralPath $path -Raw -ErrorAction Stop | ConvertFrom-Json
-    $id = 'v2-' + $config.TargetVersion + '-' + $config.SHA256.ToLowerInvariant()
-    if ($state.Schema -ne 2 -or $state.PackageId -ne $id) { exit 1 }
-    $task = Get-ScheduledTask -TaskName 'ManagedDellBIOS-v2-Controller' -ErrorAction Stop
-    $ui = Get-ScheduledTask -TaskName 'ManagedDellBIOS-v2-UserUI' -ErrorAction Stop
-    if ($task.State -eq 'Disabled' -or $ui.State -eq 'Disabled') { exit 1 }
-    $broker = Join-Path $env:ProgramData 'ManagedDellBIOS\Runtime-v2\Scheduler\Start-Broker.ps1'
-    if (Test-Path -LiteralPath $broker -PathType Leaf) {
-        Write-Output ('BIOS scheduler enrolled; phase=' + $state.Phase + '. Firmware compliance is reported by Audit-BIOSAndBitLocker.ps1.')
-        exit 0
+    if ($current -ge (Convert-BiosVersion $config.TargetVersion)) {
+        Import-Module BitLocker -ErrorAction Stop
+        $volume=Get-BitLockerVolume -MountPoint $env:SystemDrive -ErrorAction Stop
+        if ($volume.VolumeStatus -notin @('FullyEncrypted','FullyDecrypted') -or ($volume.VolumeStatus -eq 'FullyEncrypted' -and $volume.ProtectionStatus -ne 'On')) { exit 1 }
+        $key='HKLM:\SOFTWARE\ManagedDellBIOS'
+        if (Test-Path -LiteralPath $key) {
+            $txn=Get-ItemProperty -LiteralPath $key
+            if ($txn.Status -ne 'Verified' -or $txn.SuspendedByUs -ne '0') { exit 1 }
+        }
+        # Same-BIOS package updates must still refresh old/missing/drifted code.
+        # Read-only detection: all repair remains in the SYSTEM installer.
+        $cache=Join-Path $env:ProgramData 'Medela\DellBIOS'
+        foreach ($file in $runtime.Files) {
+            $path=Join-Path $cache $file.Destination
+            if ((Get-FileHash -LiteralPath $path -Algorithm SHA256 -ErrorAction Stop).Hash -ne $file.SHA256) { exit 1 }
+        }
+        Write-Output "BIOS verified: $current; drive protection checked."; exit 0
     }
+    # Deferred or staged is not complete. Intune must attempt the package again.
     exit 1
 } catch { exit 1 }
 '@
