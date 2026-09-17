@@ -2,8 +2,9 @@
 
 V3 adds a visible **Close** button to the package builder. Close, Escape and the
 title-bar X exit immediately when idle. During a build, they request automatic
-exit after the build finishes and cleanup completes. The deployed BIOS workflow
-and its per-file runtime versions remain those of v2.3.
+exit after the build finishes and cleanup completes. V3.0.1 also confines cache
+permission changes to `Medela\DellBIOS`, leaving the shared `Medela` parent and
+other applications' permissions alone. Firmware and restart behavior retain v2.3.
 
 A PSADT 4.1 + Intune deployment with a compact branded **Install Now / Defer**
 prompt with days remaining, an animated preparation indicator, and a movable,

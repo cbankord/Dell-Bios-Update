@@ -37,6 +37,59 @@ The new package stops for review; it does not race a second controller. If an
 upgrade fails after safe task retirement, rerun the corrected package. Deadline
 state is preserved and interrupted file replacement is repaired from source.
 
+## Shared Medela folder permissions
+
+`C:\ProgramData\Medela` is shared with other applications. The deployment does
+**not** change its owner, remove inheritance, replace its ACL, or recurse through
+sibling applications. It applies permissions only to `Medela\DellBIOS` and owned
+contents. Cache ACL helpers refuse the shared parent, sibling paths, prefix
+lookalikes and `..` escapes. Reparse paths remain rejected.
+
+Versions before 3.0.1 rejected all nonadmin Write entries, including inherit-only
+rules. V3.0.1 accepts ordinary file/folder creation and write-attribute grants on
+the shared parent and skips entries that apply only to descendants. The owned
+DellBIOS root has inheritance disabled, so it does not adopt those grants. New
+owned directories receive their protected ACL in the .NET Framework directory
+creation call, before they become accessible under inherited permissions.
+See [Microsoft's inheritance rules](https://learn.microsoft.com/en-us/windows/win32/secauthz/ace-inheritance-rules)
+and [directory creation with security](https://learn.microsoft.com/en-us/dotnet/api/system.io.directory.createdirectory?view=netframework-4.8.1#system-io-directory-createdirectory(system-string-system-security-accesscontrol-directorysecurity)).
+
+The shared-parent check remains read-only and conservative. An allow entry for
+Delete, DeleteSubdirectoriesAndFiles, ChangePermissions, TakeOwnership or generic
+FullControl applying to the parent can allow replacing the protected path.
+Windows can authorize deletion/renaming through either the object or its parent;
+[child permissions alone do not eliminate a parent delete-child grant](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-deletefilew).
+Untrusted ownership and an unrestricted/null DACL also stop caching. This checker
+does not calculate effective access for every domain group or subtract deny ACEs;
+it reports a potentially dangerous allow entry for review and never rewrites it.
+
+If the revised check still stops, collect the SID/rights in the new error and
+these read-only results:
+
+```powershell
+(Get-Acl -LiteralPath 'C:\ProgramData\Medela').Owner
+icacls.exe 'C:\ProgramData\Medela'
+```
+
+Keep the shared folder's permissions as required by its applications. If its
+parent-replacement rights are required, review a separate protected cache design
+with IT; this release does not silently relocate the cache or offer a safety
+bypass. Do not remove this check, reset the shared ACL, or delete firmware state
+to make an unsafe location pass.
+
+Rebuild with the updated v3 builder and replace both the Intune package and its
+generated detection script. Cache.ps1 has a 3.0.1 tattoo; other unchanged runtime
+files retain their own versions. Never edit just a cached script or reuse the old
+runtime manifest/detection hashes. Pending firmware recovery still blocks code
+replacement until that transaction is resolved.
+
+On Windows, compare the parent and sibling owner/DACL before and after initial
+deployment and a repeat. Validate that a standard user can access the other
+applications normally, can read the BIOS UI, and cannot modify, rename, delete or
+replace the BIOS root/private code. Exercise both allowed create/inherit-only
+grants and blocked parent-replacement grants in an isolated test directory.
+The portable regression models Windows ACL APIs; it does not prove NTFS access.
+
 ## What persists
 
 The active cache is limited to `Medela\DellBIOS`. UI files are read-only for users;

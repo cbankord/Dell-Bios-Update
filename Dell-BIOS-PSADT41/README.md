@@ -66,11 +66,23 @@ display feed. It contains phase/countdown/heartbeat only, never credentials.
 Users cannot change the deadline or send privileged commands through this file.
 The UI closes if the file disappears or its heartbeat becomes stale.
 
-No files are newly installed into Program Files. The parent `Medela` folder is
-created if absent; an existing shared parent is checked for safe ownership/access
-without changing other applications' ACLs. Users cannot write code executed as
-SYSTEM. Credentials remain in the protected deployment package and are not copied
-to the user-readable UI or version/hash manifest.
+No files are newly installed into Program Files. **The shared `Medela` parent's
+permissions and owner are never changed.** If absent, it is created with normal
+inherited permissions. Only `DellBIOS` and its contents receive explicit cache
+ACLs, enforced by a path boundary in the permission helpers. New owned directories
+are created with protected ACLs immediately; they do not briefly inherit broad
+shared-folder grants. Private and user-readable child folders keep their separate
+permissions. Sibling application permissions and contents are untouched.
+
+The read-only parent check accepts ordinary create-file/create-folder/write
+grants and skips inherit-only entries; `DellBIOS` disables inheritance. It still
+blocks untrusted parent ownership, an unrestricted DACL, or nonadmin grants that
+apply to the parent and permit deletion, child deletion, permission changes or
+ownership changes. These can undermine a protected child's path. The diagnostic
+identifies the offending SID/rights instead of requesting a shared-folder reset.
+See [shared-folder troubleshooting](OPERATIONS.md#shared-medela-folder-permissions).
+Credentials remain in the protected deployment package and are not copied to the
+user-readable UI or version/hash manifest.
 
 Each managed PowerShell file has its own version marker, for example:
 

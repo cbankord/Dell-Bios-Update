@@ -1,3 +1,24 @@
+# v3.0.1 preserve shared Medela permissions - 2026-09-17
+
+- Never apply an explicit ACL or owner change to the shared Medela parent,
+  including first install. Create it with normal inherited permissions if absent.
+  Constrain every cache permission writer to DellBIOS and its contents; refuse
+  sibling, prefix-lookalike and traversal paths before a native permission call.
+- Fix the overly broad parent check: accept creation/write-attribute grants and
+  ignore inherit-only entries. The protected DellBIOS child does not inherit them.
+  Continue to reject untrusted parent ownership, null DACLs and allow entries
+  permitting parent/child replacement, with SID/rights in the diagnostic and no
+  request to rewrite shared application permissions. This remains a conservative
+  allow-entry check, not effective-access evaluation of all domain memberships.
+- Create new owned cache folders with a protected ACL immediately using the
+  Windows PowerShell/.NET Framework directory creation overload.
+- Bump Cache.ps1 and builder records to 3.0.1. Preserve state, recovery, firmware
+  gates, UI/countdown behavior and the v2/Main branches. Rebuild package and
+  matching detection so file tattoos/hash repair can deliver the change.
+- Pass 52 new permission-boundary assertions, 30 real file/cache assertions and
+  88 builder assertions on PowerShell 7.4.7/Linux. Windows ACL construction and
+  writes are modeled; real NTFS/Windows PowerShell 5.1 checks remain required.
+
 # v3.0 builder Close button - 2026-09-17
 
 - Branch from v2.3; preserve the v2 and Main branches.

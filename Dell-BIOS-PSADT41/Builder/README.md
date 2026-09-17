@@ -90,6 +90,12 @@ contain PreparationLeadMinutes, FinalWarningMinutes or SafetyRetryMinutes;
 import drops these retired scheduler settings. Review the new experience before
 building. See [OPERATIONS.md](../OPERATIONS.md) for automatic legacy retirement.
 
+V3.0.1 changes permissions only within `Medela\DellBIOS`. It leaves the shared
+`Medela` parent and other application folders untouched, accepts ordinary
+creation/inherit-only grants, and diagnoses parent-replacement grants without
+rewriting them. See [shared-folder permissions](../OPERATIONS.md#shared-medela-folder-permissions).
+Rebuild the package and use its matching new detection script for this cache fix.
+
 The install notice shows remaining days/hours/minutes until Install Now is the
 only option. During preparation, an animated bar indicates activity without
 claiming a firmware percentage. The restart window shows the local restart time

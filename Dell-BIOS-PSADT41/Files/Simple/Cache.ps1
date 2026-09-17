@@ -1,4 +1,4 @@
-# MedelaBIOS-FileVersion: 2.3.0
+# MedelaBIOS-FileVersion: 3.0.1
 # The trusted Intune package is the source of truth. Tattoos identify versions;
 # SHA256 detects drift. Neither is an Authenticode signature or trust bootstrap.
 function Get-MedelaRoot { Join-Path $env:ProgramData 'Medela\DellBIOS' }
@@ -12,9 +12,16 @@ function Assert-NoCacheLinks([string]$Path) {
         if ($parent -eq $current) { break }; $current=$parent
     }
 }
-function Protect-MedelaDirectory([string]$Path, [bool]$UserReadable=$false) {
-    Assert-NoCacheLinks $Path
-    $null=[IO.Directory]::CreateDirectory($Path)
+function Assert-MedelaOwnedPath([string]$Path) {
+    $trim=[char[]]@([IO.Path]::DirectorySeparatorChar,[IO.Path]::AltDirectorySeparatorChar)
+    $root=[IO.Path]::GetFullPath((Get-MedelaRoot)).TrimEnd($trim)
+    $target=[IO.Path]::GetFullPath($Path).TrimEnd($trim)
+    if (-not $target.Equals($root,[StringComparison]::OrdinalIgnoreCase) -and
+        -not $target.StartsWith($root+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Permission changes are restricted to the DellBIOS folder and its contents. The shared Medela folder and sibling applications are not managed by this package.'
+    }
+}
+function New-MedelaDirectoryAcl([bool]$UserReadable=$false) {
     $acl=New-Object Security.AccessControl.DirectorySecurity
     $acl.SetAccessRuleProtection($true,$false)
     $system=New-Object Security.Principal.SecurityIdentifier('S-1-5-18')
@@ -23,41 +30,79 @@ function Protect-MedelaDirectory([string]$Path, [bool]$UserReadable=$false) {
         $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule((New-Object Security.Principal.SecurityIdentifier($sid)),'FullControl','ContainerInherit,ObjectInherit','None','Allow')))
     }
     if ($UserReadable) { $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule((New-Object Security.Principal.SecurityIdentifier('S-1-5-32-545')),'ReadAndExecute','ContainerInherit,ObjectInherit','None','Allow'))) }
+    return $acl
+}
+function New-MedelaCacheDirectory([string]$Path,$Acl) {
+    Assert-MedelaOwnedPath $Path
+    Assert-NoCacheLinks $Path
+    # This Windows PowerShell/.NET Framework overload applies the protected ACL
+    # at creation, rather than briefly inheriting the shared parent's grants.
+    # Require the immediate parent so this call cannot create/ACL shared ancestors.
+    if (-not (Test-Path -LiteralPath ([IO.Path]::GetDirectoryName($Path)) -PathType Container)) { throw 'The cache directory parent must already exist.' }
+    $null=[IO.Directory]::CreateDirectory($Path,$Acl)
+}
+function Set-MedelaOwnedAcl([string]$Path,$Acl) {
+    Assert-MedelaOwnedPath $Path
+    Assert-NoCacheLinks $Path
     Set-Acl -LiteralPath $Path -AclObject $acl
+}
+function Set-MedelaInheritedAcl([string]$Path,[bool]$IsDirectory) {
+    Assert-MedelaOwnedPath $Path
+    $child=if ($IsDirectory) { New-Object Security.AccessControl.DirectorySecurity } else { New-Object Security.AccessControl.FileSecurity }
+    $child.SetAccessRuleProtection($false,$false)
+    $child.SetOwner((New-Object Security.Principal.SecurityIdentifier('S-1-5-18')))
+    Set-MedelaOwnedAcl $Path $child
+}
+function Protect-MedelaDirectory([string]$Path, [bool]$UserReadable=$false) {
+    Assert-MedelaOwnedPath $Path
+    Assert-NoCacheLinks $Path
+    $acl=New-MedelaDirectoryAcl $UserReadable
+    New-MedelaCacheDirectory $Path $acl
+    Set-MedelaOwnedAcl $Path $acl
     foreach ($item in Get-ChildItem -LiteralPath $Path -Force -Recurse) {
-        Assert-NoCacheLinks $item.FullName
-        $child=if ($item.PSIsContainer) { New-Object Security.AccessControl.DirectorySecurity } else { New-Object Security.AccessControl.FileSecurity }
-        $child.SetAccessRuleProtection($false,$false); $child.SetOwner($system)
-        Set-Acl -LiteralPath $item.FullName -AclObject $child
+        Set-MedelaInheritedAcl $item.FullName $item.PSIsContainer
+    }
+}
+function Assert-MedelaSharedParent([string]$Path) {
+    # Read only. Other applications own the shared folder's ACL. Child-only
+    # grants do not apply here, and the DellBIOS child disables inheritance.
+    $acl=Get-Acl -LiteralPath $Path
+    $owner=$acl.GetOwner([Security.Principal.SecurityIdentifier]).Value
+    if ($owner -notin @('S-1-5-18','S-1-5-32-544')) {
+        throw "Shared Medela folder owner is $owner. Its permissions were left unchanged. SYSTEM code requires a location whose parent owner cannot replace its security; review another protected cache location with IT."
+    }
+    if ($acl.GetSecurityDescriptorSddlForm([Security.AccessControl.AccessControlSections]::Access) -match 'NO_ACCESS_CONTROL') {
+        throw 'Shared Medela folder has an unrestricted DACL. Its permissions were left unchanged. This location cannot safely host the SYSTEM cache; review another protected location with IT.'
+    }
+    $replacementRights=[long][Security.AccessControl.FileSystemRights]'Delete,DeleteSubdirectoriesAndFiles,ChangePermissions,TakeOwnership'
+    $replacementRights=$replacementRights -bor 0x10000000 # Unmapped GENERIC_ALL.
+    foreach ($rule in $acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])) {
+        if ($rule.AccessControlType -ne 'Allow' -or
+            ($rule.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly) -or
+            $rule.IdentityReference.Value -in @('S-1-5-18','S-1-5-32-544')) { continue }
+        # CreateFiles/CreateDirectories/WriteAttributes alone do not authorize
+        # replacing a protected child. Delete/WRITE_DAC/WRITE_OWNER do.
+        if ([long]$rule.FileSystemRights -band $replacementRights) {
+            throw ('Shared Medela folder grants replacement-related access to {0}: {1} (scope: this folder). Its permissions were left unchanged. The DellBIOS child ACL cannot remove this parent grant; review another protected cache location with IT.' -f $rule.IdentityReference.Value,$rule.FileSystemRights)
+        }
     }
 }
 function Initialize-MedelaCache([string]$Root) {
     # Do not change the ACL of Medela itself or unrelated applications under it.
+    Assert-MedelaOwnedPath $Root
+    if ([IO.Path]::GetFullPath($Root).TrimEnd('\','/') -ine [IO.Path]::GetFullPath((Get-MedelaRoot)).TrimEnd('\','/')) { throw 'Initialize the configured DellBIOS root only.' }
     Assert-NoCacheLinks $Root
     $parent=[IO.Path]::GetDirectoryName($Root)
-    if (-not (Test-Path -LiteralPath $parent)) { Protect-MedelaDirectory $parent $true }
-    else {
-        # A writable shared parent can let a user rename/replace even a locked
-        # child. Validate it without rewriting another Medela app's permissions.
-        $parentAcl=Get-Acl -LiteralPath $parent
-        $owner=$parentAcl.GetOwner([Security.Principal.SecurityIdentifier]).Value
-        if ($owner -notin @('S-1-5-18','S-1-5-32-544')) { throw 'The Medela parent folder must be owned by SYSTEM or Administrators.' }
-        foreach ($rule in $parentAcl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])) {
-            if ($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -notin @('S-1-5-18','S-1-5-32-544','S-1-3-0') -and
-                ($rule.FileSystemRights -band [Security.AccessControl.FileSystemRights]'Write,Delete,DeleteSubdirectoriesAndFiles,ChangePermissions,TakeOwnership')) { throw 'The Medela parent permits non-administrator changes. IT must protect it before caching SYSTEM code.' }
-        }
-    }
-    if (-not (Test-Path -LiteralPath $Root)) { $null=[IO.Directory]::CreateDirectory($Root) }
+    # If missing, create the shared folder using normal inherited permissions.
+    # Never call a hardening helper on it, even on a first installation.
+    if (-not (Test-Path -LiteralPath $parent)) { $null=[IO.Directory]::CreateDirectory($parent) }
+    Assert-NoCacheLinks $parent
+    Assert-MedelaSharedParent $parent
     # Root contains only app-owned child folders; protected children have their
     # own ACL. Never recursively reset the private directories from this parent.
-    $acl=New-Object Security.AccessControl.DirectorySecurity
-    $acl.SetAccessRuleProtection($true,$false)
-    foreach ($sid in @('S-1-5-18','S-1-5-32-544','S-1-5-32-545')) {
-        $rights=if ($sid -eq 'S-1-5-32-545') {'ReadAndExecute'} else {'FullControl'}
-        $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule((New-Object Security.Principal.SecurityIdentifier($sid)),$rights,'ContainerInherit,ObjectInherit','None','Allow')))
-    }
-    $acl.SetOwner((New-Object Security.Principal.SecurityIdentifier('S-1-5-18')))
-    Set-Acl -LiteralPath $Root -AclObject $acl
+    $acl=New-MedelaDirectoryAcl $true
+    New-MedelaCacheDirectory $Root $acl
+    Set-MedelaOwnedAcl $Root $acl
     foreach ($name in @('Runtime','State','Recovery')) { Protect-MedelaDirectory (Join-Path $Root $name) }
     Protect-MedelaDirectory (Join-Path $Root 'UI') $true
 }
