@@ -1,9 +1,12 @@
-# Dell BIOS deployment — v2.2
+# Dell BIOS deployment — v2.3
 
 A PSADT 4.1 + Intune deployment with a compact branded **Install Now / Defer**
-prompt, a **Restart Now / Restart Later** prompt, and protected versioned files
+prompt with days remaining, an animated preparation indicator, and a movable,
+minimizable **Restart Now** warning with a 60-minute automatic restart countdown.
+The warning sounds and recenters every 15 minutes. Protected versioned files stay
 under `C:\ProgramData\Medela\DellBIOS`. No resident controller, named-pipe broker,
-Program Files installation or recurring UI task.
+Program Files installation or recurring UI/restart task. Unsafe power or an
+interrupted countdown cancels automatic restart while preserving firmware recovery.
 
 Open `Dell-BIOS-PSADT41/Builder/Start-PackageBuilder.cmd` on Windows. Select the
 approved Dell EXE and your prepared PSADT 4.1.x ZIP; enter model/version, password,

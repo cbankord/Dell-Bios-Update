@@ -17,11 +17,11 @@ try {
     $stateHash=(Get-FileHash $statePath).Hash
     Write-RuntimeManifest $files
     $plan=Get-CacheUpdatePlan $files $cache
-    Check ($plan.Count -eq 11 -and @($plan|Where-Object Reason -ne 'Missing').Count -eq 0) 'All managed files identified on first install'
+    Check ($plan.Count -eq 12 -and @($plan|Where-Object Reason -ne 'Missing').Count -eq 0) 'All managed files identified on first install'
     Check (@($plan|Where-Object Source -match 'BIOS-Password|BIOS-Config|ApprovedBIOS').Count -eq 0) 'Cache allowlist excludes credentials and firmware/configuration'
     $script:events=New-Object 'Collections.Generic.List[string]'
     Update-MedelaCache $files $cache $plan {param($m) $script:events.Add($m)}
-    Check ($events.Count -eq 11) 'Initial copies are recorded without secret data'
+    Check ($events.Count -eq 12) 'Initial copies are recorded without secret data'
     $plan=Get-CacheUpdatePlan $files $cache
     Check (@($plan|Where-Object Reason -ne 'Current').Count -eq 0) 'Exact installed bytes are current'
     $current=Join-Path $cache 'Runtime/Common.ps1'

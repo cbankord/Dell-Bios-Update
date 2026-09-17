@@ -63,7 +63,9 @@ Add-Field $controls.DeploymentPanel MinimumBatteryRuntimeMinutes 'Minimum estima
 Add-Field $controls.DeploymentPanel MinimumFreeSpaceGB 'Minimum free _space (GB)' Int '1-1024 GB on the Windows volume.'
 Add-Field $controls.DeploymentPanel BitLockerRebootCount 'BitLocker reboot _count' Int '1-3. A finite suspension immediately around staging, never days before it.'
 Add-Field $controls.DeploymentPanel EscrowDestination 'Recovery key _escrow' Escrow
-Add-Field $controls.ExperiencePanel PromptTimeoutMinutes '_Prompt timeout (minutes)' Int '1-30; default 10. Before the deadline: defer on timeout. Overdue install: request preparation after the visible notice. Restart prompts never force a restart.'
+Add-Field $controls.ExperiencePanel PromptTimeoutMinutes '_Install prompt timeout (minutes)' Int '1-30; default 10. Defer on timeout before the original deadline; request preparation after an overdue notice.'
+Add-Field $controls.ExperiencePanel RestartCountdownMinutes '_Restart countdown (minutes)' Int '15-120; default 60. SYSTEM rechecks power before automatically requesting a restart. Unsafe power/sleep/session loss cancels this countdown.'
+Add-Field $controls.ExperiencePanel RestartReminderMinutes 'Restart reminder _interval (minutes)' Int '1-30; default 15, less than the countdown. Restore/center the window and play the Windows alert sound.'
 Add-Heading $controls.ExperiencePanel 'Deferrals and reminders' 'The deadline is saved at the first user prompt launch attempt. Future builds cannot extend it. Intune supplies retries.'
 Add-Field $controls.ExperiencePanel WindowHours '_Deferral window (hours)' Int '1-168; default 72. Unlimited deferrals before this deadline. Checked on each Intune attempt.'
 Add-Field $controls.ExperiencePanel ReminderHours '_Reminder interval (hours)' Int '1-12; default 4. Minimum time between notices. Intune controls the actual retry timing.'
@@ -111,7 +113,7 @@ function Update-Review {
     try {
         $s=Get-FormSettings
         $mode=if ($s.ContentPrepTool) {'Source + Intune scripts + .intunewin'} else {'Source + Intune scripts (.intunewin tool not selected)'}
-        $controls.ReviewText.Text="Models: $($s.Models -join ', ')`nTarget: $($s.TargetVersion)`nPower: AC required; battery minimum $($s.MinimumBatteryPercent)%`nDeadline: $($s.WindowHours) hours from first user prompt attempt`nReminder: $($s.ReminderHours) hours minimum; prompt timeout: $($s.PromptTimeoutMinutes) minutes`nOutput: $mode`nPassword: excluded from this review and presets"
+        $controls.ReviewText.Text="Models: $($s.Models -join ', ')`nTarget: $($s.TargetVersion)`nPower: AC required; battery minimum $($s.MinimumBatteryPercent)%`nDeadline: $($s.WindowHours) hours from first user prompt attempt`nReminder: $($s.ReminderHours) hours minimum; install prompt timeout: $($s.PromptTimeoutMinutes) minutes`nAfter staging: automatic restart countdown $($s.RestartCountdownMinutes) minutes; sound/recenter every $($s.RestartReminderMinutes) minutes`nOutput: $mode`nPassword: excluded from this review and presets"
     } catch { $controls.ReviewText.Text=$_.Exception.Message }
 }
 $defaults=New-PackageBuildSettings

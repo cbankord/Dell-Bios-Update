@@ -18,7 +18,9 @@ and signing policy still applies; the launcher does not override that policy.
    build. Without it, the result is complete deployment source plus Intune scripts.
 2. **Deployment:** enter exact CIM model names, target/prerequisite BIOS versions,
    shared administrator password twice, power/disk thresholds and recovery settings.
-3. **Experience:** set the deferral window, reminder cooldown and prompt timeout. Enter company text, colors and optional logo/banner images.
+3. **Experience:** set the deferral window, reminder cooldown, install prompt
+   timeout, restart countdown and sound/recenter interval. Enter company text,
+   colors and optional logo/banner images.
 4. **Build:** review the settings, confirm that you reviewed the approved firmware
    and trusted template, then build. The GUI remains responsive during packaging.
    Select **Open output** and follow the generated `READ-ME-FIRST.txt`.
@@ -52,7 +54,9 @@ The utility is optional, is not bundled, and is never downloaded silently.
 | StagedDetectionHours | `24`; legacy preset/config field | Hidden in the wizard; actual-BIOS detection does not use it |
 | Deferral window | `72`; 1-168 hours | Fixed window from first active-user prompt launch attempt; retained across retries |
 | Reminder interval | `4`; 1-12 hours | Minimum between notices; Intune supplies the actual retry timing |
-| Prompt timeout | `10`; 1-30 minutes | Install: defer before deadline, request preparation after expiry; restart: no automatic reboot |
+| Install prompt timeout | `10`; 1-30 minutes | Defer before deadline; request preparation after an overdue notice |
+| Restart countdown | `60`; 15-120 minutes | SYSTEM requests a guarded automatic restart after staging; unsafe power/sleep/session interruption cancels it |
+| Restart reminder interval | `15`; 1-30 minutes, below countdown | Restore/recenter the movable window and play Windows alert sound; minimize/X keeps the countdown running |
 
 “Battery time” means the **estimated remaining runtime in minutes**, not a sleep,
 charging delay or BIOS execution timeout. It uses
@@ -73,6 +77,13 @@ Program Files installation or recurring controller/UI task. Old presets may
 contain PreparationLeadMinutes, FinalWarningMinutes or SafetyRetryMinutes;
 import drops these retired scheduler settings. Review the new experience before
 building. See [OPERATIONS.md](../OPERATIONS.md) for automatic legacy retirement.
+
+The install notice shows remaining days/hours/minutes until Install Now is the
+only option. During preparation, an animated bar indicates activity without
+claiming a firmware percentage. The restart window shows the local restart time
+and remaining countdown. Cancellation cleans only temporary UI status; the
+firmware transaction and BitLocker verification task remain until resolved.
+No recurring restart task or future Windows shutdown timer is created.
 
 ## What the ZIP must contain
 
@@ -183,7 +194,9 @@ The requested user prompt uses PSADT's session helper. Microsoft does not suppor
 interactive Intune installs or user-session UI workarounds; the helper does not
 remove that limitation. Review [the Intune guidance](https://learn.microsoft.com/en-us/intune/app-management/deployment/add-win32#step-2-program)
 and [package configuration](../README.md#intune-configuration), including an install
-timeout that allows all prompts and staging to finish, before deployment.
+timeout that allows the full restart countdown, prompts and staging to finish,
+before deployment. Start the default Windows pilot with 180 minutes and adjust
+to measured staging time and any longer configured countdown.
 
 Build errors identify the phase without echoing file contents or password parse
 errors. Invalid settings are reported before extraction. For extraction failures,

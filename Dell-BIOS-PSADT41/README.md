@@ -1,4 +1,4 @@
-# Dell BIOS v2.2 — simple PSADT deployment
+# Dell BIOS v2.3 — progress and guarded restart
 
 Build with `Builder/Start-PackageBuilder.cmd`, using your approved Dell BIOS EXE
 and prepared PSADT 4.1.x ZIP. Review the generated `READ-ME-FIRST.txt` before upload.
@@ -12,6 +12,7 @@ Intune scripts and a runtime integrity manifest. No BIOS/password is in Git.
 2. The compact branded UI runs once in the signed-in standard user's session.
    **Install Now** starts preparation through SYSTEM after all safety checks.
    **Defer**, closing the window or timing out before the deadline returns a retry.
+   The notice shows days/hours/minutes until Install Now becomes the only option.
 3. A fixed window (72 hours by default) is saved immediately before the first
    prompt launch into an active user session. This is a delivery-attempt timestamp,
    not proof the notice was read. Launch failures, crashes, sign-outs and retries
@@ -19,21 +20,37 @@ Intune scripts and a runtime integrity manifest. No BIOS/password is in Git.
 4. After expiry, the installation prompt removes Defer, prevents normal closing,
    and visibly counts down its prompt timeout before requesting preparation.
    Power/model/hash/password/BitLocker/transaction checks still apply.
-5. Successful staging displays the configured restart-required message with
-   **Restart Now** and **Restart Later**. Restart Now is a request to SYSTEM,
-   which rechecks power, transaction ownership and BitLocker before `/r /t 0`.
-   There is no `/f`. Restart Later/closing/timeout does not request a restart.
-6. A temporary SYSTEM verification task checks actual BIOS and restores/verifies
+5. During preparation an animated progress bar shows activity. It does not invent
+   a Dell percentage or claim firmware is complete. Closing this window minimizes
+   it; losing the window never terminates a running BIOS updater.
+6. After successful staging, a movable/minimizable restart warning shows the
+   required message, local restart time and **60-minute countdown**. **Restart Now**
+   requests an earlier restart; **Minimize** or the window's X minimizes without
+   cancelling. At 15/30/45 minutes it restores, centers on its monitor and plays
+   the Windows alert sound. SYSTEM requests restart when the countdown expires,
+   after checking power, transaction ownership, BitLocker and session continuity.
+7. A temporary SYSTEM verification task checks actual BIOS and restores/verifies
    owned BitLocker protection after reboot. It unregisters after a definitive
    result. Staging or accepting an install is never reported as completion.
 
-**Intune owns later attempts.** The reminder interval is a minimum between
-notices, not a scheduled trigger. There is no exact-date picker, resident service,
-background UI, persistent forced-restart countdown or guaranteed 72-hour wall-clock
-execution. After a deferral or safety hold, the next Intune attempt evaluates the
-original deadline. If the user postpones restart, subsequent attempts offer it
-again without reflashing; monitor outstanding staged updates and protection state.
-An independent user/Windows restart is outside this package's power gate.
+The restart countdown exists only in the current SYSTEM deployment process;
+there is no future shutdown timer or restart task. It cancels on unsafe/unknown
+power, detected sleep/resume or monitoring/clock interruption, session change,
+or UI failure. The prompt retires and its temporary status files are removed.
+After a crash or total power loss, cleanup waits until the post-boot verifier can
+remove its old-boot status files, or the next package invocation removes leftovers.
+The original install deadline, staged transaction, recovery files and verification
+task remain. Deleting those before verification would break the recovery workflow.
+
+**Intune owns later attempts.** Deferral reminder hours are a cooldown, not a
+scheduled trigger. There is no exact-date picker, resident service or guaranteed
+72-hour wall-clock execution. After a safety hold, the next attempt checks the
+original deadline and, for an already-staged update, starts a fresh full restart
+warning without reflashing. Monitor staged updates and owned BitLocker suspension.
+An independent user/Windows restart is outside this package's power gate. The
+managed restart uses `/r /t 0` without `/f`; applications may block it. No Windows
+countdown is armed, since a nonzero shutdown timeout implies forced app closure.
+See [Microsoft's shutdown options](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/shutdown).
 
 ## Storage and automatic file refresh
 
@@ -44,16 +61,21 @@ An independent user/Windows restart is outside this package's power gate.
 | `State` | Original deadlines, enrollment markers, manifest and locks; SYSTEM/Administrators |
 | `Recovery` | Guarded firmware copy, post-boot scripts and logs; SYSTEM/Administrators |
 
+`UI/Live/<session-id>/Status.json` is a temporary SYSTEM-written, user-readable
+display feed. It contains phase/countdown/heartbeat only, never credentials.
+Users cannot change the deadline or send privileged commands through this file.
+The UI closes if the file disappears or its heartbeat becomes stale.
+
 No files are newly installed into Program Files. The parent `Medela` folder is
 created if absent; an existing shared parent is checked for safe ownership/access
 without changing other applications' ACLs. Users cannot write code executed as
 SYSTEM. Credentials remain in the protected deployment package and are not copied
 to the user-readable UI or version/hash manifest.
 
-Managed PowerShell files start with:
+Each managed PowerShell file has its own version marker, for example:
 
 ```powershell
-# MedelaBIOS-FileVersion: 2.2.0
+# MedelaBIOS-FileVersion: 2.3.0
 ```
 
 XAML uses the same marker inside an XML comment. The build-generated
@@ -110,7 +132,7 @@ See [Microsoft's Win32 installation guidance](https://learn.microsoft.com/en-us/
 | Install behavior | System; x64 Windows PowerShell 5.1 |
 | Install command | `Invoke-AppDeployToolkit.exe -DeploymentType Install -DeployMode Silent` |
 | Device restart behavior | **No specific action** |
-| Installation time required | Cover up to three prompt timeouts plus measured staging time and margin; start the pilot at 120 minutes |
+| Installation time required | Cover the install prompt, full restart countdown, measured staging time and margin; start the pilot at 180 minutes |
 | Return code `0` | Success only after actual BIOS and protection checks |
 | Return code `1618` | **Retry** — deferral, no user, staged pending restart or transient hold |
 | Return code `60001` | Failed — review logs / unresolved error |
@@ -144,10 +166,14 @@ As a standard user, from a package or the repository folder:
 
 ```powershell
 powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo
+powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo -Mode Progress
 powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo -Mode Restart
 ```
 
-Preview cannot stage/restart or change deployment state. Close exits the window;
+Preview cannot stage/restart or change deployment state. The restart preview
+counts down and demonstrates reminders, then closes without restarting. For a
+shorter UI pilot use `-Demo -Mode Restart -RestartMinutes 15 -RestartReminderMinutes 1`.
+This is a display simulation, not the privileged safety monitor. Close exits;
 there is no tray client. The installed UI is launched by PSADT with live context,
 not used as a standalone installation entry point.
 

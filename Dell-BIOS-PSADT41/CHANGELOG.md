@@ -1,3 +1,28 @@
+# v2.3 progress and guarded restart warning - 2026-09-17
+
+- Keep Install Now / Defer and explicitly show days/hours/minutes until Install
+  Now becomes the only option. Explain the post-staging restart countdown before
+  the user begins installation.
+- Show a real activity indicator while the guarded installer runs asynchronously;
+  do not fabricate firmware percentages or terminate a worker after UI loss.
+  Support PSADT 4.1 LaunchInfo.Task and immediate ProcessResult outputs.
+- After staging, show a movable/minimizable 60-minute restart warning. Restore,
+  center and play the Windows alert every 15 minutes. Minimize/X does not cancel;
+  Restart Now or expiry uses the same SYSTEM transaction/power/BitLocker gate.
+- Keep one live SYSTEM countdown, with no restart task or future OS shutdown
+  timer. Cancel on unsafe power, sleep/resume or monitoring/clock interruption,
+  session loss/change, UI failure or restart refusal. Never force applications
+  closed; Windows can block a requested restart.
+- Remove only disposable UI status. Preserve the original deadline, staged
+  firmware and BitLocker verifier until recovery is resolved. Clean crash/power
+  loss leftovers after a definitive post-boot result (old-boot UI only) or on the
+  next package run; never claim cleanup can run while off.
+- Add versioned Live.ps1, bump changed managed files to 2.3.0, expose countdown
+  settings in the builder, and update Intune timeout/pilot documentation.
+- Add actual asynchronous Task/file-IO/countdown and UI callback regressions.
+  Native Windows clocks, WPF sound/activation/DPI, ACLs, PSADT session launch and
+  real firmware still require a Windows pilot.
+
 # v2.2 simple deployment and Medela file refresh - 2026-09-17
 
 - Replace the resident broker, recurring UI/controller tasks and calendar picker

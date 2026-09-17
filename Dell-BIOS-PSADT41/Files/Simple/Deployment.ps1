@@ -1,4 +1,4 @@
-# MedelaBIOS-FileVersion: 2.2.0
+# MedelaBIOS-FileVersion: 2.3.0
 # One PSADT invocation owns this flow. No resident broker, pipe or UI task.
 function Assert-MedelaHost {
     if (-not [Environment]::Is64BitProcess -or [Security.Principal.WindowsIdentity]::GetCurrent().User.Value -ne 'S-1-5-18') { throw 'Run the deployment as SYSTEM in x64 Windows PowerShell.' }
@@ -58,11 +58,11 @@ function Enter-LegacyRetirement([string]$Root,$Config,[string]$StatePath,$Policy
         throw
     }
 }
-function Invoke-MedelaPrompt([string]$Root,[string]$Mode,[string]$Deadline,[int]$Minutes,[string]$Message='', [switch]$Overdue) {
+function Invoke-MedelaPrompt([string]$Root,[string]$Mode,[string]$Deadline,[int]$Minutes,[string]$Message='', [switch]$Overdue,[int]$RestartMinutes=60) {
     $ps="$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
     $ui=Join-Path $Root 'UI\Show-BiosUI.ps1'
     $encoded=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Message))
-    $arguments='-NoProfile -STA -File "{0}" -Mode {1} -DeadlineUtc "{2}" -TimeoutMinutes {3}' -f $ui,$Mode,$Deadline,$Minutes
+    $arguments='-NoProfile -STA -File "{0}" -Mode {1} -DeadlineUtc "{2}" -TimeoutMinutes {3} -RestartMinutes {4}' -f $ui,$Mode,$Deadline,$Minutes,$RestartMinutes
     if ($encoded) { $arguments+=' -Message64 '+$encoded }
     if ($Overdue) { $arguments+=' -Overdue' }
     $result=Start-ADTProcessAsUser -FilePath $ps -ArgumentList $arguments -CreateNoWindow -NoStreamLogging -PassThru -IgnoreExitCodes '*'
@@ -72,23 +72,28 @@ function Invoke-MedelaPrompt([string]$Root,[string]$Mode,[string]$Deadline,[int]
     }
     return [int]$result.ExitCode
 }
-function Invoke-MedelaInstaller([string]$Root,[string]$Files,[switch]$PreflightOnly) {
+function Invoke-MedelaInstaller([string]$Root,[string]$Files,[switch]$PreflightOnly,[switch]$NoWait) {
     $ps="$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
     $arguments='-NoProfile -NonInteractive -File "{0}" -PackageFiles "{1}"' -f (Join-Path $Root 'Runtime\Install-DellBIOS.ps1'),$Files
     if ($PreflightOnly) { $arguments+=' -PreflightOnly' }
-    $result=Start-ADTProcess -FilePath $ps -ArgumentList $arguments -WindowStyle Hidden -PassThru -IgnoreExitCodes '*'
+    $result=Start-ADTProcess -FilePath $ps -ArgumentList $arguments -WindowStyle Hidden -PassThru -IgnoreExitCodes '*' -NoWait:$NoWait
     if ($null -eq $result) { throw 'BIOS installer returned no process result.' }
+    if ($NoWait) { return $result }
     return [int]$result.ExitCode
 }
-function Invoke-MedelaRestart($Config) {
+function Request-MedelaWindowsRestart {
+    & "$env:SystemRoot\System32\shutdown.exe" /r /t 0 /d p:2:17 /c 'Dell BIOS update. Keep AC power connected.' | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Windows did not accept the restart request.' }
+}
+function Invoke-MedelaRestart($Config,$Timer,[string]$Session,[string]$Reason) {
     $guard=[IO.File]::Open((Join-Path $script:WorkDir 'Deployment.lock'),'OpenOrCreate','ReadWrite','None')
     try {
         Assert-RestartSafe $Config (Get-State) (Get-BootId)
+        $null=Assert-MedelaCountdown $Timer $Session
         # Only this path requests a restart, immediately after its safety checks.
         # No future Windows/Intune/PSADT countdown and no forced app termination.
-        & "$env:SystemRoot\System32\shutdown.exe" /r /t 0 /d p:2:17 /c 'Dell BIOS update. Keep AC power connected.' | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw 'Windows did not accept the restart request.' }
-        Write-BiosLog 'User-confirmed managed restart requested without forcing applications closed.'
+        Request-MedelaWindowsRestart
+        Write-BiosLog ('Managed restart requested without forcing applications closed: '+$Reason)
     } finally { $guard.Dispose() }
 }
 function Invoke-MedelaDeployment([string]$Files) {
@@ -103,6 +108,7 @@ function Invoke-MedelaDeployment([string]$Files) {
         $root=Get-MedelaRoot
         Initialize-MedelaCache $root
         $packageLock=[IO.File]::Open((Join-Path $root 'State\Package.lock'),'OpenOrCreate','ReadWrite','None')
+        Remove-MedelaStaleUI $root
         $firmwareLock=[IO.File]::Open((Join-Path $script:WorkDir 'Deployment.lock'),'OpenOrCreate','ReadWrite','None')
         $statePath=Join-Path $root ('State\'+(Get-PackageId $config)+'.json')
         $plan=Get-CacheUpdatePlan $Files $root
@@ -135,32 +141,25 @@ function Invoke-MedelaDeployment([string]$Files) {
         if (-not $staged) {
             Start-SimpleNotice $state $now
             Save-ScheduleFile $state $statePath
-            $choice=Invoke-MedelaPrompt $root Install $state.DeadlineUtc $policy.PromptTimeoutMinutes -Overdue:($now -ge [datetimeoffset]::Parse($state.DeadlineUtc))
+            $choice=Invoke-MedelaPrompt $root Install $state.DeadlineUtc $policy.PromptTimeoutMinutes -Overdue:($now -ge [datetimeoffset]::Parse($state.DeadlineUtc)) -RestartMinutes $policy.RestartCountdownMinutes
             $now=Get-SimpleNow $state
             if ($choice -ne 10) {
                 $state.NextNoticeUtc=$now.AddHours($policy.ReminderHours).ToString('o'); Save-ScheduleFile $state $statePath
                 Write-BiosLog 'User deferred/closed the notice. Original deadline retained; Intune owns the next attempt.'; return 1618
             }
-            $code=Invoke-MedelaInstaller $root $Files
+            $code=Invoke-MedelaStaging $root $Files
             Write-BiosLog "Installer returned $code."
             if ($code -ne 3010) {
                 if ($code -eq 0) { Assert-PostBootHealth $config; $state.Phase='VerifiedComplete'; Save-ScheduleFile $state $statePath; return 0 }
-                $null=Invoke-MedelaPrompt $root Info $state.DeadlineUtc $policy.PromptTimeoutMinutes 'The update could not be prepared. Connect AC power, check battery charge and contact IT if the issue continues. IT can inspect Deployment.log. No restart is requested by this prompt.'
+                $null=Invoke-MedelaPrompt $root Info $state.DeadlineUtc $policy.PromptTimeoutMinutes 'The update could not be prepared. Connect AC power, check the battery charge and contact IT if the issue continues. Your computer will not be restarted by this notice.'
                 return $code
             }
             $state.Phase='RestartRequired'; $state.NextNoticeUtc=''; Save-ScheduleFile $state $statePath
         }
-        $choice=Invoke-MedelaPrompt $root Restart $state.DeadlineUtc $policy.PromptTimeoutMinutes
-        if ($choice -eq 12) {
-            try { Invoke-MedelaRestart $config }
-            catch {
-                Write-BiosLog ('Restart safety hold: '+$_.Exception.Message)
-                $null=Invoke-MedelaPrompt $root Info $state.DeadlineUtc $policy.PromptTimeoutMinutes 'Restart is waiting for a safety requirement. Connect AC power and charge the battery. Contact IT if this continues. The BIOS will not be staged again.'
-            }
-        }
+        $null=Invoke-MedelaRestartCountdown $root $config $policy $state $statePath
         $state.NextNoticeUtc=([datetimeoffset]::UtcNow).AddHours($policy.ReminderHours).ToString('o'); Save-ScheduleFile $state $statePath
-        # 3010 never becomes an Intune timer. Staging is not detection/completion.
-        # A future Intune invocation offers the restart again without reflashing.
+        # 3010 never becomes a competing Intune timer. Staging is not completion.
+        # An interrupted countdown requires a fresh warning on the next attempt.
         return 1618
     } catch {
         try { Write-BiosLog $_.Exception.Message } catch { }

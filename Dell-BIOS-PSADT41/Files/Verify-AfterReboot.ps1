@@ -1,7 +1,30 @@
-# MedelaBIOS-FileVersion: 2.2.0
+# MedelaBIOS-FileVersion: 2.3.0
 #requires -Version 5.1
 #requires -RunAsAdministrator
 . "$PSScriptRoot\Common.ps1"
+function Remove-MedelaVerifiedUI([string]$WorkDir,[string]$OldBoot,[string]$CurrentBoot) {
+    if ($OldBoot -eq $CurrentBoot) { return }
+    $live=Join-Path (Split-Path $WorkDir -Parent) 'UI/Live'
+    if (-not (Test-Path -LiteralPath $live)) { return }
+    # Do not touch a current-boot prompt or any firmware/recovery state. Only
+    # known status files belonging to the verified transaction's old boot qualify.
+    $ancestor=[IO.Path]::GetFullPath($live)
+    while ($ancestor) {
+        if ((Get-Item -LiteralPath $ancestor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Reparse point in UI cleanup path.' }
+        $ancestor=[IO.Path]::GetDirectoryName($ancestor)
+    }
+    foreach ($folder in Get-ChildItem -LiteralPath $live -Directory -Force) {
+        if ($folder.Name -notmatch '^[a-f0-9]{32}$' -or ($folder.Attributes -band [IO.FileAttributes]::ReparsePoint)) { continue }
+        $items=@(Get-ChildItem -LiteralPath $folder.FullName -Force)
+        if (@($items | Where-Object { $_.PSIsContainer -or ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $_.Name -notin @('Status.json','Status.json.new') }).Count) { continue }
+        $statusPath=Join-Path $folder.FullName 'Status.json'
+        if (-not (Test-Path -LiteralPath $statusPath)) { continue }
+        $data=Get-Content -LiteralPath $statusPath -Raw | ConvertFrom-Json
+        if ($data.Schema -eq 1 -and $data.Session -eq $folder.Name -and $null -ne $data.PSObject.Properties['BootId'] -and [string]$data.BootId -eq $OldBoot) {
+            Remove-Item -LiteralPath $folder.FullName -Recurse -Force
+        }
+    }
+}
 $lock = $null
 try {
     $lock = [IO.File]::Open((Join-Path $script:WorkDir 'Deployment.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
@@ -29,6 +52,8 @@ try {
         Write-BiosLog "POST-BOOT FAILURE: BIOS $current; expected $($state.TargetVersion). Automatic reflashing blocked."
     }
     Set-StateValue 'VerifiedUtc' ([datetime]::UtcNow.ToString('o'))
+    try { Remove-MedelaVerifiedUI $script:WorkDir $state.BootId (Get-BootId) }
+    catch { Write-BiosLog ('Transient UI cleanup needs a later package attempt: '+$_.Exception.Message) }
     Unregister-ScheduledTask -TaskName $script:TaskName -Confirm:$false
 } catch {
     try { Write-BiosLog ('Verification requires attention: ' + $_.Exception.Message) } catch { }

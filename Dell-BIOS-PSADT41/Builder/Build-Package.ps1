@@ -37,6 +37,7 @@ function New-PackageBuildSettings {
         MinimumBatteryPercent=51; MinimumBatteryRuntimeMinutes=0
         MinimumFreeSpaceGB=1; BitLockerRebootCount=1; EscrowDestination='EntraID'
         StagedDetectionHours=24; WindowHours=72; ReminderHours=4; PromptTimeoutMinutes=10
+        RestartCountdownMinutes=60; RestartReminderMinutes=15
         CompanyName='Your company'; AppTitle='Device care'
         Heading='A little maintenance. A stronger device.'
         Purpose='An approved BIOS update will improve the security and reliability of your Dell computer.'
@@ -50,7 +51,7 @@ function New-PackageBuildSettings {
 function Write-BuilderData([string]$Path, [System.Collections.IDictionary]$Data) {
     # Data-only PSD1: quoting is literal, including apostrophes, $, backticks and Unicode.
     $lines = New-Object 'System.Collections.Generic.List[string]'
-    $lines.Add('# MedelaBIOS-FileVersion: 2.2.0')
+    $lines.Add('# MedelaBIOS-FileVersion: 2.3.0')
     $lines.Add('@{')
     foreach ($key in $Data.Keys) {
         if ($key -notmatch '^[A-Za-z][A-Za-z0-9]*$') { throw 'Invalid data field name.' }
@@ -118,7 +119,7 @@ function Assert-BuilderSettings([hashtable]$Settings) {
     foreach ($key in @('BiosPasswordRequired','RequireBattery','PackageReviewed')) {
         if ($Settings[$key] -isnot [bool]) { throw "$key must be Boolean." }
     }
-    foreach ($key in @('MinimumBatteryPercent','MinimumBatteryRuntimeMinutes','MinimumFreeSpaceGB','BitLockerRebootCount','StagedDetectionHours','WindowHours','ReminderHours','PromptTimeoutMinutes')) {
+    foreach ($key in @('MinimumBatteryPercent','MinimumBatteryRuntimeMinutes','MinimumFreeSpaceGB','BitLockerRebootCount','StagedDetectionHours','WindowHours','ReminderHours','PromptTimeoutMinutes','RestartCountdownMinutes','RestartReminderMinutes')) {
         if ($Settings[$key] -isnot [int]) { throw "$key must be a whole number." }
     }
     if ($Settings.MinimumFreeSpaceGB -gt 1024) { throw 'Minimum free space must be 1-1024 GB.' }
@@ -158,7 +159,7 @@ function Get-BuilderConfig([hashtable]$Settings, [string]$Hash) {
 }
 function Get-BuilderPolicy([hashtable]$Settings) {
     $policy=@{Schema=3}
-    foreach ($key in @('WindowHours','ReminderHours','PromptTimeoutMinutes')) { $policy[$key]=$Settings[$key] }
+    foreach ($key in @('WindowHours','ReminderHours','PromptTimeoutMinutes','RestartCountdownMinutes','RestartReminderMinutes')) { $policy[$key]=$Settings[$key] }
     return $policy
 }
 function Expand-BuilderZip([string]$ZipPath, [string]$Destination) {
@@ -321,7 +322,7 @@ function New-DellBiosPackage {
         foreach ($name in @('Common.ps1','Install-DellBIOS.ps1','Verify-AfterReboot.ps1')) {
             Copy-Item -LiteralPath (Join-Path "$script:BuilderSource/Files" $name) -Destination $files -Force
         }
-        foreach ($relative in @('Simple/Cache.ps1','Simple/State.ps1','Simple/Safety.ps1','Simple/Deployment.ps1','UI/Window.xaml','UI/Show-BiosUI.ps1','UI/Assets/README.md')) {
+        foreach ($relative in @('Simple/Cache.ps1','Simple/State.ps1','Simple/Safety.ps1','Simple/Live.ps1','Simple/Deployment.ps1','UI/Window.xaml','UI/Show-BiosUI.ps1','UI/Assets/README.md')) {
             $dest=Join-Path $files $relative
             $null=[IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($dest))
             Copy-Item -LiteralPath (Join-Path "$script:BuilderSource/Files" $relative) -Destination $dest -Force
@@ -375,7 +376,7 @@ function New-DellBiosPackage {
         }
         $phase='writing build notes'
         $manifest=[ordered]@{
-            BuilderVersion='2.2.0'; BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
+            BuilderVersion='2.3.0'; BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
             FrameworkVersion=$framework.Version; FrameworkSHA256=$frameworkHash
             BIOS=$config; DeploymentPolicy=$policy; HasPassword=$Settings.BiosPasswordRequired
             OutputMode=$(if ($intuneWin) { 'IntuneWin' } else { 'SourceOnly' })

@@ -8,7 +8,7 @@ function Check($Value,$Name) {$script:count++; if (-not $Value) {if (Get-Variabl
 function Reject([scriptblock]$Body,$Name) {$failed=$false;try{&$Body}catch{$failed=$true};Check $failed $Name}
 try {
     . "$root/Files/Common.ps1"
-    foreach ($name in @('Cache','State','Safety','Deployment')) {. "$root/Files/Simple/$name.ps1"}
+    foreach ($name in @('Cache','State','Safety','Live','Deployment')) {. "$root/Files/Simple/$name.ps1"}
     $files=Join-Path $temp Files; Copy-Item -LiteralPath "$root/Files" -Destination $files -Recurse
     $config=Import-PowerShellDataFile (Join-Path $files 'BIOS-Config.psd1')
     $config.SHA256='a'*64; $config.PackageReviewed=$true
@@ -34,7 +34,7 @@ try {
     function Write-BiosLog {param($Message) $script:logs.Add($Message)}
     function Assert-PostBootHealth {$script:healthChecks++; if($script:healthBad){throw 'BitLocker still suspended'}}
     function Invoke-MedelaPrompt {
-        param($Root,$Mode,$Deadline,$Minutes,$Message,[switch]$Overdue)
+        param($Root,$Mode,$Deadline,$Minutes,$Message,[switch]$Overdue,$RestartMinutes)
         $script:modes.Add($Mode)
         if($script:answers.Count -eq 0){throw 'Unexpected UI call'}
         $script:answers.Dequeue()
@@ -46,6 +46,16 @@ try {
         $script:installerCode
     }
     function Invoke-MedelaRestart {param($Config) if($script:powerBad){throw 'AC disconnected'}; $script:restarts++}
+    # Detailed asynchronous progress/countdown behavior has its own live suite.
+    function Invoke-MedelaStaging {param($Root,$Files) Invoke-MedelaInstaller $Root $Files}
+    function Invoke-MedelaRestartCountdown {
+        param($Root,$Config,$Policy,$State,$StatePath)
+        $choice=Invoke-MedelaPrompt $Root Restart $State.DeadlineUtc 60
+        if ($choice -eq 12) {
+            try {Invoke-MedelaRestart $Config} catch {$null=Invoke-MedelaPrompt $Root Info '' 1 ''}
+        }
+        return 1618
+    }
     function Fresh {
         $script:cache=Join-Path $temp ([guid]::NewGuid().ToString('N'))
         $script:WorkDir=Join-Path $cache Recovery
@@ -72,7 +82,7 @@ try {
     Remove-Item -LiteralPath $path
     Check ((Invoke-MedelaDeployment $files) -eq 60001 -and -not (Test-Path $path)) 'Missing enrolled state fails without granting a new window'
     Fresh; $answers.Enqueue(10); $answers.Enqueue(13)
-    Check ((Invoke-MedelaDeployment $files) -eq 1618) 'Successful staging followed by Restart Later is still pending'
+    Check ((Invoke-MedelaDeployment $files) -eq 1618) 'Successful staging followed by an interrupted restart warning is still pending'
     Check ($launches -eq 1 -and $restarts -eq 0 -and ($modes -join ',') -eq 'Install,Restart') 'Install Now stages once and then displays the restart prompt'
     Expire-Reminder; $modes.Clear(); $answers.Enqueue(12)
     Check ((Invoke-MedelaDeployment $files) -eq 1618 -and $launches -eq 1 -and $restarts -eq 1 -and ($modes -join ',') -eq 'Restart') 'Staged retry offers guarded restart without reflashing'
@@ -119,6 +129,7 @@ try {
     Check ($c.Secondary.Visibility -eq 'Collapsed' -and $script:choice -eq 10 -and $window.Closed) 'Overdue visible prompt removes defer and requests installation on timeout'
     $deadline=[datetimeoffset]::UtcNow.AddDays(1);$script:choice=1;Update-Prompt
     Check ($script:choice -eq 11) 'Before deadline timeout only defers'
+    Check ($c.Remaining.Text -like '*day(s)*until Install Now is the only option*') 'Install notice explains days remaining before Defer expires'
     $Overdue=$true;Update-Prompt
     Check ($script:choice -eq 10 -and $c.Secondary.Visibility -eq 'Collapsed') 'SYSTEM overdue decision survives a backward clock change in the UI'
     $Overdue=$false

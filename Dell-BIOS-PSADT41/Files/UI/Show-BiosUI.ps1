@@ -1,29 +1,35 @@
-# MedelaBIOS-FileVersion: 2.2.0
+# MedelaBIOS-FileVersion: 2.3.0
 #requires -Version 5.1
 # One-shot unprivileged prompt. No firmware, tasks, pipe, state writes or restart.
 param(
     [switch]$Demo,
     [switch]$Overdue,
-    [ValidateSet('Install','Restart','Info')][string]$Mode='Install',
+    [ValidateSet('Install','Restart','Progress','Live','Info')][string]$Mode='Install',
     [string]$DeadlineUtc='',
     [ValidateRange(1,30)][int]$TimeoutMinutes=10,
-    [string]$Message64=''
+    [string]$Message64='',
+    [ValidateRange(15,120)][int]$RestartMinutes=60,
+    [ValidateRange(1,30)][int]$RestartReminderMinutes=15,
+    [string]$StatusPath=''
 )
 $ErrorActionPreference='Stop'
 $script:choice=1; $script:accepted=$false; $timer=$null
+$script:lastReminder=0; $script:livePhase=''; $script:liveSession=''
 try {
     if ($PSVersionTable.PSEdition -ne 'Desktop' -or [Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') { throw 'Use Windows PowerShell 5.1: powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo' }
     if ([Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0) { throw 'Open the prompt in the signed-in user session, not session 0.' }
     if (-not $Demo -and -not $DeadlineUtc -and $Mode -eq 'Install') { throw 'For standalone preview, pass -Demo. Live installation must be launched by the PSADT package.' }
+    if (-not $Demo -and $Mode -in @('Restart','Progress')) { throw 'Use -Demo for standalone previews. The live progress/restart monitor must be launched by SYSTEM.' }
+    if ($Mode -eq 'Live' -and (-not $StatusPath -or $Demo)) { throw 'Live mode requires a SYSTEM-owned status file. Preview with -Demo -Mode Progress or Restart.' }
     if ($Demo -and -not $DeadlineUtc) { $DeadlineUtc=[datetimeoffset]::UtcNow.AddHours(72).ToString('o') }
     $deadline=if ($DeadlineUtc) { [datetimeoffset]::Parse($DeadlineUtc) } else { [datetimeoffset]::MaxValue }
-    Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
+    Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase,System.Windows.Forms
     $brand=Import-PowerShellDataFile (Join-Path $PSScriptRoot 'Branding.psd1')
     [xml]$xaml=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Window.xaml') -Raw
     $reader=New-Object Xml.XmlNodeReader $xaml
     $window=[Windows.Markup.XamlReader]::Load($reader)
     $c=@{}
-    foreach ($name in @('Logo','Banner','Company','Heading','Purpose','StatusCard','StatusText','Deadline','Remaining','Power','Support','ActionBar','Primary','Secondary')) {
+    foreach ($name in @('Logo','Banner','Company','Heading','Purpose','StatusCard','StatusText','Progress','Deadline','Remaining','Power','Support','ActionBar','Primary','Secondary')) {
         $c[$name]=$window.FindName($name)
         if ($null -eq $c[$name]) { throw "Missing UI control: $name" }
     }
@@ -50,10 +56,14 @@ try {
             $c[$pair[0]].Visibility='Visible'
         }
     }
-    $c.StatusText.Text='Choose Install Now when you can save your work and restart soon afterward. Defer closes this notice; the original deadline remains. Your IT deployment will try again later.'
+    $c.StatusText.Text='Choose Install Now to prepare the update. After preparation, you will have '+$RestartMinutes+' minutes to save your work before a guarded automatic restart. Defer closes this notice and keeps the original deadline.'
     if ($Mode -eq 'Restart') {
         $c.Heading.Text='Restart required'; $c.StatusText.Text=$brand.ReadyMessage
-        $c.Primary.Content='_Restart Now'; $c.Secondary.Content='Restart _Later'
+        $c.Primary.Content='_Restart Now'; $c.Secondary.Content='_Minimize'
+        $c.Remaining.Text='Automatic restart in '+$RestartMinutes+':00 (preview only)'
+    } elseif ($Mode -in @('Progress','Live')) {
+        $c.Heading.Text='Preparing BIOS update'; $c.StatusText.Text='The update is being prepared. Keep your computer plugged in and do not turn it off. Firmware installation may finish during restart.'
+        $c.Progress.Visibility='Visible';$c.Primary.Visibility='Collapsed';$c.Secondary.Content='_Minimize'
     } elseif ($Mode -eq 'Info') {
         $c.Heading.Text='Update status'; $c.Primary.Content='_Close'; $c.Secondary.Visibility='Collapsed'
         if ($Message64) { $c.StatusText.Text=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Message64)) }
@@ -62,8 +72,73 @@ try {
     [Windows.Automation.AutomationProperties]::SetName($c.Secondary,($c.Secondary.Content -replace '_',''))
     $c.Deadline.Text=if ($DeadlineUtc -and $Mode -eq 'Install') { 'Install deferral deadline: '+$deadline.ToLocalTime().ToString('ddd, MMM d, yyyy h:mm tt zzz') } else { '' }
     $script:expires=[datetimeoffset]::UtcNow.AddMinutes($TimeoutMinutes)
+    $script:demoRestartAt=[datetimeoffset]::UtcNow.AddMinutes($RestartMinutes)
+    function Close-LivePrompt {
+        $script:choice=14;$script:accepted=$true;$window.Close()
+    }
+    function Show-RestartReminder {
+        # Respect the current monitor's work area and device scaling. Restoring
+        # is explicit every 15 minutes; dragging/minimizing otherwise stays put.
+        $window.WindowState='Normal';$window.UpdateLayout()
+        $handle=(New-Object Windows.Interop.WindowInteropHelper($window)).Handle
+        $area=[Windows.Forms.Screen]::FromHandle($handle).WorkingArea
+        $source=[Windows.PresentationSource]::FromVisual($window)
+        $transform=$source.CompositionTarget.TransformFromDevice
+        $corner=$transform.Transform((New-Object Windows.Point($area.X,$area.Y)))
+        $size=$transform.Transform((New-Object Windows.Point($area.Width,$area.Height)))
+        $window.Left=$corner.X+[math]::Max(0,($size.X-$window.ActualWidth)/2)
+        $window.Top=$corner.Y+[math]::Max(0,($size.Y-$window.ActualHeight)/2)
+        $oldTop=$window.Topmost;$window.Topmost=$true;$null=$window.Activate();$window.Topmost=$oldTop
+        [Media.SystemSounds]::Exclamation.Play()
+    }
+    function Update-LivePrompt {
+        # This is a display feed, never a privileged command/credential channel.
+        # An absent/stale heartbeat retires the window, including after host loss.
+        if (-not (Test-Path -LiteralPath $StatusPath)) { Close-LivePrompt; return }
+        try {
+            # Delete-sharing lets SYSTEM atomically replace the heartbeat while
+            # WPF reads it on Windows. Default Get-Content sharing can block it.
+            $stream=[IO.File]::Open($StatusPath,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]'ReadWrite,Delete')
+            try {
+                $reader=New-Object IO.StreamReader($stream)
+                try { $data=$reader.ReadToEnd() | ConvertFrom-Json } finally { $reader.Dispose() }
+            } finally { $stream.Dispose() }
+            $age=([datetimeoffset]::UtcNow-[datetimeoffset]::Parse([string]$data.HeartbeatUtc)).TotalSeconds
+            if ($data.Schema -ne 1 -or $data.Session -notmatch '^[a-f0-9]{32}$' -or $age -gt 30 -or $age -lt -30) { Close-LivePrompt; return }
+            if ($script:liveSession -and $script:liveSession -ne $data.Session) { Close-LivePrompt; return }
+            $script:liveSession=$data.Session;$script:livePhase=$data.Phase
+            $c.Progress.Visibility='Collapsed';$c.Primary.Visibility='Collapsed'
+            $c.Secondary.Content='_Minimize';$c.Deadline.Text='';$c.Remaining.Text=''
+            if ($data.Phase -eq 'Preparing') {
+                $c.Heading.Text='Preparing BIOS update';$c.Progress.Visibility='Visible'
+                $c.StatusText.Text='The update is being prepared. Keep your computer plugged in and do not turn it off. Firmware installation may finish during restart.'
+            } elseif ($data.Phase -eq 'StartingRestart') {
+                $c.Heading.Text='Restart required';$c.StatusText.Text='Checking power and preparing the restart warning. Keep your computer plugged in.'
+            } elseif ($data.Phase -eq 'Restart') {
+                $c.Heading.Text='Restart required';$c.StatusText.Text=$brand.ReadyMessage
+                $c.Primary.Visibility='Visible';$c.Primary.Content='_Restart Now'
+                $seconds=[math]::Max(0,[int]$data.RemainingSeconds-[int][math]::Floor([math]::Max(0,$age)))
+                $c.Remaining.Text='Automatic restart in {0:00}:{1:00}. Save your work now.' -f [int][math]::Floor($seconds/60),($seconds%60)
+                $c.Deadline.Text='Restart time: '+([datetimeoffset]::Parse([string]$data.DeadlineUtc)).ToLocalTime().ToString('h:mm tt zzz')
+                if ([int]$data.Reminder -gt $script:lastReminder) { $script:lastReminder=[int]$data.Reminder;Show-RestartReminder }
+            } elseif ($data.Phase -eq 'Paused') {
+                $c.Heading.Text='Automatic restart cancelled';$c.StatusText.Text=$data.Message
+            } else { Close-LivePrompt;return }
+            [Windows.Automation.AutomationProperties]::SetName($c.Primary,($c.Primary.Content -replace '_',''))
+            [Windows.Automation.AutomationProperties]::SetName($c.Secondary,'Minimize')
+        } catch { Close-LivePrompt }
+    }
     function Update-Prompt {
+        if ($Mode -eq 'Live') { Update-LivePrompt;return }
         $now=[datetimeoffset]::UtcNow
+        if ($Demo -and $Mode -eq 'Restart') {
+            $seconds=[math]::Max(0,[math]::Ceiling(($script:demoRestartAt-$now).TotalSeconds))
+            $c.Remaining.Text='Preview countdown {0:00}:{1:00}. No restart will occur.' -f [int][math]::Floor($seconds/60),($seconds%60)
+            $reminder=[int][math]::Floor(($RestartMinutes*60-$seconds)/($RestartReminderMinutes*60))
+            if ($reminder -gt $script:lastReminder -and $seconds -gt 0) { $script:lastReminder=$reminder;Show-RestartReminder }
+            if ($seconds -le 0) { $script:choice=13;$script:accepted=$true;$window.Close() }
+            return
+        }
         if ($Mode -eq 'Install') {
             $isOverdue=$Overdue -or $now -ge $deadline
             $c.Secondary.Visibility=if ($isOverdue) {'Collapsed'} else {'Visible'}
@@ -73,7 +148,7 @@ try {
                 $c.Remaining.Text='Preparation will be requested in '+$seconds+' seconds, or choose Install Now.'
             } else {
                 $left=$deadline-$now
-                $c.Remaining.Text='{0} day(s), {1} hour(s), {2} minute(s) remaining' -f $left.Days,$left.Hours,$left.Minutes
+                $c.Remaining.Text='{0} day(s), {1} hour(s), {2} minute(s) until Install Now is the only option.' -f $left.Days,$left.Hours,$left.Minutes
             }
         }
         if ($now -ge $script:expires) {
@@ -82,16 +157,19 @@ try {
         }
     }
     $c.Primary.Add_Click({
-        $script:choice=if ($Mode -eq 'Install') {10} elseif ($Mode -eq 'Restart') {12} else {14}
+        if ($Mode -eq 'Live' -and $script:livePhase -ne 'Restart') { return }
+        $script:choice=if ($Mode -eq 'Install') {10} elseif ($Mode -eq 'Restart' -or $Mode -eq 'Live') {12} else {14}
         $script:accepted=$true; $window.Close()
     })
     $c.Secondary.Add_Click({
+        if ($Mode -in @('Live','Restart','Progress')) { $window.WindowState='Minimized';return }
         # The deadline can expire between a timer tick and a click.
         if ($Mode -eq 'Install' -and ($Overdue -or [datetimeoffset]::UtcNow -ge $deadline)) { Update-Prompt; return }
         $script:choice=if ($Mode -eq 'Install') {11} else {13}; $script:accepted=$true; $window.Close()
     })
     $window.Add_Closing({param($sender,$event)
         if (-not $script:accepted) {
+            if ($Mode -eq 'Live') { $event.Cancel=$true;$window.WindowState='Minimized';return }
             if ($Mode -eq 'Install' -and ($Overdue -or [datetimeoffset]::UtcNow -ge $deadline) -and -not $Demo) { $event.Cancel=$true; return }
             $script:choice=if ($Mode -eq 'Install') {11} elseif ($Mode -eq 'Restart') {13} else {14}
         }
@@ -104,6 +182,6 @@ try {
     exit $script:choice
 } catch {
     [Console]::Error.WriteLine('BIOS UI startup failed: '+$_.Exception.Message)
-    try { Add-Type -AssemblyName PresentationFramework; $null=[Windows.MessageBox]::Show($_.Exception.Message,'BIOS UI startup failed','OK','Error') } catch { }
+    if ($Mode -ne 'Live') { try { Add-Type -AssemblyName PresentationFramework; $null=[Windows.MessageBox]::Show($_.Exception.Message,'BIOS UI startup failed','OK','Error') } catch { } }
     exit 1
 } finally { if ($null -ne $timer) { $timer.Stop() } }

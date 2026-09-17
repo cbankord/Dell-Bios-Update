@@ -122,9 +122,9 @@ throw 'The build must NEVER execute the template'
     $brand=Import-PowerShellDataFile (Join-Path $source 'Files/UI/Branding.psd1')
     Assert ($brand.CompanyName -ceq $settings.CompanyName -and $brand.PowerMessage -match '51%') 'Branding is data and power text follows actual threshold'
     $policy=Import-PowerShellDataFile (Join-Path $source 'Files/Simple/Policy.psd1')
-    Assert ($policy.WindowHours -eq 48 -and $policy.Schema -eq 3) 'Configured simple deadline is packaged'
+    Assert ($policy.WindowHours -eq 48 -and $policy.Schema -eq 3 -and $policy.RestartCountdownMinutes -eq 60 -and $policy.RestartReminderMinutes -eq 15) 'Configured deferral and restart deadlines are packaged'
     $cachePlan=Get-CacheUpdatePlan (Join-Path $source 'Files') (Join-Path $fixture 'EmptyCache')
-    Assert ($cachePlan.Count -eq 11 -and @($cachePlan | Where-Object Reason -ne 'Missing').Count -eq 0) 'Runtime manifest validates the complete simple payload'
+    Assert ($cachePlan.Count -eq 12 -and @($cachePlan | Where-Object Reason -ne 'Missing').Count -eq 0) 'Runtime manifest validates the complete simple payload'
     Assert (-not (Test-Path (Join-Path $source 'Files/Scheduler')) -and -not (Test-Path (Join-Path $source 'Files/Install-Scheduler.ps1'))) 'Builder does not package the retired daemon'
     $generated=Get-Content -LiteralPath (Join-Path $source 'Invoke-AppDeployToolkit.ps1') -Raw
     Assert ($generated.Contains("CustomField='preserve `$ and { braces }'") -and $generated.Contains('NEVER execute the template')) 'Custom metadata and bootstrap retained'
@@ -217,7 +217,7 @@ throw 'The build must NEVER execute the template'
     Assert (@(Get-ChildItem -LiteralPath $fixture -Directory -Filter 'DellBIOS-*').Count -eq $before) 'Failure cleans partial output'
     $global:DellBuilderTestSignatureValid=$true
     # Numeric/range and review gates are effective, not decorative GUI fields.
-    foreach ($case in @(@('MinimumBatteryPercent',50),@('MinimumBatteryRuntimeMinutes',241),@('BitLockerRebootCount',0),@('MinimumFreeSpaceGB',0),@('WindowHours',0),@('WindowHours',169),@('WindowHours',1.5),@('PromptTimeoutMinutes',0),@('PackageReviewed',$false))) {
+    foreach ($case in @(@('MinimumBatteryPercent',50),@('MinimumBatteryRuntimeMinutes',241),@('BitLockerRebootCount',0),@('MinimumFreeSpaceGB',0),@('WindowHours',0),@('WindowHours',169),@('WindowHours',1.5),@('PromptTimeoutMinutes',0),@('RestartCountdownMinutes',0),@('RestartReminderMinutes',60),@('PackageReviewed',$false))) {
         $bad=$settings.Clone(); $bad[$case[0]]=$case[1]
         Reject { Assert-BuilderSettings $bad } ('Reject invalid '+$case[0]+'='+$case[1])
     }
