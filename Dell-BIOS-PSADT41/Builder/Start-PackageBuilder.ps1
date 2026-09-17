@@ -8,9 +8,9 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
 [xml]$xaml=Get-Content -LiteralPath "$PSScriptRoot/Window.xaml" -Raw
 $reader=New-Object Xml.XmlNodeReader $xaml
 $window=[Windows.Markup.XamlReader]::Load($reader)
-$script:fields=@{}; $script:kind=@{}; $script:job=$null; $script:lastOutput=''
+$script:fields=@{}; $script:kind=@{}; $script:job=$null; $script:lastOutput=''; $script:closeRequested=$false
 $controls=@{}
-foreach ($name in @('Tabs','FilesPanel','DeploymentPanel','ExperiencePanel','ReviewText','Reviewed','BuildButton','OpenButton','Progress','BuildLog','LoadButton','SaveButton')) { $controls[$name]=$window.FindName($name) }
+foreach ($name in @('Tabs','FilesPanel','DeploymentPanel','ExperiencePanel','ReviewText','Reviewed','BuildButton','OpenButton','Progress','BuildLog','LoadButton','SaveButton','CloseButton')) { $controls[$name]=$window.FindName($name) }
 function Add-Heading($Panel,[string]$Title,[string]$Help) {
     $text=New-Object Windows.Controls.TextBlock; $text.Text=$Title; $text.FontSize=21; $text.FontWeight='SemiBold'; $text.Margin='0,12,0,6'; $null=$Panel.Children.Add($text)
     $note=New-Object Windows.Controls.TextBlock; $note.Text=$Help; $note.Foreground='#475569'; $note.Margin='0,0,0,16'; $null=$Panel.Children.Add($note)
@@ -182,6 +182,10 @@ $controls.BuildButton.Add_Click({
     }
 })
 $controls.OpenButton.Add_Click({ if ($script:lastOutput) { Start-Process -FilePath 'explorer.exe' -ArgumentList ('"'+$script:lastOutput+'"') } })
+$controls.CloseButton.Add_Click({ $window.Close() })
+$window.Add_PreviewKeyDown({param($sender,$eventArgs)
+    if ($eventArgs.Key -eq 'Escape') { $eventArgs.Handled=$true; $window.Close() }
+})
 $timer=New-Object Windows.Threading.DispatcherTimer; $timer.Interval=[timespan]::FromMilliseconds(250)
 $timer.Add_Tick({
     if ($null -eq $script:job) { return }
@@ -206,12 +210,20 @@ $timer.Add_Tick({
             foreach ($name in @('FilesPanel','DeploymentPanel','ExperiencePanel','Reviewed','BuildButton','LoadButton','SaveButton')) { $controls[$name].IsEnabled=$true }
             $controls.Reviewed.IsChecked=$false; $controls.Progress.IsIndeterminate=$false; $controls.Progress.Visibility='Collapsed'
         }
+        # EndInvoke and disposal must finish before ShowDialog returns. Never
+        # abort extraction/content prep or leave a credential-bearing partial build.
+        if ($script:closeRequested) { $window.Close() }
     }
 })
 $window.Add_Closing({param($sender,$eventArgs)
     if ($null -ne $script:job) {
         $eventArgs.Cancel=$true
-        $null=[Windows.MessageBox]::Show('A build is running. Wait for it to finish so the protected package can be completed or cleaned up.','Build in progress')
+        if (-not $script:closeRequested) {
+            $script:closeRequested=$true
+            $controls.CloseButton.IsEnabled=$false; $controls.CloseButton.Content='Closing...'
+            $controls.BuildLog.AppendText("`r`nClose requested. Finishing the current build and cleanup; this window will then close automatically.")
+            $controls.BuildLog.ScrollToEnd()
+        }
     }
 })
 try { Update-Review; $timer.Start(); $null=$window.ShowDialog() }

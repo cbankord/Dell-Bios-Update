@@ -1,6 +1,6 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Dell BIOS Package Builder" Width="1000" Height="820" MinWidth="620" MinHeight="520"
+        Title="Dell BIOS Package Builder v3" Width="1000" Height="820" MinWidth="620" MinHeight="520"
         WindowStartupLocation="CenterScreen" Background="#F3F5FA" Foreground="#14213D"
         FontFamily="Segoe UI" FontSize="14" UseLayoutRounding="True">
   <Window.Resources>
@@ -39,7 +39,7 @@
     <Border Grid.Row="2" BorderBrush="#DFE5EF" BorderThickness="0,1,0,0" Padding="20,9" Background="White">
       <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
         <TextBlock Text="Presets save settings only. Enter the password again for each build." Foreground="#475569" FontSize="12" VerticalAlignment="Center" Margin="0,0,16,0"/>
-        <WrapPanel Grid.Column="1"><Button x:Name="LoadButton" Content="_Load preset"/><Button x:Name="SaveButton" Content="_Save preset"/></WrapPanel>
+        <WrapPanel Grid.Column="1"><Button x:Name="LoadButton" Content="_Load preset"/><Button x:Name="SaveButton" Content="_Save preset"/><Button x:Name="CloseButton" Content="_Close" AutomationProperties.Name="Close package builder" ToolTip="Close the builder. A running build finishes and cleans up before closing."/></WrapPanel>
       </Grid>
     </Border>
   </Grid>

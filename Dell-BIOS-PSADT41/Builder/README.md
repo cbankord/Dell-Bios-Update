@@ -1,4 +1,4 @@
-# Dell BIOS package builder
+# Dell BIOS package builder v3
 
 Launch **Start-PackageBuilder.cmd** on your Windows packaging computer. The wizard
 builds a fresh deployment from your approved Dell BIOS executable and your own
@@ -10,6 +10,18 @@ the packaging user; elevation is not required. Use an existing local NTFS output
 folder outside this repository, with a short path and sufficient free space for
 the extracted framework, BIOS and package. Your organization's script execution
 and signing policy still applies; the launcher does not override that policy.
+
+Use **Close** in the bottom-right corner, **Escape**, or the title-bar **X** to
+exit. When idle, the window closes immediately and the script returns to your
+existing PowerShell prompt; you do not need Ctrl+C. A console created by the CMD
+launcher exits when its PowerShell process returns normally.
+
+If a build is running, Close changes to **Closing...**. The builder finishes the
+current build (or handles its failure and removes partial output), disposes its
+background worker and password, then closes automatically. This is a graceful
+exit, not a force-terminate control; a hung external packaging tool can still
+delay it. Completed output is kept in your selected output folder. The Close
+button does not cancel an endpoint BIOS update or change the deployment UI.
 
 ## The four steps
 
@@ -210,7 +222,9 @@ tool output. No partial build is ready for upload.
 
 Before deployment, validate the GUI at 100/150/200% scaling, keyboard navigation,
 password mismatch/clear behavior, browse/preset flows, async build completion and
-output permissions as a nonadmin user. Build with your real ZIP and EXE, verify
+output permissions as a nonadmin user. Check Close, Escape and X while idle,
+after success/failure, and while a build is running: the last case must finish
+cleanup before exiting without Ctrl+C. Build with your real ZIP and EXE, verify
 custom framework resources, create an actual `.intunewin`, and run the existing
 [Windows firmware pilot](../OPERATIONS.md). Test both the optional runtime gate
 and configured thresholds immediately before staging and managed restart. The
@@ -272,7 +286,7 @@ builder compatibility defect. The corrected builder uses an explicit numeric
 calculated property and rejects overlapping/out-of-order edits before writing.
 See [Microsoft's Sort-Object documentation](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/sort-object#example-11-sort-hashtables-by-key-value).
 
-Update the builder on v2, close the existing wizard, and launch it again with the
+Update the builder on v3, close the existing wizard, and launch it again with the
 same approved template and settings. Syntax validation remains mandatory. If a
 new build still fails, its error now includes parser IDs and line/column positions
 without disclosing custom source text. Share those diagnostics and the PSADT

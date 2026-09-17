@@ -1,3 +1,28 @@
+V3.0 builder Close validation - 2026-09-17
+
+PASS: 109 assertions in two fresh PowerShell 7.4.7 processes on Linux:
+  88  Tests/Test-Builder.ps1
+  21  Tests/Test-BuilderClose.ps1
+
+The close regression runs the actual Close/Escape/Closing/timer/finally callbacks
+against inert controls and real asynchronous PowerShell workers. It checks idle
+exit, unrelated keys, repeated close requests, pending work left running, success
+and failure cleanup before close, disposed worker credentials, recorded results,
+timer shutdown and password-box clearing. No executable or firmware is run.
+
+PASS: git diff --check. The builder XAML parses in the existing builder suite.
+Reproduce from Dell-BIOS-PSADT41:
+  pwsh -NoProfile -File ./Tests/Test-Builder.ps1
+  pwsh -NoProfile -File ./Tests/Test-BuilderClose.ps1
+
+Windows PowerShell 5.1/WPF launch, footer layout at different DPI, real button/
+Escape/title-bar X dispatch, return to the launching terminal and actual content
+prep remain manual Windows pilot checks. A queued close deliberately waits for
+an active build; it does not forcibly terminate a hung external packaging tool.
+V3 changes the packaging UI and builder metadata only; deployed runtime code,
+file tattoos and firmware safeguards remain those of v2.3. Main/v2 are preserved.
+
+Previous v2.3 baseline validation (not rerun in full for this builder-only edit):
 V2.3 progress, guarded countdown and Medela cache validation - 2026-09-17
 
 PASS: 279 assertions across seven fresh PowerShell 7.4.7 processes on Linux:

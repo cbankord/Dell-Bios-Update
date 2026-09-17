@@ -376,7 +376,7 @@ function New-DellBiosPackage {
         }
         $phase='writing build notes'
         $manifest=[ordered]@{
-            BuilderVersion='2.3.0'; BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
+            BuilderVersion='3.0.0'; BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
             FrameworkVersion=$framework.Version; FrameworkSHA256=$frameworkHash
             BIOS=$config; DeploymentPolicy=$policy; HasPassword=$Settings.BiosPasswordRequired
             OutputMode=$(if ($intuneWin) { 'IntuneWin' } else { 'SourceOnly' })

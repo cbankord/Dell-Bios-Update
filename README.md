@@ -1,4 +1,9 @@
-# Dell BIOS deployment — v2.3
+# Dell BIOS deployment — v3
+
+V3 adds a visible **Close** button to the package builder. Close, Escape and the
+title-bar X exit immediately when idle. During a build, they request automatic
+exit after the build finishes and cleanup completes. The deployed BIOS workflow
+and its per-file runtime versions remain those of v2.3.
 
 A PSADT 4.1 + Intune deployment with a compact branded **Install Now / Defer**
 prompt with days remaining, an animated preparation indicator, and a movable,
@@ -18,5 +23,6 @@ safety settings and branding. The builder creates a new deployment and, optional
 [Builder](Dell-BIOS-PSADT41/Builder/README.md) ·
 [Changes](Dell-BIOS-PSADT41/CHANGELOG.md)
 
-Main remains the original version. Older v2 scheduler code remains available in
-Git history. Windows pilot validation is required before fleet deployment.
+Main remains the original version; v2 remains at v2.3. Older scheduler code
+remains available in Git history. Windows pilot validation is required before
+fleet deployment.

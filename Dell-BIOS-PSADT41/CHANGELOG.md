@@ -1,3 +1,19 @@
+# v3.0 builder Close button - 2026-09-17
+
+- Branch from v2.3; preserve the v2 and Main branches.
+- Add a visible, keyboard-accessible Close button to the builder footer. Escape
+  and the title-bar X use the same close path; idle exit returns control to the
+  launching PowerShell session without Ctrl+C.
+- During a build, queue one close request, show Closing..., and close after the
+  worker completes or fails, finishes its existing partial-output cleanup, and
+  releases its worker/password resources. Do not terminate packaging midway.
+- Identify the builder window and build records as v3/3.0.0. The deployed BIOS
+  workflow, runtime version tattoos, countdown and safety gates are unchanged.
+- Document graceful close behavior and the remaining Windows UI pilot checks.
+- Pass 88 existing builder assertions and 21 close/async-cleanup assertions on
+  PowerShell 7.4.7 with inert workers and mocked WPF controls. Actual Windows
+  PowerShell 5.1 and WPF button/keyboard/terminal behavior still need pilot checks.
+
 # v2.3 progress and guarded restart warning - 2026-09-17
 
 - Keep Install Now / Defer and explicitly show days/hours/minutes until Install
