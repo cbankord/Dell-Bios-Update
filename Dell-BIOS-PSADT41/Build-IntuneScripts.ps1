@@ -45,6 +45,9 @@ $detect = @'
         # Same-BIOS package updates must still refresh old/missing/drifted code.
         # Read-only detection: all repair remains in the SYSTEM installer.
         $cache=Join-Path $env:ProgramData 'Medela\DellBIOS'
+        # Private scheduled source (including any credential file) still needs
+        # verified cleanup. Do not let detection skip that final package attempt.
+        if (Test-Path -LiteralPath (Join-Path $cache 'State/ScheduledPackage')) { exit 1 }
         foreach ($file in $runtime.Files) {
             $path=Join-Path $cache $file.Destination
             if ((Get-FileHash -LiteralPath $path -Algorithm SHA256 -ErrorAction Stop).Hash -ne $file.SHA256) { exit 1 }

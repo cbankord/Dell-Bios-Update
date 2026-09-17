@@ -1,18 +1,22 @@
 # Dell BIOS deployment — v3
 
-V3 adds a visible **Close** button to the package builder. Close, Escape and the
-title-bar X exit immediately when idle. During a build, they request automatic
-exit after the build finishes and cleanup completes. V3.0.1 also confines cache
-permission changes to `Medela\DellBIOS`, leaving the shared `Medela` parent and
-other applications' permissions alone. Firmware and restart behavior retain v2.3.
+V3.1 restores **Install Now / Schedule Install / Defer**. Users choose an
+installation date and local time within the original deferral window (72 hours
+by default). Rescheduling never extends that deadline. After expiry, only
+Install Now is offered. Scheduling chooses when preparation starts; the existing
+60-minute restart warning begins only after successful staging.
 
-A PSADT 4.1 + Intune deployment with a compact branded **Install Now / Defer**
-prompt with days remaining, an animated preparation indicator, and a movable,
-minimizable **Restart Now** warning with a 60-minute automatic restart countdown.
-The warning sounds and recenters every 15 minutes. Protected versioned files stay
-under `C:\ProgramData\Medela\DellBIOS`. No resident controller, named-pipe broker,
-Program Files installation or recurring UI/restart task. Unsafe power or an
-interrupted countdown cancels automatic restart while preserving firmware recovery.
+One temporary SYSTEM task runs the retained approved package at the chosen time
+and retries unmet prerequisites every 15 minutes. It retires after staging; the
+post-boot verifier removes the protected package copy after a definitive result.
+Files remain under `C:\ProgramData\Medela\DellBIOS`, with no permission changes
+to the shared `Medela` parent or sibling applications. There is no resident
+controller, Program Files installation, recurring UI task or restart task.
+
+The compact branded UI shows days remaining, preparation activity and a movable,
+minimizable restart warning. The warning sounds and recenters every 15 minutes.
+Unsafe power or an interrupted countdown cancels automatic restart while
+preserving firmware recovery. The builder retains its Close/Escape/X controls.
 
 Open `Dell-BIOS-PSADT41/Builder/Start-PackageBuilder.cmd` on Windows. Select the
 approved Dell EXE and your prepared PSADT 4.1.x ZIP; enter model/version, password,

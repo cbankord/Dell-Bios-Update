@@ -66,9 +66,9 @@ Add-Field $controls.DeploymentPanel EscrowDestination 'Recovery key _escrow' Esc
 Add-Field $controls.ExperiencePanel PromptTimeoutMinutes '_Install prompt timeout (minutes)' Int '1-30; default 10. Defer on timeout before the original deadline; request preparation after an overdue notice.'
 Add-Field $controls.ExperiencePanel RestartCountdownMinutes '_Restart countdown (minutes)' Int '15-120; default 60. SYSTEM rechecks power before automatically requesting a restart. Unsafe power/sleep/session loss cancels this countdown.'
 Add-Field $controls.ExperiencePanel RestartReminderMinutes 'Restart reminder _interval (minutes)' Int '1-30; default 15, less than the countdown. Restore/center the window and play the Windows alert sound.'
-Add-Heading $controls.ExperiencePanel 'Deferrals and reminders' 'The deadline is saved at the first user prompt launch attempt. Future builds cannot extend it. Intune supplies retries.'
-Add-Field $controls.ExperiencePanel WindowHours '_Deferral window (hours)' Int '1-168; default 72. Unlimited deferrals before this deadline. Checked on each Intune attempt.'
-Add-Field $controls.ExperiencePanel ReminderHours '_Reminder interval (hours)' Int '1-12; default 4. Minimum time between notices. Intune controls the actual retry timing.'
+Add-Heading $controls.ExperiencePanel 'Deferrals and reminders' 'The deadline is saved at the first user prompt launch attempt. Future builds cannot extend it. Users can schedule installation within this window.'
+Add-Field $controls.ExperiencePanel WindowHours '_Deferral window (hours)' Int '1-168; default 72. Unlimited deferrals before this deadline. Install Now, Schedule Install and Defer until expiry.'
+Add-Field $controls.ExperiencePanel ReminderHours '_Reminder interval (hours)' Int '1-12; default 4. Minimum time between notices. Intune or the chosen install appointment supplies retries.'
 Add-Heading $controls.ExperiencePanel 'Your branding' 'These settings remain separate from deployment logic. Choose high-contrast colors; preview and test the generated interface on Windows.'
 foreach ($entry in @(@('CompanyName','Company name'),@('AppTitle','Window title'),@('Heading','Heading'),@('Purpose','Update purpose'),@('SupportText','Support text'),@('ReadyMessage','Restart-required message'))) { Add-Field $controls.ExperiencePanel $entry[0] $entry[1] Multi }
 Add-Field $controls.ExperiencePanel LogoPath 'Company logo (optional)' Image 'PNG/JPG, up to 10 MB. Leave blank to show company text only.'

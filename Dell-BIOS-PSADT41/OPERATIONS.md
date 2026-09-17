@@ -18,7 +18,9 @@ When safe, the updated deployment automatically:
    `ManagedDellBIOS-v2-UserUI`. It does not terminate a BIOS or verifier process.
 4. Imports the matching original deadline/window into protected Medela state.
    Old selected times/immediate intent become due for a new package prompt;
-   calendar scheduling has been removed. No new three-day window is granted.
+   the retired v2 restart appointment is not reinterpreted as a v3 installation
+   appointment. The user may select a new installation time only within the
+   original remaining window. No new three-day window is granted.
 5. Stops only processes whose `-File` argument identifies the exact old UI,
    removes `C:\Program Files\ManagedDellBIOS-v2`, and records retirement.
 6. Installs/refreshes the reviewed versioned files under
@@ -78,7 +80,7 @@ bypass. Do not remove this check, reset the shared ACL, or delete firmware state
 to make an unsafe location pass.
 
 Rebuild with the updated v3 builder and replace both the Intune package and its
-generated detection script. Cache.ps1 has a 3.0.1 tattoo; other unchanged runtime
+generated detection script. Changed v3.1 runtime files have 3.1.0 tattoos; unchanged runtime
 files retain their own versions. Never edit just a cached script or reuse the old
 runtime manifest/detection hashes. Pending firmware recovery still blocks code
 replacement until that transaction is resolved.
@@ -94,7 +96,9 @@ The portable regression models Windows ACL APIs; it does not prove NTFS access.
 
 The active cache is limited to `Medela\DellBIOS`. UI files are read-only for users;
 private runtime, state, firmware/recovery files and logs are SYSTEM/Admin only.
-The shared BIOS password stays in the deployment package. Intune and your PSADT
+The shared BIOS password stays in the deployment package and, after scheduling,
+its private `State/ScheduledPackage/Source` copy. The snapshot is removed after
+definitive verification; it must never become readable to standard users. Intune and your PSADT
 framework may maintain their own caches/logs outside this application folder.
 The package does not relocate or delete those platform-owned directories.
 
@@ -104,12 +108,42 @@ refresh, sign-out, reboot and reinstallation cannot reset it. Missing enrolled
 state and corrupt/extended deadlines fail closed. Existing pending deadlines
 retain their original duration even if future policy chooses another value.
 
-The reminder interval is only a cooldown between package invocations. Intune
-supplies the retry/re-evaluation timing; there is no app-created reminder task.
-If asleep/offline, enforcement waits for Windows and the next deployment attempt.
-An overdue visible install prompt has no Defer and requests preparation after
-its visible timeout. Killing the user UI or signing out is not treated as consent;
-a later deployment attempt still sees the original expired deadline.
+Before the deadline, the notice offers Install Now, Schedule Install and Defer.
+Schedule Install uses a local date picker and editable 24-hour HH:mm time, at least
+five minutes ahead and no later than the original deadline. Defer/X/timeout keeps
+any saved appointment. A skipped/repeated DST time is rejected. A reschedule
+updates the same UTC appointment, never the deadline. After expiry the prompt
+removes schedule/defer and requests preparation after its visible timeout.
+
+Scheduling copies the complete generated PSADT Source into private
+`State/ScheduledPackage`, verifies copied bytes, and commits Ready.json last.
+It then saves the appointment and registers the SYSTEM task
+`ManagedDellBIOS-ScheduledInstall`. No BitLocker suspension occurs here. The task
+uses the retained EXE with a fixed working directory and silent Install arguments,
+so Intune's temporary content need not survive. Its sole UTC trigger begins at
+the selected instant and repeats every 15 minutes until staging or a transaction
+requiring recovery retires it. A registration interruption retains saved intent;
+the next invocation repairs a missing/stale task from that state. A different
+package or changed runtime cannot replace an unresolved retained appointment.
+
+The task starts when available, does not wake the device, and has no battery-stop,
+execution-timeout or parallel-instance policy that can terminate an updater.
+At a due appointment SYSTEM checks for an active user and rechecks prerequisites.
+It starts visible preparation without a second consent prompt only when safe.
+Signed-out/sleeping/offline devices retain the due time and overdue status; local
+launch does not need Intune connectivity, while escrow may still need network.
+Power holds show an explanation at the reminder interval. Other prerequisite
+holds/errors are logged; the original firmware/recovery guards remain in force.
+
+Without a selected appointment, Intune supplies retry/re-evaluation timing. The
+reminder setting limits interruptions and does not create a reminder task or
+promise exact deadline execution. Killing the UI never erases the fixed window.
+After staging, the temporary install task is removed without stopping its current
+process. The post-boot verifier acquires the package lock before the firmware lock
+and removes the retained source after a definitive result. Cleanup failures retain
+the verifier for retry. An already-current healthy BIOS discovered by the retained
+framework removes its trigger and waits for a later Intune invocation to delete
+that framework; detection refuses success until this private copy is gone.
 
 After staging, SYSTEM runs a 60-minute countdown (configurable) in the current
 deployment process. Restart Now requests an earlier restart. Minimize/X keeps the
@@ -157,6 +191,13 @@ kill or bypass of model/power/signature/hash/escrow checks is introduced.
 
 ## Troubleshooting
 
+If only Install Now and Defer appear, the prompt predates v3.1. Rebuild using the
+v3 builder and deploy the entire new Source/package plus matching detection.
+Do not copy only XAML or a cached script: scheduling also needs the new helper,
+state integration and manifest. Confirm the first-line tattoo in the package and
+cached `UI/Show-BiosUI.ps1` is 3.1.0. If firmware is already current, use preview;
+a healthy target-or-newer BIOS intentionally skips the live install notice.
+
 Use the latest package's `Files\UI\Show-BiosUI.ps1 -Demo` in fresh Windows
 PowerShell 5.1 with `-STA`. It runs independently of enrollment and reports startup
 errors in the console/dialog. A standard user does not write SYSTEM runtime logs.
@@ -201,6 +242,18 @@ Never shorten this budget by killing an updater.
   current files left alone, unchanged deadline/state, no secret in public assets.
 - Legacy migration: pending/overdue states, active transaction holds, exact old
   tasks/process retirement, recovery continuity, old assignment removed.
+- Schedule picker in preview and live mode, past/out-of-window/ambiguous DST input,
+  reschedule within the unchanged deadline, Defer keeping the appointment, expiry
+  leaving only Install Now, local time-zone changes preserving the UTC instant.
+- The scheduled task launches your full custom framework as SYSTEM with its fixed
+  working directory after Intune content removal; standard-user progress appears.
+  Test signed-out, locked, asleep, powered-off and offline appointments; safe retry
+  without a new window; repeated unsafe-power attempts without repeated prompts.
+- Registration failure before/after state persistence, missing/stale task repair,
+  package/task conflict, concurrent Intune/task attempts, retained-source ACLs and
+  insufficient disk space. Use inert payloads for interruption tests. Verify task
+  retirement after staging, post-boot credential-source cleanup, cleanup retries,
+  and already-current firmware cleanup without deleting a running framework.
 - Real selected Dell EXE/model/password and Authenticode; 50% vs 51%, missing AC,
   optional runtime threshold, free space, pending Windows restart and encryption
   transitions. Check the safe hold and user explanation in each failure case.

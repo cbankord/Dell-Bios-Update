@@ -1,4 +1,4 @@
-# MedelaBIOS-FileVersion: 2.3.0
+# MedelaBIOS-FileVersion: 3.1.0
 #requires -Version 5.1
 # One-shot unprivileged prompt. No firmware, tasks, pipe, state writes or restart.
 param(
@@ -6,6 +6,7 @@ param(
     [switch]$Overdue,
     [ValidateSet('Install','Restart','Progress','Live','Info')][string]$Mode='Install',
     [string]$DeadlineUtc='',
+    [string]$ScheduledInstallUtc='',
     [ValidateRange(1,30)][int]$TimeoutMinutes=10,
     [string]$Message64='',
     [ValidateRange(15,120)][int]$RestartMinutes=60,
@@ -15,6 +16,7 @@ param(
 $ErrorActionPreference='Stop'
 $script:choice=1; $script:accepted=$false; $timer=$null
 $script:lastReminder=0; $script:livePhase=''; $script:liveSession=''
+$script:selectedInstallUtc=''
 try {
     if ($PSVersionTable.PSEdition -ne 'Desktop' -or [Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') { throw 'Use Windows PowerShell 5.1: powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo' }
     if ([Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0) { throw 'Open the prompt in the signed-in user session, not session 0.' }
@@ -29,7 +31,7 @@ try {
     $reader=New-Object Xml.XmlNodeReader $xaml
     $window=[Windows.Markup.XamlReader]::Load($reader)
     $c=@{}
-    foreach ($name in @('Logo','Banner','Company','Heading','Purpose','StatusCard','StatusText','Progress','Deadline','Remaining','Power','Support','ActionBar','Primary','Secondary')) {
+    foreach ($name in @('Logo','Banner','Company','Heading','Purpose','StatusCard','StatusText','Progress','Deadline','Remaining','Power','Support','ActionBar','Primary','Secondary','Schedule','SchedulePanel','InstallDate','InstallTime','ScheduleError','ConfirmSchedule','Back')) {
         $c[$name]=$window.FindName($name)
         if ($null -eq $c[$name]) { throw "Missing UI control: $name" }
     }
@@ -56,7 +58,24 @@ try {
             $c[$pair[0]].Visibility='Visible'
         }
     }
-    $c.StatusText.Text='Choose Install Now to prepare the update. After preparation, you will have '+$RestartMinutes+' minutes to save your work before a guarded automatic restart. Defer closes this notice and keeps the original deadline.'
+    $c.StatusText.Text='Install Now, choose an installation time, or Defer. After preparation, you will have '+$RestartMinutes+' minutes to save your work before a guarded automatic restart. Defer keeps the original deadline and any existing installation time.'
+    if ($Mode -ne 'Install') { $c.Schedule.Visibility='Collapsed' }
+    if ($Mode -eq 'Install') {
+        $suggested=[datetime]::Now.AddMinutes(15)
+        if ($ScheduledInstallUtc) {
+            $suggested=([datetimeoffset]::Parse($ScheduledInstallUtc)).LocalDateTime
+            $c.StatusText.Text='Installation scheduled: '+$suggested.ToString('ddd, MMM d, yyyy h:mm tt')+'. Install Now starts sooner; Schedule Install changes the time; Defer keeps this appointment. The restart warning begins after preparation.'
+        }
+        # Overdue or missed appointments must not make DatePicker initialization
+        # fail before the Install Now-only prompt can appear.
+        $lastDate=if ($deadline.LocalDateTime.Date -lt [datetime]::Today) {[datetime]::Today} else {$deadline.LocalDateTime.Date}
+        if ($suggested.Date -lt [datetime]::Today) { $suggested=[datetime]::Now.AddMinutes(15) }
+        if ($suggested.Date -gt $lastDate) { $suggested=$lastDate.AddHours(23).AddMinutes(59) }
+        $c.InstallDate.DisplayDateStart=[datetime]::Today; $c.InstallDate.DisplayDateEnd=$lastDate
+        $c.InstallDate.SelectedDate=$suggested.Date
+        for ($hour=0;$hour -lt 24;$hour++) { foreach ($minute in @(0,15,30,45)) { $null=$c.InstallTime.Items.Add(('{0:00}:{1:00}' -f $hour,$minute)) } }
+        $c.InstallTime.Text=$suggested.ToString('HH:mm')
+    }
     if ($Mode -eq 'Restart') {
         $c.Heading.Text='Restart required'; $c.StatusText.Text=$brand.ReadyMessage
         $c.Primary.Content='_Restart Now'; $c.Secondary.Content='_Minimize'
@@ -142,7 +161,9 @@ try {
         if ($Mode -eq 'Install') {
             $isOverdue=$Overdue -or $now -ge $deadline
             $c.Secondary.Visibility=if ($isOverdue) {'Collapsed'} else {'Visible'}
+            $c.Schedule.Visibility=if ($isOverdue) {'Collapsed'} else {'Visible'}
             if ($isOverdue) {
+                $c.SchedulePanel.Visibility='Collapsed'
                 $c.StatusText.Text='The deferral deadline has passed. Save your work and connect AC power. Preparation will start after this notice; every firmware safety check must still pass.'
                 $seconds=[math]::Max(0,[math]::Ceiling(($script:expires-$now).TotalSeconds))
                 $c.Remaining.Text='Preparation will be requested in '+$seconds+' seconds, or choose Install Now.'
@@ -156,6 +177,26 @@ try {
             $script:accepted=$true; $window.Close()
         }
     }
+    function Confirm-InstallSchedule {
+        try {
+            $now=[datetimeoffset]::UtcNow
+            if ($Overdue -or $now -ge $deadline) { Update-Prompt; return }
+            if ($null -eq $c.InstallDate.SelectedDate -or $c.InstallTime.Text -notmatch '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$') { throw 'Select a date and enter a time as HH:mm, for example 14:30.' }
+            $local=[datetime]::SpecifyKind(([datetime]$c.InstallDate.SelectedDate).Date.Add([timespan]::ParseExact(($c.InstallTime.Text+':00'),'hh\:mm\:ss',[Globalization.CultureInfo]::InvariantCulture)),[DateTimeKind]::Unspecified)
+            $zone=[TimeZoneInfo]::Local
+            if ($zone.IsInvalidTime($local) -or $zone.IsAmbiguousTime($local)) { throw 'That local time is skipped or repeated by daylight saving time. Choose another time.' }
+            $utc=[datetimeoffset]([TimeZoneInfo]::ConvertTimeToUtc($local,$zone))
+            if ($utc -lt $now.AddMinutes(5) -or $utc -gt $deadline) { throw 'Choose a time at least five minutes from now and no later than the original deadline.' }
+            $script:selectedInstallUtc=$utc.ToUniversalTime().ToString('o')
+            $script:choice=15; $script:accepted=$true; $window.Close()
+        } catch { $c.ScheduleError.Text=$_.Exception.Message }
+    }
+    $c.Schedule.Add_Click({
+        if ($Mode -ne 'Install' -or $Overdue -or [datetimeoffset]::UtcNow -ge $deadline) { Update-Prompt; return }
+        $c.SchedulePanel.Visibility='Visible'; $c.ScheduleError.Text=''
+    })
+    $c.ConfirmSchedule.Add_Click({ Confirm-InstallSchedule })
+    $c.Back.Add_Click({ $c.SchedulePanel.Visibility='Collapsed' })
     $c.Primary.Add_Click({
         if ($Mode -eq 'Live' -and $script:livePhase -ne 'Restart') { return }
         $script:choice=if ($Mode -eq 'Install') {10} elseif ($Mode -eq 'Restart' -or $Mode -eq 'Live') {12} else {14}
@@ -179,6 +220,7 @@ try {
     $window.Add_ContentRendered({$timer.Start(); Update-Prompt})
     $null=$window.ShowDialog()
     if ($Demo) { Write-Output "Preview choice=$script:choice. No system action was performed."; exit 0 }
+    if ($script:choice -eq 15) { [Console]::Out.WriteLine(('MEDELA_INSTALL_UTC='+$script:selectedInstallUtc)) }
     exit $script:choice
 } catch {
     [Console]::Error.WriteLine('BIOS UI startup failed: '+$_.Exception.Message)

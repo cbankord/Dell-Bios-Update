@@ -1,4 +1,4 @@
-# MedelaBIOS-FileVersion: 2.3.0
+# MedelaBIOS-FileVersion: 3.1.0
 #requires -Version 5.1
 #requires -RunAsAdministrator
 . "$PSScriptRoot\Common.ps1"
@@ -25,8 +25,16 @@ function Remove-MedelaVerifiedUI([string]$WorkDir,[string]$OldBoot,[string]$Curr
         }
     }
 }
-$lock = $null
+$lock = $null; $packageLock = $null
 try {
+    $root=Split-Path $script:WorkDir -Parent
+    $scheduled=Test-Path -LiteralPath (Join-Path $root 'State/ScheduledPackage')
+    if ($scheduled) {
+        # Same lock order as the deployment, so cleanup cannot race a reschedule,
+        # runtime replacement or a running retained PSADT framework.
+        $packageLock=[IO.File]::Open((Join-Path $root 'State/Package.lock'),'OpenOrCreate','ReadWrite','None')
+        foreach ($name in @('Cache.ps1','State.ps1','Scheduling.ps1')) { . (Join-Path $root ('Runtime/'+$name)) }
+    }
     $lock = [IO.File]::Open((Join-Path $script:WorkDir 'Deployment.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
     $state = Get-State
     if ($null -eq $state) { exit 0 }
@@ -54,10 +62,15 @@ try {
     Set-StateValue 'VerifiedUtc' ([datetime]::UtcNow.ToString('o'))
     try { Remove-MedelaVerifiedUI $script:WorkDir $state.BootId (Get-BootId) }
     catch { Write-BiosLog ('Transient UI cleanup needs a later package attempt: '+$_.Exception.Message) }
+    if ($scheduled) {
+        $packageId=Get-PackageId @{TargetVersion=$state.TargetVersion;SHA256=$state.PayloadHash}
+        Clear-MedelaScheduledPackage $root $packageId
+    }
     Unregister-ScheduledTask -TaskName $script:TaskName -Confirm:$false
 } catch {
     try { Write-BiosLog ('Verification requires attention: ' + $_.Exception.Message) } catch { }
     exit 1
 } finally {
     if ($null -ne $lock) { $lock.Dispose() }
+    if ($null -ne $packageLock) { $packageLock.Dispose() }
 }

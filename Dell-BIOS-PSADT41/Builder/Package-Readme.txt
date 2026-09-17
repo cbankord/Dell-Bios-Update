@@ -1,4 +1,4 @@
-DELL BIOS V2.3 - GENERATED PACKAGE
+DELL BIOS V3.1 - GENERATED PACKAGE
 
 1. Source is your complete customized PSADT 4.1.x deployment. Review preserved
    bootstrap/extensions for additional installs or competing restart behavior.
@@ -32,17 +32,24 @@ DELL BIOS V2.3 - GENERATED PACKAGE
    Internal installer 3010 is consumed; no competing Intune/PSADT reboot timer.
    Requirement: Intune/Require-Model.ps1, 64-bit Boolean equals True.
    Detection: Intune/Detect-BIOS.ps1, 64-bit; BIOS/protection/transaction and
-   packaged runtime hashes. Old files trigger repair even with a current BIOS.
+   packaged runtime hashes and cleanup of retained scheduled source. Old files
+   trigger repair even with a current BIOS.
    Audit: Intune/Audit-BIOSAndBitLocker.ps1.
    REPLACE OLD ENROLLMENT-BASED DETECTION as well as package content.
    Uninstall/repair intentionally fail; never use them to reset firmware state.
 
-5. Install Now / Defer is a one-shot branded prompt. The original deferral window
-   begins with the first active-user prompt launch attempt. It does not reset
-   after reboot, retries or code updates. Intune owns later attempts; there is
-   no guaranteed exact-time or 72-hour background execution. Overdue installation
-   prompts remove Defer and request preparation after the visible timeout.
-   Days/hours/minutes remaining are visible; there is no Cancel install action.
+5. Install Now / Schedule Install / Defer is the branded notice. The fixed window
+   begins with the first active-user prompt launch attempt; retries/code updates
+   never reset it. Schedule Install picks a local time at least five minutes ahead
+   within that window. Defer/X/timeout keeps any saved appointment. After expiry,
+   only Install Now remains and preparation follows the visible prompt timeout.
+   SYSTEM retains your complete Source privately in State/ScheduledPackage, then
+   creates ManagedDellBIOS-ScheduledInstall. It runs at the chosen UTC instant and
+   retries missing user/power prerequisites every 15 minutes without waking the PC
+   or extending the deadline. No BitLocker suspension occurs during scheduling.
+   Changing the time replaces the same task. The task is retired after staging;
+   it never owns a restart timer. Without a selected time, Intune supplies retries.
+   No execution while powered off or exact 72-hour enforcement is guaranteed.
    Preparation shows an animated progress bar without inventing a percentage.
    After staging, a movable/minimizable warning counts down 60 minutes by default,
    with a sound and restore/recenter every 15 minutes. Minimize/X keeps counting;
@@ -59,7 +66,9 @@ DELL BIOS V2.3 - GENERATED PACKAGE
    Recovery). Older/unversioned/missing files and same-version hash drift are
    repaired automatically when safe; newer cached versions block downgrade.
    State/deadlines/credentials are not overwritten. Pending firmware or recovery
-   blocks code replacement. Standard users only read the public UI files.
+   or retained scheduled source blocks code replacement. Standard users only read
+   the public UI files. The private full source is removed after definitive
+   verification; never delete firmware/recovery state to force its cleanup.
    Only the temporary post-boot verification task remains after staging.
 
 7. Existing v2 pilots: remove old competing assignments. The new package retires
@@ -71,6 +80,8 @@ DELL BIOS V2.3 - GENERATED PACKAGE
 8. Pilot Windows PowerShell 5.1/WPF/session launch, protected ACLs, same-package
    code repair, legacy migration, Intune retry/detection, real Dell signature and
    password, power/space/model holds, escrow and post-boot BIOS/BitLocker recovery.
+   Verify the local schedule picker, reschedule, original deadline, missed times,
+   task launch from the retained framework, safe retries and private source cleanup.
    Verify progress, minimize/X, 15-minute sound/recenter, one-hour expiry, sleep /
    Modern Standby, 50% vs 51%, AC loss, UI/host loss and application-blocked restart.
    Portable tests are not real firmware or Windows integration validation.
@@ -82,4 +93,5 @@ DELL BIOS V2.3 - GENERATED PACKAGE
 9. Source/Files/BIOS-Password.psd1 and .intunewin contain the shared BIOS secret.
    Output is protected for the packaging user, SYSTEM and Administrators. Protect
    both artifacts; do not upload them to Git, tickets or email. The password is
-   not copied into the user-readable Medela cache. Never deploy partial output.
+   retained only in the private scheduled source, never the user-readable UI.
+   Medela parent and sibling permissions are unchanged. Never deploy partial output.

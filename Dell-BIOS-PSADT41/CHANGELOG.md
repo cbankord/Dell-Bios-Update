@@ -1,3 +1,41 @@
+# v3.1 restore Schedule Install - 2026-09-17
+
+- Restore the third action in the compact notice: Install Now / Schedule Install /
+  Defer. Add an accessible local date picker and editable 24-hour time, selected
+  time display, validation errors and confirmation. Preview exercises the picker
+  without tasks/firmware. Overdue notices offer only Install Now.
+- Persist the selected UTC instant alongside the existing fixed deadline using
+  an additive state migration. Require a future selection within that deadline;
+  reject malformed responses and skipped/repeated DST times. Deferring retains
+  the appointment; rescheduling replaces it without granting another window.
+- Retain a complete approved custom PSADT Source privately under
+  Medela/DellBIOS/State/ScheduledPackage. Verify copied bytes and publish metadata
+  last. Keep shared password data out of public UI, manifests and logs. Never
+  change Medela parent/sibling permissions. No early BitLocker suspension.
+- Register one temporary SYSTEM install task against that retained framework,
+  with an absolute UTC start and 15-minute prerequisite retries. Repair missing
+  or stale tasks from persisted intent, reject conflicting tasks/packages, and
+  refuse runtime replacement while a retained appointment is unresolved. Missed
+  times remain due; no active user or unsafe power means wait, retaining deadline.
+- A due safe appointment starts visible preparation without a second consent
+  prompt. Check power before launch and preserve the installer's full safety
+  gates. Retire the install task after staging without stopping its process;
+  the existing one-hour guarded restart warning remains the only restart timer.
+- Extend the post-boot verifier to clean the private source after a definitive
+  result using the package-then-firmware lock order. Keep identifying metadata
+  until credential-source deletion succeeds; recover interrupted cleanup and
+  retain verification retries on failure. Preserve firmware/recovery records.
+- If retained code discovers an already-current healthy BIOS, retire its trigger
+  but defer deletion of its running framework to Intune. Detection remains false
+  while private scheduled source remains. Builder 3.1.0 includes the new helper;
+  rebuild full content AND matching detection, not individual cached/UI files.
+- Pass 465 portable assertions across 11 suites, including 69 schedule/package/UI
+  assertions, 24 post-boot cleanup assertions and 42 deployment flow assertions.
+  Real file IO/locks and generated packages are exercised; Windows task, trust,
+  ACL, WPF, hardware and firmware boundaries remain mocked. Windows PowerShell
+  5.1, custom PSADT 4.1, actual task launch/DPI/standard-user access and Dell
+  firmware pilots are required. Main and v2 are unchanged.
+
 # v3.0.1 preserve shared Medela permissions - 2026-09-17
 
 - Never apply an explicit ACL or owner change to the shared Medela parent,

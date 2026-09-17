@@ -1,5 +1,5 @@
-# MedelaBIOS-FileVersion: 2.3.0
-# One PSADT invocation owns this flow. No resident broker, pipe or UI task.
+# MedelaBIOS-FileVersion: 3.1.0
+# One PSADT invocation owns staging/restart. A temporary task can launch it later.
 function Assert-MedelaHost {
     if (-not [Environment]::Is64BitProcess -or [Security.Principal.WindowsIdentity]::GetCurrent().User.Value -ne 'S-1-5-18') { throw 'Run the deployment as SYSTEM in x64 Windows PowerShell.' }
 }
@@ -58,17 +58,26 @@ function Enter-LegacyRetirement([string]$Root,$Config,[string]$StatePath,$Policy
         throw
     }
 }
-function Invoke-MedelaPrompt([string]$Root,[string]$Mode,[string]$Deadline,[int]$Minutes,[string]$Message='', [switch]$Overdue,[int]$RestartMinutes=60) {
+function Invoke-MedelaPrompt([string]$Root,[string]$Mode,[string]$Deadline,[int]$Minutes,[string]$Message='', [switch]$Overdue,[int]$RestartMinutes=60,[string]$ScheduledInstallUtc='') {
     $ps="$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
     $ui=Join-Path $Root 'UI\Show-BiosUI.ps1'
     $encoded=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Message))
     $arguments='-NoProfile -STA -File "{0}" -Mode {1} -DeadlineUtc "{2}" -TimeoutMinutes {3} -RestartMinutes {4}' -f $ui,$Mode,$Deadline,$Minutes,$RestartMinutes
     if ($encoded) { $arguments+=' -Message64 '+$encoded }
     if ($Overdue) { $arguments+=' -Overdue' }
+    if ($ScheduledInstallUtc) {
+        # Normalize trusted state before placing it in a native command line.
+        $arguments+=' -ScheduledInstallUtc "'+([datetimeoffset]::Parse($ScheduledInstallUtc)).ToUniversalTime().ToString('o')+'"'
+    }
     $result=Start-ADTProcessAsUser -FilePath $ps -ArgumentList $arguments -CreateNoWindow -NoStreamLogging -PassThru -IgnoreExitCodes '*'
-    if ($null -eq $result -or $result.ExitCode -notin @(10,11,12,13,14)) {
+    if ($null -eq $result -or $result.ExitCode -notin @(10,11,12,13,14,15)) {
         if ($null -ne $result -and $result.StdErr) { Write-BiosLog ('UI error: '+$result.StdErr) }
         throw 'The user prompt did not complete. Test Files\UI\Show-BiosUI.ps1 -Demo in the signed-in user session.'
+    }
+    if ($result.ExitCode -eq 15) {
+        $reply=([string]$result.StdOut).Trim()
+        if ($Mode -ne 'Install' -or $reply -notmatch '\AMEDELA_INSTALL_UTC=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?(?:Z|\+00:00))\z') { throw 'The user prompt returned an invalid installation time.' }
+        return [pscustomobject]@{ExitCode=15;ScheduledInstallUtc=$Matches[1]}
     }
     return [int]$result.ExitCode
 }
@@ -112,7 +121,20 @@ function Invoke-MedelaDeployment([string]$Files) {
         $firmwareLock=[IO.File]::Open((Join-Path $script:WorkDir 'Deployment.lock'),'OpenOrCreate','ReadWrite','None')
         $statePath=Join-Path $root ('State\'+(Get-PackageId $config)+'.json')
         $plan=Get-CacheUpdatePlan $Files $root
-        Assert-CacheRefreshSafe (Get-State) (@($plan | Where-Object Reason -ne 'Current').Count -gt 0)
+        $changesNeeded=@($plan | Where-Object Reason -ne 'Current').Count -gt 0
+        $transaction=Get-State
+        Assert-CacheRefreshSafe $transaction $changesNeeded
+        $retained=Get-MedelaScheduledPackage $root
+        if ($null -ne $retained -and $retained.PackageId -eq (Get-PackageId $config) -and
+            ($null -eq $transaction -or ($transaction.Status -eq 'Verified' -and $transaction.SuspendedByUs -eq '0')) -and
+            (Convert-BiosVersion (Get-CimInstance Win32_BIOS).SMBIOSBIOSVersion.Trim()) -ge (Convert-BiosVersion $config.TargetVersion)) {
+            Assert-PostBootHealth $config
+            Clear-MedelaScheduledPackage $root (Get-PackageId $config) $Files
+            $retained=Get-MedelaScheduledPackage $root
+        }
+        if ($null -ne $retained -and ($retained.PackageId -ne (Get-PackageId $config) -or $changesNeeded)) {
+            throw 'Retry: a retained scheduled package must finish before replacing its runtime or enrolling another BIOS package.'
+        }
         $held=Enter-LegacyRetirement $root $config $statePath $policy
         Update-MedelaCache $Files $root $plan {param($Message) Write-BiosLog $Message}
         $firmwareLock.Dispose(); $firmwareLock=$null
@@ -126,35 +148,65 @@ function Invoke-MedelaDeployment([string]$Files) {
         $snapshot=Get-TransactionSnapshot
         if ($snapshot.Busy) { Write-BiosLog 'Retry: another installer/verifier is active.'; return 1618 }
         $txn=$snapshot.Transaction
+        if ($null -ne $retained -and $null -ne $txn -and $txn.Status -ne 'Verified') { Remove-MedelaInstallTask $root }
         if ($null -ne $txn -and $txn.Status -eq 'Verified' -and $txn.SuspendedByUs -ne '0') { throw 'Retry: firmware is verified but protection recovery is still unresolved.' }
         $staged=$null -ne $txn -and $txn.Status -eq 'Staged' -and $txn.BootId -eq (Get-BootId) -and $txn.TargetVersion -eq $config.TargetVersion -and $txn.PayloadHash -eq $config.SHA256
         if ($null -ne $txn -and $txn.Status -eq 'Staged' -and $txn.BootId -ne (Get-BootId)) { Write-BiosLog 'Retry: post-boot verification is pending.'; return 1618 }
         if ($null -ne $txn -and $txn.Status -ne 'Verified' -and -not $staged) { throw 'An earlier BIOS transaction needs verification or recovery. No automatic reflash.' }
         if (-not $staged -and (Convert-BiosVersion (Get-CimInstance Win32_BIOS).SMBIOSBIOSVersion.Trim()) -ge (Convert-BiosVersion $config.TargetVersion)) {
             Assert-PostBootHealth $config
-            $state.Phase='VerifiedComplete'; Save-ScheduleFile $state $statePath
+            Clear-MedelaScheduledPackage $root (Get-PackageId $config) $Files
+            $state.Phase='VerifiedComplete'; $state.ScheduledInstallUtc=''; Save-ScheduleFile $state $statePath
             Write-BiosLog 'Verified complete: actual BIOS and BitLocker health checked.'; return 0
+        }
+        $scheduledDue=$false
+        if (-not $staged -and $state.ScheduledInstallUtc) {
+            Sync-MedelaInstallTask $root $state
+            $scheduledDue=$now -ge [datetimeoffset]::Parse($state.ScheduledInstallUtc)
         }
         $active=Get-ADTLoggedOnUser | Where-Object IsActiveUserSession | Select-Object -First 1
         if (-not $active) { Write-BiosLog 'Retry: no active user. No firmware staging or deadline creation.'; return 1618 }
-        if ($state.NextNoticeUtc -and $now -lt [datetimeoffset]::Parse($state.NextNoticeUtc) -and (-not $state.DeadlineUtc -or $now -lt [datetimeoffset]::Parse($state.DeadlineUtc))) { Write-BiosLog 'Retry: reminder cooldown remains in effect.'; return 1618 }
+        if (-not $scheduledDue -and $state.NextNoticeUtc -and $now -lt [datetimeoffset]::Parse($state.NextNoticeUtc) -and (-not $state.DeadlineUtc -or $now -lt [datetimeoffset]::Parse($state.DeadlineUtc))) { Write-BiosLog 'Retry: reminder cooldown remains in effect.'; return 1618 }
         if (-not $staged) {
             Start-SimpleNotice $state $now
             Save-ScheduleFile $state $statePath
-            $choice=Invoke-MedelaPrompt $root Install $state.DeadlineUtc $policy.PromptTimeoutMinutes -Overdue:($now -ge [datetimeoffset]::Parse($state.DeadlineUtc)) -RestartMinutes $policy.RestartCountdownMinutes
-            $now=Get-SimpleNow $state
-            if ($choice -ne 10) {
-                $state.NextNoticeUtc=$now.AddHours($policy.ReminderHours).ToString('o'); Save-ScheduleFile $state $statePath
-                Write-BiosLog 'User deferred/closed the notice. Original deadline retained; Intune owns the next attempt.'; return 1618
+            if (-not $scheduledDue) {
+                $choice=Invoke-MedelaPrompt $root Install $state.DeadlineUtc $policy.PromptTimeoutMinutes -Overdue:($now -ge [datetimeoffset]::Parse($state.DeadlineUtc)) -RestartMinutes $policy.RestartCountdownMinutes -ScheduledInstallUtc $state.ScheduledInstallUtc
+                $now=Get-SimpleNow $state
+                if ($choice -isnot [int] -and $choice.ExitCode -eq 15) {
+                    Save-MedelaInstallSchedule $root $Files $config $policy $state $statePath $choice.ScheduledInstallUtc
+                    $message='Installation scheduled for '+([datetimeoffset]::Parse($state.ScheduledInstallUtc)).ToLocalTime().ToString('ddd, MMM d, yyyy h:mm tt zzz')+'. Keep the computer awake, signed in and connected to power. If it is unavailable or unsafe, installation waits for the next safe opportunity. The '+$policy.RestartCountdownMinutes+'-minute restart warning begins after preparation.'
+                    $null=Invoke-MedelaPrompt $root Info $state.DeadlineUtc 1 $message
+                    return 1618
+                }
+                if ($choice -ne 10) {
+                    $state.NextNoticeUtc=$now.AddHours($policy.ReminderHours).ToString('o'); Save-ScheduleFile $state $statePath
+                    Write-BiosLog 'User deferred/closed the notice. Original deadline and any selected installation time retained.'; return 1618
+                }
+            } else {
+                Write-BiosLog 'Selected installation time is due; proceeding with safety checks and visible progress.'
+            }
+            try { Assert-Power $config }
+            catch {
+                Write-BiosLog ('Retry: installation waiting for safe power. '+$_.Exception.Message)
+                # One explanation per reminder interval, even if the task retries
+                # more frequently. Keep the selected time/deadline unchanged.
+                if (-not $state.NextNoticeUtc -or $now -ge [datetimeoffset]::Parse($state.NextNoticeUtc)) {
+                    $state.NextNoticeUtc=$now.AddHours($policy.ReminderHours).ToString('o'); Save-ScheduleFile $state $statePath
+                    $null=Invoke-MedelaPrompt $root Info $state.DeadlineUtc $policy.PromptTimeoutMinutes ('Installation is waiting for safe power. Connect AC power and charge the battery to at least '+$config.MinimumBatteryPercent+'%. Your selected time and original deadline remain in effect.')
+                }
+                return 1618
             }
             $code=Invoke-MedelaStaging $root $Files
             Write-BiosLog "Installer returned $code."
+            $afterInstall=Get-State
+            if ($null -ne (Get-MedelaScheduledPackage $root) -and ($code -eq 3010 -or ($null -ne $afterInstall -and $afterInstall.Status -ne 'Verified'))) { Remove-MedelaInstallTask $root }
             if ($code -ne 3010) {
-                if ($code -eq 0) { Assert-PostBootHealth $config; $state.Phase='VerifiedComplete'; Save-ScheduleFile $state $statePath; return 0 }
+                if ($code -eq 0) { Assert-PostBootHealth $config; Clear-MedelaScheduledPackage $root (Get-PackageId $config) $Files; $state.Phase='VerifiedComplete'; $state.ScheduledInstallUtc=''; Save-ScheduleFile $state $statePath; return 0 }
                 $null=Invoke-MedelaPrompt $root Info $state.DeadlineUtc $policy.PromptTimeoutMinutes 'The update could not be prepared. Connect AC power, check the battery charge and contact IT if the issue continues. Your computer will not be restarted by this notice.'
                 return $code
             }
-            $state.Phase='RestartRequired'; $state.NextNoticeUtc=''; Save-ScheduleFile $state $statePath
+            $state.Phase='RestartRequired'; $state.ScheduledInstallUtc=''; $state.NextNoticeUtc=''; Save-ScheduleFile $state $statePath
         }
         $null=Invoke-MedelaRestartCountdown $root $config $policy $state $statePath
         $state.NextNoticeUtc=([datetimeoffset]::UtcNow).AddHours($policy.ReminderHours).ToString('o'); Save-ScheduleFile $state $statePath

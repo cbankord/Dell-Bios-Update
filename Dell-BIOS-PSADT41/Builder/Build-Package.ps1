@@ -322,7 +322,7 @@ function New-DellBiosPackage {
         foreach ($name in @('Common.ps1','Install-DellBIOS.ps1','Verify-AfterReboot.ps1')) {
             Copy-Item -LiteralPath (Join-Path "$script:BuilderSource/Files" $name) -Destination $files -Force
         }
-        foreach ($relative in @('Simple/Cache.ps1','Simple/State.ps1','Simple/Safety.ps1','Simple/Live.ps1','Simple/Deployment.ps1','UI/Window.xaml','UI/Show-BiosUI.ps1','UI/Assets/README.md')) {
+        foreach ($relative in @('Simple/Cache.ps1','Simple/State.ps1','Simple/Safety.ps1','Simple/Scheduling.ps1','Simple/Live.ps1','Simple/Deployment.ps1','UI/Window.xaml','UI/Show-BiosUI.ps1','UI/Assets/README.md')) {
             $dest=Join-Path $files $relative
             $null=[IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($dest))
             Copy-Item -LiteralPath (Join-Path "$script:BuilderSource/Files" $relative) -Destination $dest -Force
@@ -376,7 +376,7 @@ function New-DellBiosPackage {
         }
         $phase='writing build notes'
         $manifest=[ordered]@{
-            BuilderVersion='3.0.1'; BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
+            BuilderVersion='3.1.0'; BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
             FrameworkVersion=$framework.Version; FrameworkSHA256=$frameworkHash
             BIOS=$config; DeploymentPolicy=$policy; HasPassword=$Settings.BiosPasswordRequired
             OutputMode=$(if ($intuneWin) { 'IntuneWin' } else { 'SourceOnly' })

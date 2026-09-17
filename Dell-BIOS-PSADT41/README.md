@@ -1,4 +1,4 @@
-# Dell BIOS v2.3 — progress and guarded restart
+# Dell BIOS v3.1 — scheduled installation and guarded restart
 
 Build with `Builder/Start-PackageBuilder.cmd`, using your approved Dell BIOS EXE
 and prepared PSADT 4.1.x ZIP. Review the generated `READ-ME-FIRST.txt` before upload.
@@ -11,14 +11,16 @@ Intune scripts and a runtime integrity manifest. No BIOS/password is in Git.
    under `%ProgramData%\Medela\DellBIOS` (`C:\ProgramData\Medela\DellBIOS` normally).
 2. The compact branded UI runs once in the signed-in standard user's session.
    **Install Now** starts preparation through SYSTEM after all safety checks.
-   **Defer**, closing the window or timing out before the deadline returns a retry.
+   **Schedule Install** opens a local date/time picker within the original window.
+   **Defer**, closing the window or timing out before the deadline returns a retry,
+   keeping any existing appointment. The schedule can be changed before expiry.
    The notice shows days/hours/minutes until Install Now becomes the only option.
 3. A fixed window (72 hours by default) is saved immediately before the first
    prompt launch into an active user session. This is a delivery-attempt timestamp,
    not proof the notice was read. Launch failures, crashes, sign-outs and retries
    retain it. No active user means no new deadline and no firmware staging.
-4. After expiry, the installation prompt removes Defer, prevents normal closing,
-   and visibly counts down its prompt timeout before requesting preparation.
+4. After expiry, the installation prompt removes Schedule Install and Defer,
+   prevents normal closing, and visibly counts down its prompt timeout before requesting preparation.
    Power/model/hash/password/BitLocker/transaction checks still apply.
 5. During preparation an animated progress bar shows activity. It does not invent
    a Dell percentage or claim firmware is complete. Closing this window minimizes
@@ -42,11 +44,40 @@ remove its old-boot status files, or the next package invocation removes leftove
 The original install deadline, staged transaction, recovery files and verification
 task remain. Deleting those before verification would break the recovery workflow.
 
-**Intune owns later attempts.** Deferral reminder hours are a cooldown, not a
-scheduled trigger. There is no exact-date picker, resident service or guaranteed
-72-hour wall-clock execution. After a safety hold, the next attempt checks the
-original deadline and, for an already-staged update, starts a fresh full restart
-warning without reflashing. Monitor staged updates and owned BitLocker suspension.
+**A selected installation time uses one temporary task.** SYSTEM retains a
+complete approved copy of your custom framework and package in private
+`State/ScheduledPackage`, then registers `ManagedDellBIOS-ScheduledInstall`.
+The picker requires at least five minutes' notice. Dates appear in local time;
+state and the task boundary pin the UTC instant. Skipped/repeated daylight-saving
+times are rejected. Changing time zones changes the display, not the appointment.
+A saved reschedule replaces the same task and preserves the original deadline.
+Rescheduling is available when a deployment attempt offers the notice; there is
+no persistent tray or standalone scheduling entry point.
+
+At the selected time, preparation begins without a second consent prompt, with
+visible progress and all safety gates. The device must be awake, have an active
+user session and meet the configured power requirements. If asleep/offline or
+signed out, the appointment remains due: the local task starts when available
+and retries every 15 minutes. It does not wake the computer, require network
+connectivity for launch, or bypass escrow/other checks that may need connectivity.
+Power holds are explained at the reminder interval instead of every task retry.
+The task has no execution timeout and never stops a running updater on AC loss.
+See Microsoft's [repetition rules](https://learn.microsoft.com/en-us/windows/win32/taskschd/repetitionpattern-duration)
+and [execution limit](https://learn.microsoft.com/en-us/windows/win32/taskschd/tasksettings-executiontimelimit).
+
+After staging, the install task is retired before the existing restart countdown.
+It never schedules a restart. The post-boot verifier removes the protected package
+copy after a definitive result; unresolved transactions and their recovery remain.
+If the task discovers an already-current healthy BIOS, it retires its trigger but
+leaves its own running framework for a subsequent Intune invocation to clean.
+Detection remains pending while that private copy remains. Do not replace pending
+scheduled runtime with another release/package; finish or review that work first.
+
+**Without a selected time, Intune owns later attempts.** Deferral reminder hours
+are a cooldown, not a trigger or guaranteed 72-hour execution. After a cancelled
+restart countdown, the next Intune attempt checks the original deadline and gives
+an already-staged update a fresh full warning without reflashing. Monitor staged
+updates and owned BitLocker suspension.
 An independent user/Windows restart is outside this package's power gate. The
 managed restart uses `/r /t 0` without `/f`; applications may block it. No Windows
 countdown is armed, since a nonzero shutdown timeout implies forced app closure.
@@ -58,7 +89,8 @@ See [Microsoft's shutdown options](https://learn.microsoft.com/en-us/windows-ser
 |---|---|
 | `Runtime` | Versioned helper scripts and policy; SYSTEM/Administrators |
 | `UI` | Prompt, branding and PNG/JPG assets; users read/execute only |
-| `State` | Original deadlines, enrollment markers, manifest and locks; SYSTEM/Administrators |
+| `State` | Original deadlines, selected install time, enrollment, manifest and locks; SYSTEM/Administrators |
+| `State/ScheduledPackage` | Temporary complete source, including credential file when required; SYSTEM/Administrators only |
 | `Recovery` | Guarded firmware copy, post-boot scripts and logs; SYSTEM/Administrators |
 
 `UI/Live/<session-id>/Status.json` is a temporary SYSTEM-written, user-readable
@@ -81,13 +113,13 @@ apply to the parent and permit deletion, child deletion, permission changes or
 ownership changes. These can undermine a protected child's path. The diagnostic
 identifies the offending SID/rights instead of requesting a shared-folder reset.
 See [shared-folder troubleshooting](OPERATIONS.md#shared-medela-folder-permissions).
-Credentials remain in the protected deployment package and are not copied to the
+Credentials remain in the protected deployment package and private scheduled copy, never the
 user-readable UI or version/hash manifest.
 
 Each managed PowerShell file has its own version marker, for example:
 
 ```powershell
-# MedelaBIOS-FileVersion: 2.3.0
+# MedelaBIOS-FileVersion: 3.1.0
 ```
 
 XAML uses the same marker inside an XML comment. The build-generated
@@ -101,7 +133,7 @@ files against the manifest and compares them with the installed copy:
 | Same version, different SHA256 | Repair from the trusted package |
 | Same version and SHA256 | Leave the file untouched |
 | Newer version | Stop the older package; no automatic downgrade/mixed release |
-| Firmware unresolved and replacement needed | Hold until verification/recovery resolves it |
+| Firmware unresolved or a retained schedule pending and replacement needed | Hold until verification/recovery and private source cleanup resolve it |
 
 The marker is a version identifier; the hash detects drift. Neither authenticates
 a publisher. Trust comes from the reviewed Intune package and your signing policy.
@@ -157,6 +189,7 @@ a competing reboot timer. Detection requires actual target-or-newer BIOS, stable
 protection and a resolved transaction when one exists. It does not detect controller
 enrollment or accept a staged capsule. It also checks the expected runtime hashes;
 old/missing/modified helpers trigger safe repair without reflashing a current BIOS.
+Retained scheduled source must also be cleaned before detection reports success.
 Intune retry/re-evaluation can show a pending
 or failed application while awaiting user action; pilot your assignment cadence.
 Microsoft describes Retry as three attempts five minutes apart and required-app
@@ -182,7 +215,8 @@ powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo -Mode Prog
 powershell.exe -NoProfile -STA -File .\Files\UI\Show-BiosUI.ps1 -Demo -Mode Restart
 ```
 
-Preview cannot stage/restart or change deployment state. The restart preview
+Preview includes the Schedule Install picker and cannot create a task, stage/restart,
+or change deployment state. The restart preview
 counts down and demonstrates reminders, then closes without restarting. For a
 shorter UI pilot use `-Demo -Mode Restart -RestartMinutes 15 -RestartReminderMinutes 1`.
 This is a display simulation, not the privileged safety monitor. Close exits;

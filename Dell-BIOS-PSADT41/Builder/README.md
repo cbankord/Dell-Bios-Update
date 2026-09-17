@@ -1,4 +1,4 @@
-# Dell BIOS package builder v3
+# Dell BIOS package builder v3.1
 
 Launch **Start-PackageBuilder.cmd** on your Windows packaging computer. The wizard
 builds a fresh deployment from your approved Dell BIOS executable and your own
@@ -65,7 +65,7 @@ The utility is optional, is not bundled, and is never downloaded silently.
 | Recovery key escrow | `EntraID` or `ADDS` | Successful backup required before suspension |
 | StagedDetectionHours | `24`; legacy preset/config field | Hidden in the wizard; actual-BIOS detection does not use it |
 | Deferral window | `72`; 1-168 hours | Fixed window from first active-user prompt launch attempt; retained across retries |
-| Reminder interval | `4`; 1-12 hours | Minimum between notices; Intune supplies the actual retry timing |
+| Reminder interval | `4`; 1-12 hours | Minimum between notices; Intune or the selected-install task supplies retries |
 | Install prompt timeout | `10`; 1-30 minutes | Defer before deadline; request preparation after an overdue notice |
 | Restart countdown | `60`; 15-120 minutes | SYSTEM requests a guarded automatic restart after staging; unsafe power/sleep/session interruption cancels it |
 | Restart reminder interval | `15`; 1-30 minutes, below countdown | Restore/recenter the movable window and play Windows alert sound; minimize/X keeps the countdown running |
@@ -96,8 +96,16 @@ creation/inherit-only grants, and diagnoses parent-replacement grants without
 rewriting them. See [shared-folder permissions](../OPERATIONS.md#shared-medela-folder-permissions).
 Rebuild the package and use its matching new detection script for this cache fix.
 
-The install notice shows remaining days/hours/minutes until Install Now is the
-only option. During preparation, an animated bar indicates activity without
+The install notice offers **Install Now / Schedule Install / Defer**, with
+remaining days/hours/minutes until Install Now is the only option. Schedule Install
+selects a local preparation time within the unchanged deferral window, at least
+five minutes ahead. SYSTEM retains the complete generated Source privately under
+`State/ScheduledPackage` and creates one temporary scheduled-install task with
+15-minute prerequisite retries. Rescheduling replaces that appointment; Defer
+keeps it. After staging the task is retired, and post-boot verification cleans the
+private source (including its credential file). This uses no additional builder
+setting: the configured deferral window limits the picker. Rebuild the entire
+package and matching detection to deliver v3.1; copying only UI files is insufficient. During preparation, an animated bar indicates activity without
 claiming a firmware percentage. The restart window shows the local restart time
 and remaining countdown. Cancellation cleans only temporary UI status; the
 firmware transaction and BitLocker verification task remain until resolved.

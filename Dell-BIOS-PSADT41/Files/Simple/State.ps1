@@ -1,4 +1,4 @@
-# MedelaBIOS-FileVersion: 2.3.0
+# MedelaBIOS-FileVersion: 3.1.0
 function ConvertFrom-StateJson([string]$Json) {
     if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')) { ConvertFrom-Json -InputObject $Json -DateKind String }
     else { ConvertFrom-Json -InputObject $Json }
@@ -44,6 +44,13 @@ function Assert-SimpleState($State,[string]$PackageId) {
         }
     }
     if ($State.DeadlineUtc -and [datetimeoffset]::Parse($State.DeadlineUtc) -ne [datetimeoffset]::Parse($State.FirstNoticeUtc).AddHours($State.WindowHours)) { throw 'Original deadline has changed.' }
+    # Additive migration: existing v2/v3 deadlines remain byte-for-byte intact.
+    if (-not $State.ContainsKey('ScheduledInstallUtc')) { $State.ScheduledInstallUtc='' }
+    if ($State.ScheduledInstallUtc) {
+        if (-not $State.DeadlineUtc -or $State.ScheduledInstallUtc -notmatch '(Z|\+00:00)$') { throw 'Scheduled installation requires the original UTC deadline.' }
+        $scheduled=[datetimeoffset]::Parse($State.ScheduledInstallUtc)
+        if ($scheduled -gt [datetimeoffset]::Parse($State.DeadlineUtc) -or $scheduled -lt [datetimeoffset]::Parse($State.FirstNoticeUtc)) { throw 'Scheduled installation is outside the original window.' }
+    }
 }
 function Get-SimpleNow($State) {
     $now=[datetimeoffset]::UtcNow

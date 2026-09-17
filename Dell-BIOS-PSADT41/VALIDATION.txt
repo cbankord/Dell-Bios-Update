@@ -1,3 +1,59 @@
+V3.1 Schedule Install validation - 2026-09-17
+
+PASS: 465 assertions across 11 fresh PowerShell 7.4.7 processes on Linux:
+  54  Tests/Test-Deployment.ps1
+  89  Tests/Test-Builder.ps1
+  21  Tests/Test-BuilderClose.ps1
+  14  Tests/V2/Test-Guards.ps1
+  30  Tests/V2/Test-Cache.ps1
+  42  Tests/V2/Test-SimpleDeployment.ps1
+  13  Tests/V2/Test-Migration.ps1
+  57  Tests/V2/Test-Live.ps1
+  52  Tests/V2/Test-CachePermissions.ps1
+  69  Tests/V2/Test-Scheduling.ps1
+  24  Tests/V2/Test-ScheduledRecovery.ps1
+Counts include parser/fixture assertions, not independent Windows E2E scenarios.
+The schedule/recovery/flow suites were rerun after the final cleanup ordering fix.
+
+Reproduce from Dell-BIOS-PSADT41, running each suite in its own process:
+  pwsh -NoProfile -File <path above>
+No Dell or Microsoft packaging EXE is executed by these portable tests.
+
+New coverage exercises actual state, package copying, file hashes, locks,
+response parsing and callbacks with inert Windows task/ACL/signature APIs:
+- Schedule and reschedule retain the original deadline, one task and one private
+  source copy; deferred notices retain an existing appointment.
+- UTC task boundaries, missed/no-user/power holds, overdue retention, reminder
+  cooldown and due appointments progressing without another consent notice.
+- Only complete private custom source is published; interrupted copying and
+  source/destination overlap fail without exposing/deleting unrelated files.
+- Invalid UI replies, duplicate markers, malformed/past/out-of-window picker
+  selections and SYSTEM-side validation refuse a schedule.
+- Registration failure preserves intent; a missing/stale task is repaired from
+  state; a conflicting task is not overwritten or removed.
+- Staging retires the install task before the restart countdown. Existing
+  asynchronous progress, power/restart/BitLocker guards continue to pass.
+- Real verifier main block: passed/failed BIOS after protection recovery permit
+  snapshot cleanup; same boot, recovery failure and package contention preserve
+  recovery. Snapshot deletion failures keep metadata and verifier retries;
+  interrupted final directory cleanup also completes on the next verifier run.
+- Already-current code does not delete its own running framework. Generated
+  detection remains pending until retained private-source cleanup is complete.
+- Builder includes all 13 managed runtime files, preserves custom framework
+  integration, and still excludes credentials/password-file hashes from records.
+
+PASS: git diff --check. All PS1/PSD1 sources parse; XAML is well formed.
+WindowsRegistryIntegration was not run. This does not validate Windows Task
+Scheduler/CIM XML registration, actual native PSADT StdOut/session launch,
+Windows PowerShell 5.1/.NET ACL inheritance, WPF layout/DPI/accessibility, DST
+picker rendering or a real BIOS flash. Follow OPERATIONS.md for Windows pilots.
+Rescheduling is available when a deployment attempt offers the install notice;
+there is no persistent tray or standalone privileged scheduling entry point.
+Keep Intune on No specific action and review the custom framework's restart
+behavior. A task retries prerequisites but cannot run while Windows is off.
+
+Previous validation records follow.
+
 V3.0.1 shared Medela permission boundary validation - 2026-09-17
 
 PASS: 170 assertions in three fresh PowerShell 7.4.7 processes on Linux:

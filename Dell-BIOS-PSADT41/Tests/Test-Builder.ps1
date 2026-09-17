@@ -124,7 +124,7 @@ throw 'The build must NEVER execute the template'
     $policy=Import-PowerShellDataFile (Join-Path $source 'Files/Simple/Policy.psd1')
     Assert ($policy.WindowHours -eq 48 -and $policy.Schema -eq 3 -and $policy.RestartCountdownMinutes -eq 60 -and $policy.RestartReminderMinutes -eq 15) 'Configured deferral and restart deadlines are packaged'
     $cachePlan=Get-CacheUpdatePlan (Join-Path $source 'Files') (Join-Path $fixture 'EmptyCache')
-    Assert ($cachePlan.Count -eq 12 -and @($cachePlan | Where-Object Reason -ne 'Missing').Count -eq 0) 'Runtime manifest validates the complete simple payload'
+    Assert ($cachePlan.Count -eq 13 -and @($cachePlan | Where-Object Reason -ne 'Missing').Count -eq 0) 'Runtime manifest validates the complete simple payload'
     Assert (-not (Test-Path (Join-Path $source 'Files/Scheduler')) -and -not (Test-Path (Join-Path $source 'Files/Install-Scheduler.ps1'))) 'Builder does not package the retired daemon'
     $generated=Get-Content -LiteralPath (Join-Path $source 'Invoke-AppDeployToolkit.ps1') -Raw
     Assert ($generated.Contains("CustomField='preserve `$ and { braces }'") -and $generated.Contains('NEVER execute the template')) 'Custom metadata and bootstrap retained'
@@ -169,6 +169,7 @@ throw 'The build must NEVER execute the template'
         @{Name='Incomplete transaction record';Version='2.7.3';Transaction='Incomplete';Protection='On';Model=$settings.Models[0];Expected=$false},
         @{Name='Wrong model';Version='2.7.3';Transaction='Verified';Protection='On';Model='Not approved';Expected=$false},
         @{Name='Current BIOS with older or drifted runtime';Version='2.7.3';Transaction='Verified';Protection='On';Model=$settings.Models[0];Cache='Drift';Expected=$false},
+        @{Name='Verified firmware with retained credential package';Version='2.7.3';Transaction='Verified';Protection='On';Model=$settings.Models[0];Cache='Cleanup';Expected=$false},
         @{Name='Current BIOS with missing runtime';Version='2.7.3';Transaction='Verified';Protection='On';Model=$settings.Models[0];Cache='Missing';Expected=$false}
     )) {
         $runspace=[PowerShell]::Create()
@@ -183,6 +184,7 @@ throw 'The build must NEVER execute the template'
                 function Import-Module { param($Name) if ($Name -ne 'BitLocker') { throw 'Unexpected module.' } }
                 function Get-BitLockerVolume { param($MountPoint) [pscustomobject]@{VolumeStatus='FullyEncrypted';ProtectionStatus=$Case.Protection} }
                 function Test-Path { param($LiteralPath)
+                    if ($LiteralPath.Replace('\','/').EndsWith('State/ScheduledPackage')) { return $Case['Cache'] -eq 'Cleanup' }
                     if ($LiteralPath -ne 'HKLM:\SOFTWARE\ManagedDellBIOS') { throw 'Unexpected registry path.' }
                     return [bool]$Case.Transaction
                 }
