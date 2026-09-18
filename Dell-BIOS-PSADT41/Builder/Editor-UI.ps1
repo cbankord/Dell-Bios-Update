@@ -155,6 +155,7 @@ function Set-EditorAvailability {
     elseif (-not $packageEditing) {'Open ZIP or Load selected ZIP switches to Editor automatically. Open PS1 also works without a package.'}
     else {'Load the selected ZIP to edit its sections and metadata. Imported code is never executed.'}
     if ($hasDocument -and $script:editorDocument.Contains('LayoutNotice')) { $controls.EditorStatus.Text+=' '+$script:editorDocument.LayoutNotice }
+    if (Get-Command Update-V5Actions -ErrorAction SilentlyContinue) {Update-V5Actions}
 }
 $controls.EditorMode.Add_SelectionChanged({ Set-EditorAvailability; $controls.Reviewed.IsChecked=$false })
 $controls.SectionList.Add_SelectionChanged({

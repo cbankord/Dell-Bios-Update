@@ -35,7 +35,7 @@ try {
     $s.MaintenancePayload=Join-Path $temp 'update.msu';Write-Fixture $s.MaintenancePayload 'inert approved update'
     $update=New-DeploymentPackage $s
     $manifest=Get-Content (Join-Path $update.OutputDirectory 'BuildManifest.json') -Raw|ConvertFrom-Json
-    Check ($manifest.PackageType -eq 'WindowsUpdate' -and $manifest.BuilderVersion -eq '4.5.0' -and -not $manifest.SourcePreserved) 'Windows Update builds generated steps and truthful manifest'
+    Check ($manifest.PackageType -eq 'WindowsUpdate' -and $manifest.BuilderVersion -eq '5.0.0' -and -not $manifest.SourcePreserved) 'Windows Update builds generated steps and truthful manifest'
     $entry=Get-Content (Join-Path $update.SourcePath 'Invoke-AppDeployToolkit.ps1') -Raw
     Check ($entry.Contains('Invoke-BuilderMaintenance') -and $entry.Contains('Close-ADTSession -ExitCode 3010')) 'Install and post-install generated with restart handoff'
     Check ($entry.Contains("AppName='Approved servicing'")) 'Generated servicing uses chosen application identity'

@@ -2,4 +2,8 @@
 **/BIOS-Password.psd1
 *.intunewin
 *.exe
+*.msi
+*.mst
+PSADT-Work-*/
+PSADT-Test-*/
 Dell-BIOS-PSADT41/Intune/

@@ -1,3 +1,52 @@
+V5.0 package upgrades and explicit local testing validation - 2026-09-18
+
+PASS: 743 assertions across sixteen isolated PowerShell 7.4.7/Linux suites:
+  86  Tests/Test-Deployment.ps1
+ 118  Tests/Test-Builder.ps1
+  89  Tests/Test-BuilderClose.ps1
+  88  Tests/V4/Test-ApplicationBuilder.ps1
+  22  Tests/V4/Test-BuilderModes.ps1
+  15  Tests/V4/Test-BuilderOutput.ps1
+  22  Tests/V4/Test-EditorLoading.ps1
+  26  Tests/V4/Test-EditorUI.ps1
+  63  Tests/V4/Test-Experience.ps1
+  34  Tests/V4/Test-MaintenanceBuilder.ps1
+  33  Tests/V4/Test-ScriptEditor.ps1
+  39  Tests/V4/Test-SectionEditor.ps1
+  41  Tests/V4/Test-ZipEditor.ps1
+  22  Tests/V5/Test-LocalTesting.ps1
+  33  Tests/V5/Test-PackageUpgrade.ps1
+  12  Tests/V5/Test-UpgradeUI.ps1
+Run each suite in a separate pwsh process. Counts include syntax/file-fixture
+assertions, not independent end-to-end scenarios.
+
+Real IO and behavior: detached ZIP/PS1 copies; reviewable AST changes; preserving
+pre-install removal; uninstall/repair code updates; matching version metadata;
+source and auxiliary payload preservation; stale source/MSI/MST guards; upgrade
+ZIP -> editor -> normal build; transform Property delta rules; async prepare /
+analyze / apply handlers and error envelopes; guarded Close; local command
+construction; hashes; actual-identity receipt logic; 0/3010/1603 handling;
+unsupported action/mode and wrong SYSTEM identity refusal. Test launch, MSI COM,
+Windows trust/ACL application and native UI controls are mocked on this host.
+
+A handled validation exception can leave PowerShell.HadErrors true even with an
+empty error stream. The v5 async handlers consume their explicit error envelope
+after EndInvoke, preserving useful errors and restoring controls. Regression
+coverage exercises this failure path rather than just checking source text.
+
+Added Windows CI: .github/workflows/v5-windows.yml, Windows PowerShell 5.1 parsing,
+inert v5 regression suites and Tests/V5/Test-WindowsMsi.ps1. The MSI suite creates
+native MSI/MST databases and never installs them. CI execution/results are separate
+from the Linux evidence above; verify the workflow status for the commit in use.
+
+NOT RUN ON THIS HOST: Windows PowerShell 5.1; native WPF/WinForms dialogs and
+controls; UAC; real PsExec or SYSTEM processes; COM MSI/MST operations; NTFS ACLs;
+actual app lifecycle, Intune policy/detection/restart behavior or firmware.
+Pilot guidance: Builder/Upgrade-and-Testing-Guide.md. BIOS Files/ runtime remains
+unchanged. Main/v2/v3/v4 preserved; v5 is a new branch from d017531.
+
+Previous release evidence follows unchanged.
+
 V4.5 ZIP editor and compatible script loading validation - 2026-09-18
 
 PASS: 666 assertions across thirteen isolated PowerShell 7.4.7/Linux suites:

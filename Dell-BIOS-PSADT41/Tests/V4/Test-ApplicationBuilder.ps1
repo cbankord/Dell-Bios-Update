@@ -66,7 +66,7 @@ throw 'Never execute bootstrap'
             Check (-not (Test-Path -LiteralPath (Join-Path $result.SourcePath $path))) "$version adds no $path"
         }
         $manifest=Get-Content -LiteralPath (Join-Path $result.OutputDirectory 'BuildManifest.json') -Raw|ConvertFrom-Json
-        Check ($manifest.BuilderVersion -eq '4.5.0' -and $manifest.PackageType -eq 'Application' -and $manifest.SourcePreserved) "$version records mode and source preservation"
+        Check ($manifest.BuilderVersion -eq '5.0.0' -and $manifest.PackageType -eq 'Application' -and $manifest.SourcePreserved) "$version records mode and source preservation"
         Check ($manifest.Detection.Mode -eq 'ConfigureInIntune' -and -not (Test-Path -LiteralPath (Join-Path $result.OutputDirectory 'Intune/Detect-Application.ps1'))) "$version never invents universal detection"
         Check ($manifest.ApplicationVersion -eq '2026.09-beta' -and $manifest.InstallCommand -eq 'Invoke-AppDeployToolkit.exe -DeploymentType Install -DeployMode Silent') "$version app label is independent of original product metadata"
         $loaded=Import-PackagePreset (Join-Path $result.OutputDirectory 'Settings.psd1')

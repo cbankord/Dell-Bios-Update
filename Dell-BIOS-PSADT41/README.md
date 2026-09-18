@@ -1,4 +1,11 @@
-# PSADT Deployment Builder v4.5 — BIOS and applications
+# PSADT Deployment Builder v5 — BIOS and applications
+
+**v5 adds Replace install file and local Install / Repair / Uninstall tests.**
+Open an Application ZIP (or its entry PS1, then EDIT), review installer filename,
+MSI product-code and supported MST changes, and create a new working ZIP.
+The Local tests tab can run that edited package in the current user context or
+verify and use SYSTEM through your selected Microsoft PsExec tool.
+See [the v5 upgrade and testing guide](Builder/Upgrade-and-Testing-Guide.md) for the workflow, limits and Windows pilot.
 
 **v4.5: Open ZIP → Editor, with automatic deployment-script detection.**
 Edit common app metadata, the full custom settings table, custom/functions and all
@@ -28,7 +35,7 @@ Intune scripts and a runtime integrity manifest. No BIOS/password is in Git.
 On **5 Build**, use **Output folder → Choose folder** or enter an existing local
 folder. A fresh session has no preset destination. Review the displayed path;
 the builder creates a unique protected build folder beneath it. Saved presets
-retain your choice. `BuildManifest.json` identifies builder `4.5.0` and records
+retain your choice. `BuildManifest.json` identifies builder `5.0.0` and records
 the selected parent and actual build directory. See [output details](Builder/README.md#output).
 
 ## User experience

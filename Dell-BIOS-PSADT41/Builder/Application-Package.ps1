@@ -165,6 +165,7 @@ function New-ApplicationPackage {
             SourcePreserved=(-not $maintenance -and -not $entryChanged);EditorApplied=$Settings.UseEditor;SectionsSHA256=$sectionHash;PayloadSHA256=$payloadHash;WindowsBuild=$Settings.WindowsBuild;DriverModels=@($Settings.DriverModels);OutputRoot=$outputParent;OutputDirectory=$build
             OutputMode=$(if ($intuneWin) {'IntuneWin'} else {'SourceOnly'})
             IntuneWinSHA256=$(if ($intuneWin) {(Get-FileHash -LiteralPath $intuneWin -Algorithm SHA256).Hash} else {''})
+            UpgradeRecordSHA256=$(if (Test-Path -LiteralPath (Join-Path $source 'PSADT-Upgrade.json')) {(Get-FileHash -LiteralPath (Join-Path $source 'PSADT-Upgrade.json')).Hash} else {''})
         }
         [IO.File]::WriteAllText((Join-Path $build 'BuildManifest.json'),($manifest|ConvertTo-Json -Depth 8),(New-Object Text.UTF8Encoding($true)))
         [IO.File]::WriteAllLines((Join-Path $build 'Build.log'),@(

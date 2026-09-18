@@ -1,0 +1,44 @@
+name: v5 Windows authoring checks
+on:
+  push:
+    branches: [v5]
+  pull_request:
+    branches: [v5]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-authoring:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Parse with Windows PowerShell 5.1
+        shell: powershell
+        working-directory: Dell-BIOS-PSADT41
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $failures = @()
+          Get-ChildItem -Recurse -File | Where-Object Extension -in @('.ps1','.psd1') | ForEach-Object {
+            $tokens = $null; $errors = $null
+            $null = [Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$errors)
+            $failures += $errors
+          }
+          if ($failures.Count) { $failures | Format-List; throw 'PowerShell syntax validation failed.' }
+      - name: Authoring, async UI handlers and local test contracts (inert adapters)
+        shell: powershell
+        working-directory: Dell-BIOS-PSADT41
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($suite in @('Test-PackageUpgrade.ps1','Test-LocalTesting.ps1','Test-UpgradeUI.ps1')) {
+            & powershell.exe -NoProfile -File (Join-Path 'Tests/V5' $suite)
+            if ($LASTEXITCODE -ne 0) { throw "$suite failed." }
+          }
+      - name: Native Windows Installer databases (no installation)
+        shell: powershell
+        working-directory: Dell-BIOS-PSADT41
+        run: |
+          & powershell.exe -NoProfile -File Tests/V5/Test-WindowsMsi.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Native MSI/MST validation failed.' }

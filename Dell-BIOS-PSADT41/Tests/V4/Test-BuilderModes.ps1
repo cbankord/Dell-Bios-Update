@@ -79,7 +79,7 @@ try {
         Check ($script:fields.PackageType.SelectedValue -eq $mode -and -not $controls.Reviewed.IsChecked) "$mode preset restores mode without approval"
     }
     [xml]$xml=Get-Content "$root/Builder/Window.xaml" -Raw
-    Check ($xml.DocumentElement.Title -eq 'PSADT Deployment Builder v4.5') 'Builder has neutral v4.5 identity'
+    Check ($xml.DocumentElement.Title -eq 'PSADT Deployment Builder v5') 'Builder has neutral v4.5 identity'
     $caption=$xml.SelectSingleNode("//*[@*[local-name()='Name']='CaptionClose']")
     Check ($null -ne $caption -and $null -ne $xml.SelectSingleNode("//*[@*[local-name()='Name']='CloseButton']")) 'Custom title-bar and footer close controls remain'
     Write-Output "PASS: $count builder mode assertions. Actual form/preset/review callbacks; native WPF remains a Windows pilot."

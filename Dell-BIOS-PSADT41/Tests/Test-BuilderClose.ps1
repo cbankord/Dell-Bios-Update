@@ -119,6 +119,8 @@ foreach ($fail in @($false,$true)) {
 }
 $timer=[pscustomobject]@{Stopped=$false}
 $timer | Add-Member ScriptMethod Stop { $this.Stopped=$true }
+$script:localTestTimer=[pscustomobject]@{Stopped=$false}
+$script:localTestTimer|Add-Member ScriptMethod Stop {$this.Stopped=$true}
 $script:fields=@{}
 foreach ($name in @('Password','PasswordConfirm')) {
     $script:fields[$name]=[pscustomobject]@{Cleared=$false}

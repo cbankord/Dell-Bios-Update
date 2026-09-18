@@ -1,4 +1,11 @@
-# PSADT Deployment Builder v4.5
+# PSADT Deployment Builder v5
+
+**v5 adds Replace install file and local Install / Repair / Uninstall tests.**
+Open an Application ZIP (or its entry PS1, then EDIT), review installer filename,
+MSI product-code and supported MST changes, and create a new working ZIP.
+The Local tests tab can run that edited package in the current user context or
+verify and use SYSTEM through your selected Microsoft PsExec tool.
+See [the v5 upgrade and testing guide](Upgrade-and-Testing-Guide.md) for the workflow, limits and Windows pilot.
 
 **v4.5: Open ZIP → Editor, with automatic deployment-script detection.**
 Edit common app metadata, the full custom settings table, custom/functions and all
@@ -17,7 +24,7 @@ detection script and Intune setup notes. See [the application guide](Application
 App mode supports complete PSADT 4.x and legacy 3.x layouts; it does not import
 or execute their scripts. The BIOS framework restriction remains 4.1.x.
 
-**Builder 4.5.0 includes the v4.0.1 Install Now launch fix for PSADT 4.1.4-4.1.8.**
+**Builder 5.0.0 includes the v4.0.1 Install Now launch fix for PSADT 4.1.4-4.1.8.**
 If an older package reports a parameter-set error and exits 60001, restart this
 builder from the updated v4 copy and rebuild with your existing approved settings
 and custom ZIP. Replace the complete package and its generated Intune detection;
@@ -46,7 +53,7 @@ exit, not a force-terminate control; a hung external packaging tool can still
 delay it. Completed output is kept in your selected output folder. The Close
 button does not cancel an endpoint BIOS update or change the deployment UI.
 
-## The five tabs
+## The six tabs
 
 1. **Files:** choose the deployment type and PSADT ZIP. BIOS mode also needs the
    approved Dell EXE; Application mode optionally accepts a detection script.
@@ -68,6 +75,11 @@ button does not cancel an endpoint BIOS update or change the deployment UI.
    Review its path and the settings, confirm that you reviewed the approved
    firmware and trusted template, then build. The GUI remains responsive during
    packaging. Select **Open output** and follow the generated `READ-ME-FIRST.txt`.
+
+6. **Local tests:** run the current application editor contents using Install, Repair
+   or Uninstall. Select and verify SYSTEM through Microsoft PsExec when needed.
+   These actions run on the local test computer; building a package still never
+   executes its deployment. See the [v5 guide](Upgrade-and-Testing-Guide.md).
 
 Save a preset to reuse the same settings for the next model or version. Presets
 contain **no password**; loading one clears the password boxes and the prior
@@ -233,7 +245,7 @@ failure removes only that build's partial directory, preserving previous builds.
 Changing destination invalidates the review; it is locked while a build is active.
 
 Review text, progress, `Build.log` and `BuildManifest.json` identify the destination.
-The manifest records `BuilderVersion = 4.5.0`, `PackageType`, `OutputRoot` and `OutputDirectory`.
+The manifest records `BuilderVersion = 5.0.0`, `PackageType`, `OutputRoot` and `OutputDirectory`.
 `Settings.psd1` saves your selection for another build; **Open output** opens the
 completed build folder. These paths describe the build computer, not an endpoint
 cache location: BIOS endpoint files still use `C:\ProgramData\Medela\DellBIOS`.

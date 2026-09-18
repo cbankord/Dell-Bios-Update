@@ -39,6 +39,7 @@ foreach($folder in @('Builder','Files/UI')) {
             Check ([Windows.Automation.AutomationProperties]::GetName($button).Length -gt 0) "$folder $name has an accessible name"
         }
         if ($folder -eq 'Builder') {
+            foreach ($controlName in @('EditorReplaceInstaller','TestInstall','TestRepair','TestUninstall','TestSystem','TestCurrentUser','TestMode','TestEula')) {Check ($null -ne $window.FindName($controlName)) ('v5 native control loads: '+$controlName)}
             $window.FindName('EditorTab').IsSelected=$true
             $hostControl=$window.FindName('EditorHost');$box=New-Object Windows.Forms.RichTextBox
             $box.AccessibleName='PowerShell section editor';$box.Text='Write-Output "Inert preview"'

@@ -13,13 +13,16 @@ $builderBrand=Import-PowerShellDataFile (Join-Path $PSScriptRoot 'Branding.psd1'
 $window.Title=$builderBrand.AppTitle
 Initialize-BiosWindowChrome $window (Join-Path $script:BuilderSource 'Files/UI/Theme.xaml') $builderBrand (Get-BiosBrandIconPath $PSScriptRoot $builderBrand)
 $script:fields=@{}; $script:fieldBoxes=@{}; $script:kind=@{}; $script:job=$null; $script:lastOutput=''; $script:closeRequested=$false
+$script:localTestProcess=$null
 $controls=@{}
-foreach ($name in @('Tabs','FilesPanel','DeploymentPanel','ApplicationPanel','MaintenancePanel','EditorPanel','ExperiencePanel','ApplicationExperiencePanel','OutputPanel','ReviewText','ReviewConsent','OutputNotice','Reviewed','BuildButton','OpenButton','Progress','BuildLog','LoadButton','SaveButton','CloseButton','EditorMode','EditorLoad','EditorImport','EditorSave','EditorValidate','EditorHost','SectionList','EditorStatus','EditorTab','EditorOpenScript','EditorOpenZip','EditorEditScript','EditorSaveScript','EditorSaveScriptAs','EditorCloseScript','EditorDocumentLabel','MetadataView','MetadataFields')) { $controls[$name]=$window.FindName($name) }
+foreach ($name in @('Tabs','FilesPanel','DeploymentPanel','ApplicationPanel','MaintenancePanel','EditorPanel','ExperiencePanel','ApplicationExperiencePanel','OutputPanel','ReviewText','ReviewConsent','OutputNotice','Reviewed','BuildButton','OpenButton','Progress','BuildLog','LoadButton','SaveButton','CloseButton','EditorMode','EditorLoad','EditorImport','EditorSave','EditorValidate','EditorHost','SectionList','EditorStatus','EditorTab','EditorOpenScript','EditorOpenZip','EditorEditScript','EditorSaveScript','EditorSaveScriptAs','EditorCloseScript','EditorDocumentLabel','MetadataView','MetadataFields','EditorReplaceInstaller','TestPanel','TestPackage','TestContext','TestCurrentUser','TestSystem','TestPsExec','TestBrowsePsExec','TestEula','TestMode','TestInstall','TestRepair','TestUninstall','TestStatus','TestOpenEvidence')) { $controls[$name]=$window.FindName($name) }
 function Set-BuilderBusy([bool]$Busy) {
+    if ($controls.ContainsKey('TestPanel') -and $null -ne $script:localTestProcess) {$Busy=$true}
     foreach ($name in @('FilesPanel','DeploymentPanel','ApplicationPanel','MaintenancePanel','EditorPanel','ExperiencePanel','OutputPanel','Reviewed','BuildButton','LoadButton','SaveButton')) { $controls[$name].IsEnabled=-not $Busy }
     $controls.OpenButton.IsEnabled=(-not $Busy -and [bool]$script:lastOutput)
     $controls.Progress.IsIndeterminate=$Busy
     $controls.Progress.Visibility=if ($Busy) {'Visible'} else {'Collapsed'}
+    if ($controls.ContainsKey('TestPanel')) {$controls.TestPanel.IsEnabled=-not $Busy}
 }
 function Select-BuilderOutputFolder([string]$CurrentPath) {
     $dialog=New-Object Windows.Forms.FolderBrowserDialog
@@ -250,6 +253,7 @@ $controls.SaveButton.Add_Click({
     } catch { $null=[Windows.MessageBox]::Show('Could not save the preset. Check numeric settings and the destination.','Save preset') }
 })
 . "$PSScriptRoot/Editor-UI.ps1"
+. "$PSScriptRoot/Testing-UI.ps1"
 function Test-PasswordConfirmation {
     # Compare SecureStrings without ever assigning either password to a UI TextBox.
     $first=$script:fields.Password.SecurePassword; $second=$script:fields.PasswordConfirm.SecurePassword
@@ -310,6 +314,8 @@ $timer.Add_Tick({
             if ($script:job.ContainsKey('Kind') -and $script:job.Kind -eq 'Editor' -and $results.Count -eq 1 -and $results[0].Contains('EditorLoadError')) {
                 $controls.EditorStatus.Text=$results[0].EditorLoadError
                 $controls.BuildLog.AppendText("`r`nFAILED: "+$results[0].EditorLoadError)
+            } elseif ($script:job.ContainsKey('Kind') -and $script:job.Kind -eq 'LocalTest' -and $results.Count -eq 1 -and $results[0].ContainsKey('Error')) {
+                Complete-V5TestPreparation $results[0]
             } elseif ($script:job.Worker.HadErrors -or $results.Count -ne 1) {
                 # Engine's catch deliberately sanitizes phase-specific build errors.
                 $detail=if ($script:job.Worker.Streams.Error.Count) { Get-BuilderFailureMessage $script:job.Worker.Streams.Error[0] } else {'The build did not produce one result.'}
@@ -330,6 +336,7 @@ $timer.Add_Tick({
             $detail=Get-BuilderFailureMessage $_
             $controls.BuildLog.AppendText("`r`nFAILED: "+$detail)
             if ($script:job.ContainsKey('Kind') -and $script:job.Kind -eq 'Editor') { $controls.EditorStatus.Text=$detail }
+            if ($script:job.ContainsKey('Kind') -and $script:job.Kind -eq 'LocalTest') { $controls.TestStatus.Text=$detail }
         }
         finally {
             $script:job.Worker.Dispose(); if ($null -ne $script:job.Secret) { $script:job.Secret.Dispose() }; $script:job=$null
@@ -342,6 +349,11 @@ $timer.Add_Tick({
     }
 })
 $window.Add_Closing({param($sender,$eventArgs)
+    if ($controls.ContainsKey('TestPanel') -and $null -ne $script:localTestProcess) {
+        $eventArgs.Cancel=$true;$script:closeRequested=$true
+        $controls.TestStatus.Text='Close requested. The deployment continues; this window will close after the test and cleanup finish.'
+        return
+    }
     if ($null -ne $script:job) {
         $eventArgs.Cancel=$true
         if (-not $script:closeRequested) {
@@ -354,4 +366,4 @@ $window.Add_Closing({param($sender,$eventArgs)
 })
 if ($EditScript) { $controls.EditorTab.IsSelected=$true; $script:initialScriptOpened=$false; $window.Add_ContentRendered({ if (-not $script:initialScriptOpened) { $script:initialScriptOpened=$true; Start-EditorPackageLoad -ScriptPath $EditScript } }) }
 try { Update-Review; $timer.Start(); $null=$window.ShowDialog() }
-finally { $timer.Stop(); $script:editorColorTimer.Stop(); $script:editorBox.Dispose(); $script:fields.Password.Clear(); $script:fields.PasswordConfirm.Clear() }
+finally { $timer.Stop(); $script:localTestTimer.Stop(); $script:editorColorTimer.Stop(); $script:editorBox.Dispose(); $script:fields.Password.Clear(); $script:fields.PasswordConfirm.Clear() }

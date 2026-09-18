@@ -1,4 +1,11 @@
-# PSADT Deployment Builder — v4.5
+# PSADT Deployment Builder — v5
+
+**v5 adds Replace install file and local Install / Repair / Uninstall tests.**
+Open an Application ZIP (or its entry PS1, then EDIT), review installer filename,
+MSI product-code and supported MST changes, and create a new working ZIP.
+The Local tests tab can run that edited package in the current user context or
+verify and use SYSTEM through your selected Microsoft PsExec tool.
+See [the v5 upgrade and testing guide](Dell-BIOS-PSADT41/Builder/Upgrade-and-Testing-Guide.md) for the workflow, limits and Windows pilot.
 
 **v4.5: Open ZIP → Editor, with automatic deployment-script detection.**
 Edit common app metadata, the full custom settings table, custom/functions and all
@@ -9,7 +16,7 @@ use full script editing. No build settings are needed just to open a document.
 [Direct editing and safe saves](Dell-BIOS-PSADT41/Builder/Direct-Script-Editor-Guide.md) explains backups, Save as, supported
 layouts and the Windows pilot. The four packaging modes and ZIP editor remain.
 
-**Current release: v4.5 (BuilderVersion 4.5.0), on the v4 branch.** Choose
+**Current release: v5 (BuilderVersion 5.0.0), on the v5 branch.** Choose
 **BIOS update**, **Application**, **Windows Update** or **Dell Driver** in the Files tab's **Deployment type** list.
 
 | Mode | Input | Behavior |
