@@ -11,14 +11,14 @@ $window=[Windows.Markup.XamlReader]::Load($reader)
 $builderBrand=Import-PowerShellDataFile (Join-Path $PSScriptRoot 'Branding.psd1')
 $window.Title=$builderBrand.AppTitle
 Initialize-BiosWindowChrome $window (Join-Path $script:BuilderSource 'Files/UI/Theme.xaml') $builderBrand (Get-BiosBrandIconPath $PSScriptRoot $builderBrand)
-$script:fields=@{}; $script:kind=@{}; $script:job=$null; $script:lastOutput=''; $script:closeRequested=$false
+$script:fields=@{}; $script:fieldBoxes=@{}; $script:kind=@{}; $script:job=$null; $script:lastOutput=''; $script:closeRequested=$false
 $controls=@{}
-foreach ($name in @('Tabs','FilesPanel','DeploymentPanel','ExperiencePanel','OutputPanel','ReviewText','Reviewed','BuildButton','OpenButton','Progress','BuildLog','LoadButton','SaveButton','CloseButton')) { $controls[$name]=$window.FindName($name) }
+foreach ($name in @('Tabs','FilesPanel','DeploymentPanel','ApplicationPanel','ExperiencePanel','ApplicationExperiencePanel','OutputPanel','ReviewText','ReviewConsent','OutputNotice','Reviewed','BuildButton','OpenButton','Progress','BuildLog','LoadButton','SaveButton','CloseButton')) { $controls[$name]=$window.FindName($name) }
 function Select-BuilderOutputFolder([string]$CurrentPath) {
     $dialog=New-Object Windows.Forms.FolderBrowserDialog
     $owner=$null
     try {
-        $dialog.Description='Choose where to save the package. A new DellBIOS folder will be created inside this location.'
+        $dialog.Description='Choose where to save the package. A new build folder will be created inside this location.'
         $dialog.ShowNewFolderButton=$true
         if ($CurrentPath -and (Test-Path -LiteralPath $CurrentPath -PathType Container)) { $dialog.SelectedPath=$CurrentPath }
         # Keep the native picker owned by this WPF window, including custom chrome.
@@ -43,11 +43,18 @@ function Add-Field($Panel,[string]$Key,[string]$Label,[string]$Type='Text',[stri
     if ($Type -eq 'Bool') { $inputControl=New-Object Windows.Controls.CheckBox; $inputControl.Content=$Label; $caption.Visibility='Collapsed' }
     elseif ($Type -eq 'Password') { $inputControl=New-Object Windows.Controls.PasswordBox; $inputControl.Padding='10,8' }
     elseif ($Type -eq 'Escrow') { $inputControl=New-Object Windows.Controls.ComboBox; $inputControl.Padding='10,8'; $null=$inputControl.Items.Add('EntraID'); $null=$inputControl.Items.Add('ADDS') }
+    elseif ($Type -eq 'PackageType') {
+        $inputControl=New-Object Windows.Controls.ComboBox; $inputControl.Padding='10,8'
+        $inputControl.DisplayMemberPath='Label'; $inputControl.SelectedValuePath='Value'
+        $null=$inputControl.Items.Add([pscustomobject]@{Label='BIOS update';Value='BIOS'})
+        $null=$inputControl.Items.Add([pscustomobject]@{Label='Application';Value='Application'})
+    }
+    elseif ($Type -eq 'Context') { $inputControl=New-Object Windows.Controls.ComboBox; $inputControl.Padding='10,8'; $null=$inputControl.Items.Add('System'); $null=$inputControl.Items.Add('User') }
     else { $inputControl=New-Object Windows.Controls.TextBox }
     $inputControl.Name=$Key; [Windows.Automation.AutomationProperties]::SetName($inputControl,($Label -replace '_',''))
     $caption.Target=$inputControl
     if ($Type -in @('Multi','Models')) { $inputControl.AcceptsReturn=$true; $inputControl.TextWrapping='Wrap'; $inputControl.MinHeight=70; $inputControl.VerticalScrollBarVisibility='Auto' }
-    if ($Type -in @('Bios','Zip','Tool','Image','Icon','Folder')) {
+    if ($Type -in @('Bios','Zip','Tool','Image','Icon','Folder','Script')) {
         $browse=New-Object Windows.Controls.Button; $browse.Content=if ($Type -eq 'Folder') {'Choose _folder...'} else {'Browse...'}; $browse.Tag=@{Control=$inputControl;Type=$Type}; [Windows.Automation.AutomationProperties]::SetName($browse,('Browse for '+($Label -replace '_','')))
         [Windows.Controls.DockPanel]::SetDock($browse,'Right'); $null=$row.Children.Add($browse)
         $browse.Add_Click({ param($sender,$e)
@@ -56,20 +63,26 @@ function Add-Field($Panel,[string]$Key,[string]$Label,[string]$Type='Text',[stri
                 catch { $controls.BuildLog.Text='Could not open the folder picker. Type an existing local folder in Output folder instead.' }
             } else {
                 $dialog=New-Object Microsoft.Win32.OpenFileDialog
-                $dialog.Filter=switch ($sender.Tag.Type) { Zip {'PSADT template ZIP (*.zip)|*.zip'} Image {'PNG or JPEG images|*.png;*.jpg;*.jpeg'} Icon {'Title-bar icon (*.png;*.ico)|*.png;*.ico'} default {'Executable (*.exe)|*.exe'} }
+                $dialog.Filter=switch ($sender.Tag.Type) { Zip {'PSADT deployment ZIP (*.zip)|*.zip'} Script {'PowerShell detection script (*.ps1)|*.ps1'} Image {'PNG or JPEG images|*.png;*.jpg;*.jpeg'} Icon {'Title-bar icon (*.png;*.ico)|*.png;*.ico'} default {'Executable (*.exe)|*.exe'} }
                 if ($dialog.ShowDialog($window)) { $sender.Tag.Control.Text=$dialog.FileName }
             }
         })
     }
     $null=$row.Children.Add($inputControl); $null=$box.Children.Add($row)
     if ($Help) { $note=New-Object Windows.Controls.TextBlock; $note.Text=$Help; $note.FontSize=12; $note.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty,'MutedBrush'); $null=$box.Children.Add($note) }
-    $null=$Panel.Children.Add($box); $script:fields[$Key]=$inputControl; $script:kind[$Key]=$Type
+    $null=$Panel.Children.Add($box); $script:fields[$Key]=$inputControl; $script:fieldBoxes[$Key]=$box; $script:kind[$Key]=$Type
 }
-Add-Heading $controls.FilesPanel 'Start with your approved files' 'Choose a prepared PSADT 4.1.x deployment template ZIP. A single enclosing folder is fine. Your module, extensions and framework customization are preserved.'
+Add-Heading $controls.FilesPanel 'Choose what you are deploying' 'BIOS update builds the managed Dell workflow. Application packages an existing PSADT app without rewriting its deployment logic.'
+Add-Field $controls.FilesPanel PackageType '_Deployment type' PackageType 'BIOS: approved Dell executable plus PSADT 4.1.x template. Application: complete PSADT 4.x or legacy 3.x app ZIP with its payloads.'
 Add-Field $controls.FilesPanel BiosPath '_Dell BIOS executable' Bios 'The copied EXE is renamed ApprovedBIOS.exe, hashed and checked for a valid Dell signature. It is never run by the builder.'
-Add-Field $controls.FilesPanel FrameworkZip '_Custom PSADT ZIP' Zip 'Must contain Invoke-AppDeployToolkit.ps1, Invoke-AppDeployToolkit.exe and PSAppDeployToolkit/PSAppDeployToolkit.psd1 (4.1.x).'
-Add-Field $controls.OutputPanel OutputRoot '_Output folder' Folder 'Choose or type an existing local folder outside the repository. Each build creates a new protected DellBIOS-<version>-<timestamp>-<id> folder inside it, containing Source, Intune scripts and optional .intunewin output.'
+Add-Field $controls.FilesPanel FrameworkZip '_PSADT deployment ZIP' Zip 'Choose a prepared BIOS template or your complete application deployment, including its framework and payloads. A single enclosing folder is supported.'
+Add-Field $controls.FilesPanel ApplicationDetectionScript 'Application _detection script (optional)' Script 'Supply your app-specific Intune detection script, or configure detection in Intune yourself. The builder never guesses that an app is installed.'
+Add-Field $controls.OutputPanel OutputRoot '_Output folder' Folder 'Choose or type an existing local folder outside the repository. Each build creates a new protected folder containing Source, Intune setup files and optional .intunewin output.'
 Add-Field $controls.FilesPanel ContentPrepTool '_IntuneWinAppUtil.exe (optional)' Tool 'Select your Microsoft content prep tool to create .intunewin automatically. Leave blank to build the complete source package and Intune scripts.'
+Add-Heading $controls.ApplicationPanel 'Application package' 'These values identify the build. Existing install, uninstall, repair and product metadata in your ZIP are preserved.'
+Add-Field $controls.ApplicationPanel ApplicationName 'Application _name' Text 'For example: Abacus Client. Used in build records and output folder names.'
+Add-Field $controls.ApplicationPanel ApplicationVersion 'Application _version' Text 'The version you are packaging; this does not edit version values in the supplied app.'
+Add-Field $controls.ApplicationPanel ApplicationContext 'Intune install _behavior' Context 'System or User. Choose the context required by your existing app; this setting is recorded in the generated Intune instructions.'
 Add-Heading $controls.DeploymentPanel 'Target and credentials' 'One approved Dell BIOS executable per package. Exact model names come from Win32_ComputerSystem.Model. The builder cannot infer compatibility from the filename.'
 Add-Field $controls.DeploymentPanel Models '_Approved models (one per line)' Models
 Add-Field $controls.DeploymentPanel TargetVersion '_Expected BIOS version' Text 'Numeric version, for example 2.1.1. Use the Dell-approved target for the selected executable.'
@@ -99,7 +112,7 @@ Add-Field $controls.ExperiencePanel BannerPath 'Banner image (optional)' Image
 foreach ($entry in @(@('AccentColor','Accent'),@('BackgroundColor','Background'),@('SurfaceColor','Cards'),@('TextColor','Text'),@('MutedColor','Secondary text'))) { Add-Field $controls.ExperiencePanel $entry[0] ($entry[1]+' color (#RRGGBB)') }
 function Set-BuilderIconPreview {
     try {
-        $path=$script:fields.IconPath.Text.Trim()
+        $path=if ($script:fields.PackageType.SelectedValue -eq 'Application') { '' } else { $script:fields.IconPath.Text.Trim() }
         if (-not $path) { $path=Get-BiosBrandIconPath $PSScriptRoot $builderBrand }
         $window.Icon=if ($path) { Read-BiosWindowIcon ([IO.Path]::GetFullPath($path)) } else { $window.FindResource('DefaultAppIcon') }
         $script:fields.IconPath.ToolTip='Icon preview; this icon will be included in the generated package.'
@@ -108,6 +121,22 @@ function Set-BuilderIconPreview {
         $script:fields.IconPath.ToolTip='Icon could not be previewed. Choose a valid local PNG/ICO; the build validates it again.'
     }
 }
+function Set-BuilderPackageMode {
+    $isApp=$script:fields.PackageType.SelectedValue -eq 'Application'
+    $biosVisibility=if ($isApp) {'Collapsed'} else {'Visible'}
+    $appVisibility=if ($isApp) {'Visible'} else {'Collapsed'}
+    $script:fieldBoxes.BiosPath.Visibility=$biosVisibility
+    $script:fieldBoxes.ApplicationDetectionScript.Visibility=$appVisibility
+    $controls.DeploymentPanel.Visibility=$biosVisibility; $controls.ExperiencePanel.Visibility=$biosVisibility
+    $controls.ApplicationPanel.Visibility=$appVisibility; $controls.ApplicationExperiencePanel.Visibility=$appVisibility
+    $script:fields.Password.Clear(); $script:fields.PasswordConfirm.Clear()
+    $script:fields.Password.IsEnabled=(-not $isApp -and [bool]$script:fields.BiosPasswordRequired.IsChecked)
+    $script:fields.PasswordConfirm.IsEnabled=$script:fields.Password.IsEnabled
+    $controls.Reviewed.IsChecked=$false
+    $controls.ReviewConsent.Text=if ($isApp) {'I reviewed this application ZIP, deployment logic, install context and detection plan. These settings are approved for a pilot.'} else {'I reviewed Dell compatibility, prerequisite versions and the trusted PSADT template. These settings are approved for a pilot.'}
+    $controls.OutputNotice.Text=if ($isApp) {'Output contains your supplied application files. Keep sensitive data out of Git. Only the new build folder receives protected output permissions.'} else {'The package contains the shared BIOS password when configured. Protect Source and .intunewin; do not upload them to Git. Output is restricted to your Windows account, SYSTEM and Administrators.'}
+    Set-BuilderIconPreview
+}
 function Set-FormSettings([hashtable]$Settings) {
     foreach ($key in $script:fields.Keys) {
         if (-not $Settings.ContainsKey($key)) { continue }
@@ -115,18 +144,22 @@ function Set-FormSettings([hashtable]$Settings) {
         switch ($script:kind[$key]) {
             Bool { $field.IsChecked=[bool]$Settings[$key] }
             Escrow { $field.SelectedItem=$Settings[$key] }
+            Context { $field.SelectedItem=$Settings[$key] }
+            PackageType { $field.SelectedValue=$Settings[$key] }
             Models { $field.Text=@($Settings[$key]) -join "`r`n" }
             default { $field.Text=[string]$Settings[$key] }
         }
     }
     $script:fields.Password.Clear(); $script:fields.PasswordConfirm.Clear(); $controls.Reviewed.IsChecked=$false
-    Set-BuilderIconPreview
-    $script:fields.Password.IsEnabled=[bool]$Settings.BiosPasswordRequired; $script:fields.PasswordConfirm.IsEnabled=[bool]$Settings.BiosPasswordRequired
+    Set-BuilderPackageMode
 }
 function Get-FormSettings {
     $settings=New-PackageBuildSettings
+    $isApp=$script:fields.PackageType.SelectedValue -eq 'Application'
     foreach ($key in $settings.Keys | ForEach-Object { $_ }) {
         if (-not $script:fields.ContainsKey($key)) { continue }
+        if ($isApp -and $key -notin @('PackageType','ApplicationName','ApplicationVersion','ApplicationContext','ApplicationDetectionScript','FrameworkZip','OutputRoot','ContentPrepTool')) { continue }
+        if (-not $isApp -and $key -like 'Application*') { continue }
         $field=$script:fields[$key]
         switch ($script:kind[$key]) {
             Bool { $settings[$key]=[bool]$field.IsChecked }
@@ -136,6 +169,8 @@ function Get-FormSettings {
                 $settings[$key]=$parsed
             }
             Escrow { $settings[$key]=[string]$field.SelectedItem }
+            Context { $settings[$key]=[string]$field.SelectedItem }
+            PackageType { $settings[$key]=[string]$field.SelectedValue }
             Models { $settings[$key]=@($field.Text -split '\r?\n' | ForEach-Object { $_.Trim() } | Where-Object { $_ } | Select-Object -Unique) }
             Multi { $settings[$key]=$field.Text }
             default { $settings[$key]=$field.Text.Trim() }
@@ -149,6 +184,11 @@ function Update-Review {
         $s=Get-FormSettings
         $mode=if ($s.ContentPrepTool) {'Source + Intune scripts + .intunewin'} else {'Source + Intune scripts (.intunewin tool not selected)'}
         $destination=if ($s.OutputRoot) { $s.OutputRoot } else { 'Choose an output folder above before building.' }
+        if ($s.PackageType -eq 'Application') {
+            $detection=if ($s.ApplicationDetectionScript) {'Supplied custom script (not executed by builder)'} else {'Configure app-specific detection in Intune before assignment'}
+            $controls.ReviewText.Text="Deployment type: Application`nName: $($s.ApplicationName)`nVersion: $($s.ApplicationVersion)`nInstall behavior: $($s.ApplicationContext)`nDetection: $detection`nApp scripts, branding, deferrals and restarts: retained from ZIP`nOutput folder: $destination`nOutput contents: Source + Intune setup files$(if ($s.ContentPrepTool) {' + .intunewin'})`nNo BIOS controls or managed BIOS UI are added."
+            return
+        }
         $controls.ReviewText.Text="Models: $($s.Models -join ', ')`nTarget: $($s.TargetVersion)`nPower: AC required; battery minimum $($s.MinimumBatteryPercent)%`nDeadline: $($s.WindowHours) hours from first user prompt attempt`nAllow schedule later: $($s.AllowScheduleLater) (installation time only)`nReminder: $($s.ReminderHours) hours minimum; install prompt timeout: $($s.PromptTimeoutMinutes) minutes`nAfter staging: automatic restart countdown $($s.RestartCountdownMinutes) minutes; sound/recenter every $($s.RestartReminderMinutes) minutes`nOutput folder: $destination`nOutput contents: $mode`nPassword: excluded from this review and presets"
     } catch { $controls.ReviewText.Text=$_.Exception.Message }
 }
@@ -163,6 +203,7 @@ foreach ($field in $script:fields.Values) {
     elseif ($field -is [Windows.Controls.PasswordBox]) { $field.Add_PasswordChanged({ $controls.Reviewed.IsChecked=$false }) }
 }
 $script:fields.IconPath.Add_TextChanged({ Set-BuilderIconPreview })
+$script:fields.PackageType.Add_SelectionChanged({ Set-BuilderPackageMode; Update-Review })
 $script:fields.OutputRoot.Add_TextChanged({ Update-Review })
 $script:fields.BiosPasswordRequired.Add_Click({ $script:fields.Password.IsEnabled=[bool]$script:fields.BiosPasswordRequired.IsChecked; $script:fields.PasswordConfirm.IsEnabled=$script:fields.Password.IsEnabled })
 $controls.LoadButton.Add_Click({
@@ -175,7 +216,7 @@ $controls.LoadButton.Add_Click({
 $controls.SaveButton.Add_Click({
     try {
         $settings=Get-FormSettings
-        $dialog=New-Object Microsoft.Win32.SaveFileDialog; $dialog.Filter='Builder preset (*.psd1)|*.psd1'; $dialog.FileName='DellBIOS-settings.psd1'
+        $dialog=New-Object Microsoft.Win32.SaveFileDialog; $dialog.Filter='Builder preset (*.psd1)|*.psd1'; $dialog.FileName='PSADT-settings.psd1'
         if ($dialog.ShowDialog($window)) { Export-PackagePreset $settings $dialog.FileName }
     } catch { $null=[Windows.MessageBox]::Show('Could not save the preset. Check numeric settings and the destination.','Save preset') }
 })
@@ -201,8 +242,10 @@ $controls.BuildButton.Add_Click({
         $settings=Get-FormSettings
         $settings.OutputRoot=Resolve-BuilderOutputRoot $settings.OutputRoot
         Assert-BuilderSettings $settings
-        if ($settings.BiosPasswordRequired -and -not (Test-PasswordConfirmation)) { throw 'Enter the BIOS password twice; both entries must match.' }
-        $secret=$script:fields.Password.SecurePassword
+        if ($settings.PackageType -eq 'BIOS') {
+            if ($settings.BiosPasswordRequired -and -not (Test-PasswordConfirmation)) { throw 'Enter the BIOS password twice; both entries must match.' }
+            $secret=$script:fields.Password.SecurePassword
+        }
         $script:fields.Password.Clear(); $script:fields.PasswordConfirm.Clear()
         $queue=New-Object 'System.Collections.Concurrent.ConcurrentQueue[string]'
         $worker=[PowerShell]::Create()
@@ -210,10 +253,10 @@ $controls.BuildButton.Add_Click({
             $ErrorActionPreference='Stop'
             $queue.Enqueue('Loading builder scripts in the background PowerShell session...')
             . $engine
-            New-DellBiosPackage -Settings $settings -BiosPassword $secret -Progress {param($message) $queue.Enqueue($message)}
+            New-DeploymentPackage -Settings $settings -BiosPassword $secret -Progress {param($message) $queue.Enqueue($message)}
         }).AddArgument((Join-Path $PSScriptRoot 'Build-Package.ps1')).AddArgument($settings).AddArgument($secret).AddArgument($queue)
         $script:job=@{Worker=$worker; Handle=$worker.BeginInvoke(); Queue=$queue; Secret=$secret}
-        foreach ($name in @('FilesPanel','DeploymentPanel','ExperiencePanel','OutputPanel','Reviewed','BuildButton','LoadButton','SaveButton','OpenButton')) { $controls[$name].IsEnabled=$false }
+        foreach ($name in @('FilesPanel','DeploymentPanel','ApplicationPanel','ExperiencePanel','OutputPanel','Reviewed','BuildButton','LoadButton','SaveButton','OpenButton')) { $controls[$name].IsEnabled=$false }
         $controls.BuildLog.Text='Starting build...'; $controls.Progress.Visibility='Visible'; $controls.Progress.IsIndeterminate=$true
     } catch {
         if ($null -eq $script:job) { if ($null -ne $worker) { $worker.Dispose() }; if ($null -ne $secret) { $secret.Dispose() } }
@@ -239,14 +282,15 @@ $timer.Add_Tick({
                 $controls.BuildLog.AppendText("`r`nFAILED: "+$detail)
             } else {
                 $result=$results[0]; $script:lastOutput=$result.OutputDirectory
-                $controls.BuildLog.AppendText("`r`nOutput: "+$result.OutputDirectory+"`r`nBIOS SHA256: "+$result.SHA256)
+                $hashLabel=if ($null -ne $result.PSObject.Properties['PackageType'] -and $result.PackageType -eq 'Application') {'Application ZIP SHA256: '} else {'BIOS SHA256: '}
+                $controls.BuildLog.AppendText("`r`nOutput: "+$result.OutputDirectory+"`r`n"+$hashLabel+$result.SHA256)
                 if (-not $result.IntuneWinFile) { $controls.BuildLog.AppendText("`r`nSource build complete. No .intunewin was requested.") }
                 $controls.OpenButton.IsEnabled=$true
             }
         } catch { $controls.BuildLog.AppendText("`r`nFAILED: " + (Get-BuilderFailureMessage $_)) }
         finally {
-            $script:job.Worker.Dispose(); $script:job.Secret.Dispose(); $script:job=$null
-            foreach ($name in @('FilesPanel','DeploymentPanel','ExperiencePanel','OutputPanel','Reviewed','BuildButton','LoadButton','SaveButton')) { $controls[$name].IsEnabled=$true }
+            $script:job.Worker.Dispose(); if ($null -ne $script:job.Secret) { $script:job.Secret.Dispose() }; $script:job=$null
+            foreach ($name in @('FilesPanel','DeploymentPanel','ApplicationPanel','ExperiencePanel','OutputPanel','Reviewed','BuildButton','LoadButton','SaveButton')) { $controls[$name].IsEnabled=$true }
             $controls.Reviewed.IsChecked=$false; $controls.Progress.IsIndeterminate=$false; $controls.Progress.Visibility='Collapsed'
         }
         # EndInvoke and disposal must finish before ShowDialog returns. Never

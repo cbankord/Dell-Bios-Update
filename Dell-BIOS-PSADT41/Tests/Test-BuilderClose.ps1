@@ -31,7 +31,7 @@ $dialogTry=$ast.Find({param($node)
 },$true)
 $onExit=[scriptblock]::Create($dialogTry.Finally.Statements.Extent.Text -join "`n")
 $controls=@{}
-foreach ($name in @('FilesPanel','DeploymentPanel','ExperiencePanel','OutputPanel','Reviewed','BuildButton','LoadButton','SaveButton','OpenButton','CloseButton','Progress')) {
+foreach ($name in @('FilesPanel','DeploymentPanel','ApplicationPanel','ExperiencePanel','OutputPanel','Reviewed','BuildButton','LoadButton','SaveButton','OpenButton','CloseButton','Progress')) {
     $controls[$name]=[pscustomobject]@{IsEnabled=$true;Content='Close';IsChecked=$false;IsIndeterminate=$false;Visibility='Collapsed'}
 }
 $controls.BuildLog=[pscustomobject]@{Text=''}
@@ -55,23 +55,24 @@ $key=[pscustomobject]@{Key='Enter';Handled=$false}
 & $escape $window $key
 Assert (-not $key.Handled -and $window.Closed -eq 3) 'Other keys do not exit the builder'
 
+foreach ($packageType in @('BIOS','Application')) {
 foreach ($fail in @($false,$true)) {
     $partial=Join-Path ([IO.Path]::GetTempPath()) ('BuilderClose-'+[guid]::NewGuid()+'.tmp')
     $started=New-Object Threading.ManualResetEventSlim($false)
     $release=New-Object Threading.ManualResetEventSlim($false)
     $worker=[PowerShell]::Create()
-    $secret=ConvertTo-SecureString 'inert test secret' -AsPlainText -Force
+    $secret=if ($packageType -eq 'BIOS') { ConvertTo-SecureString 'inert test secret' -AsPlainText -Force } else { $null }
     try {
-        $null=$worker.AddScript({param($started,$release,$partial,$fail)
+        $null=$worker.AddScript({param($started,$release,$partial,$fail,$packageType)
             $ErrorActionPreference='Stop'
             try {
                 [IO.File]::WriteAllText($partial,'inert partial output')
                 $started.Set()
                 if (-not $release.Wait(10000)) { throw 'Test worker release timed out.' }
                 if ($fail) { throw 'Inert build failure' }
-                [pscustomobject]@{OutputDirectory='completed-output';SHA256='inert';IntuneWinFile=''}
+                [pscustomobject]@{PackageType=$packageType;OutputDirectory='completed-output';SHA256='inert';IntuneWinFile=''}
             } finally { if ([IO.File]::Exists($partial)) { [IO.File]::Delete($partial) } }
-        }).AddArgument($started).AddArgument($release).AddArgument($partial).AddArgument($fail)
+        }).AddArgument($started).AddArgument($release).AddArgument($partial).AddArgument($fail).AddArgument($packageType)
         $script:job=@{Worker=$worker;Handle=$worker.BeginInvoke();Secret=$secret;Queue=(New-Object 'System.Collections.Concurrent.ConcurrentQueue[string]')}
         Assert ($started.Wait(5000)) 'Background build reached its active operation'
         $script:closeRequested=$false; $window.Closed=0; $window.CleanExit=$false
@@ -88,15 +89,21 @@ foreach ($fail in @($false,$true)) {
         Assert ($script:job.Handle.AsyncWaitHandle.WaitOne(5000)) 'Build and cleanup finish before UI completes the worker'
         & $tick
         Assert ($window.Closed -eq 1 -and $window.CleanExit -and $null -eq $script:job -and -not [IO.File]::Exists($partial)) 'Success or failure closes only after worker cleanup and disposal'
-        $disposed=$false; try { $null=$secret.Copy() } catch [ObjectDisposedException] { $disposed=$true }
-        Assert $disposed 'Worker password disposed before exit'
+        if ($null -ne $secret) {
+            $disposed=$false; try { $null=$secret.Copy() } catch [ObjectDisposedException] { $disposed=$true }
+            Assert $disposed 'Worker password disposed before exit'
+        } else { Assert ($window.CleanExit -and $null -eq $script:job) 'Application worker closes cleanly without a BIOS secret' }
         if ($fail) { Assert ($controls.BuildLog.Text -match 'FAILED:') 'Worker failure is recorded before queued close' }
-        else { Assert ($script:lastOutput -eq 'completed-output' -and $controls.BuildLog.Text -match 'Output: completed-output') 'Completed output retained and reported before queued close' }
+        else {
+            Assert ($script:lastOutput -eq 'completed-output' -and $controls.BuildLog.Text -match 'Output: completed-output') 'Completed output retained and reported before queued close'
+            if ($packageType -eq 'Application') { Assert ($controls.BuildLog.Text.Contains('Application ZIP SHA256:') -and -not $controls.BuildLog.Text.Contains('BIOS SHA256:')) 'Application completion does not display a BIOS hash label' }
+        }
     } finally {
-        $release.Set(); $worker.Dispose(); $secret.Dispose(); $script:job=$null
+        $release.Set(); $worker.Dispose(); if ($null -ne $secret) { $secret.Dispose() }; $script:job=$null
         $started.Dispose(); $release.Dispose()
         if ([IO.File]::Exists($partial)) { [IO.File]::Delete($partial) }
     }
+}
 }
 $timer=[pscustomobject]@{Stopped=$false}
 $timer | Add-Member ScriptMethod Stop { $this.Stopped=$true }

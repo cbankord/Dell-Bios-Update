@@ -1,11 +1,14 @@
-# Dell BIOS package builder v4.1
+# PSADT Deployment Builder v4.2
 
-Launch **Start-PackageBuilder.cmd** on your Windows packaging computer. The wizard
-builds a fresh deployment from your approved Dell BIOS executable and your own
-prepared **PSADT 4.1.x template ZIP**. You do not need to edit the deployment
-functions or calculate/paste a SHA256.
+Launch **Start-PackageBuilder.cmd** on your Windows packaging computer. Choose
+**BIOS update** or **Application** on the Files tab. BIOS mode builds the existing
+managed Dell workflow from an approved BIOS and PSADT 4.1.x template. Application
+mode packages your complete PSADT app ZIP unchanged, with app metadata, an optional
+detection script and Intune setup notes. See [the application guide](Application-Guide.md).
+App mode supports complete PSADT 4.x and legacy 3.x layouts; it does not import
+or execute their scripts. The BIOS framework restriction remains 4.1.x.
 
-**Builder 4.1.0 includes the v4.0.1 Install Now launch fix for PSADT 4.1.4-4.1.8.**
+**Builder 4.2.0 includes the v4.0.1 Install Now launch fix for PSADT 4.1.4-4.1.8.**
 If an older package reports a parameter-set error and exits 60001, restart this
 builder from the updated v4 copy and rebuild with your existing approved settings
 and custom ZIP. Replace the complete package and its generated Intune detection;
@@ -36,12 +39,17 @@ button does not cancel an endpoint BIOS update or change the deployment UI.
 
 ## The four steps
 
-1. **Files:** choose the BIOS EXE and custom PSADT ZIP. Optionally
+1. **Files:** choose the deployment type and PSADT ZIP. BIOS mode also needs the
+   approved Dell EXE; Application mode optionally accepts a detection script.
+   You can also
    choose your official `IntuneWinAppUtil.exe` to produce `.intunewin` in the same
    build. Without it, the result is complete deployment source plus Intune scripts.
-2. **Deployment:** enter exact CIM model names, target/prerequisite BIOS versions,
-   shared administrator password twice, power/disk thresholds and recovery settings.
-3. **Experience:** set the deferral window, reminder cooldown, install prompt
+2. **Deployment:** Application asks for name/version and System/User behavior.
+   BIOS asks for exact model names, BIOS versions, password, power/disk thresholds
+   and recovery settings. Switching modes clears passwords and the prior review.
+3. **Experience:** Application keeps the experience already defined in its ZIP;
+   its panel explains that BIOS controls do not apply. In BIOS mode, set the
+   deferral window, reminder cooldown, install prompt
    timeout, restart countdown and sound/recenter interval. Set **Allow schedule
    later** (enabled by default). Enter company text, colors, optional logo/banner
    images and a title-bar PNG/ICO icon. The selected icon previews immediately.
@@ -65,6 +73,13 @@ invokes `-c Source -s Invoke-AppDeployToolkit.exe -o Package -q` with quoted pat
 The utility is optional, is not bundled, and is never downloaded silently.
 
 ## Settings and their actual behavior
+
+`PackageType` is `BIOS` (default, including old presets) or `Application`.
+Application mode uses `ApplicationName`, `ApplicationVersion`,
+`ApplicationContext` (`System`/`User`) and optional `ApplicationDetectionScript`.
+It shares `FrameworkZip`, `OutputRoot`, `ContentPrepTool` and the review flag.
+The BIOS controls below are hidden and inactive in Application mode. Hidden
+invalid BIOS inputs cannot block app packaging or inject BIOS data into Source.
 
 | Field | Default / allowed | Effect |
 |---|---|---|
@@ -143,7 +158,7 @@ rebrand the builder's own default, set `Builder/Branding.psd1` to a local
 `Assets/name.png` or `.ico` placed under Builder; selecting a package icon overrides
 its preview. No remote URLs, executable icons or new runtime dependencies are used.
 
-## What the ZIP must contain
+## What the BIOS template ZIP must contain
 
 Supply a **prepared deployment template**, with these together in one directory:
 
@@ -182,7 +197,7 @@ script with the package. See [the refresh/signing procedure](../README.md#storag
 
 ## Output
 
-V4.1 places the destination picker directly on the **Build** tab. New sessions
+The destination picker is directly on the **Build** tab. New sessions
 start with a blank Output folder instead of defaulting to Documents. Type an
 existing local absolute path, or use **Choose folder** to select/create a folder.
 The picker opens at the current valid selection, is owned by the builder window,
@@ -196,18 +211,22 @@ before starting a worker; the worker validates it again. An empty/invalid choice
 does not silently fall back to Documents. Spaces and square brackets in local
 paths are handled literally; a drive root remains absolute.
 
-Every build creates `DellBIOS-<target-version>-<timestamp>-<id>` beneath the chosen
-folder. This contains **all** output in the table below, including the optional
+BIOS builds create `DellBIOS-<target-version>-<timestamp>-<id>`; application builds
+create `PSADT-App-<name>-<timestamp>-<id>` beneath the chosen folder. This contains
+all output, including the optional
 `Package/*.intunewin`. The new build directory receives the existing protected
 permissions; the selected parent and unrelated files are not changed. A handled
 failure removes only that build's partial directory, preserving previous builds.
 Changing destination invalidates the review; it is locked while a build is active.
 
 Review text, progress, `Build.log` and `BuildManifest.json` identify the destination.
-The manifest records `BuilderVersion = 4.1.0`, `OutputRoot` and `OutputDirectory`.
+The manifest records `BuilderVersion = 4.2.0`, `PackageType`, `OutputRoot` and `OutputDirectory`.
 `Settings.psd1` saves your selection for another build; **Open output** opens the
 completed build folder. These paths describe the build computer, not an endpoint
-cache location: endpoint files still use `C:\ProgramData\Medela\DellBIOS`.
+cache location: BIOS endpoint files still use `C:\ProgramData\Medela\DellBIOS`.
+Application mode creates no endpoint cache; its source app owns deployment behavior.
+The following output and credential details describe BIOS mode; see the
+[application output table](Application-Guide.md#output-and-intune) for app packages.
 
 | Item | Use |
 |---|---|

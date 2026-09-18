@@ -1,4 +1,14 @@
-# Dell BIOS v4.1 — selectable package output and custom windows
+# PSADT Deployment Builder v4.2 — BIOS and applications
+
+Choose **BIOS update** or **Application** on the Files tab. BIOS mode creates the
+managed Dell workflow described below. Application mode packages a complete
+existing PSADT app ZIP while preserving its scripts, payloads and experience.
+It adds app metadata, optional custom detection and Intune setup instructions;
+it does not inject the BIOS UI, power/BitLocker gates or restart countdown.
+See [Application packaging](Builder/Application-Guide.md) for PSADT 4.x / legacy
+3.x layouts, detection, System/User context and source-preservation behavior.
+
+The remaining deployment sections describe **BIOS mode**.
 
 Build with `Builder/Start-PackageBuilder.cmd`, using your approved Dell BIOS EXE
 and prepared PSADT 4.1.x ZIP. Review the generated `READ-ME-FIRST.txt` before upload.
@@ -8,7 +18,7 @@ Intune scripts and a runtime integrity manifest. No BIOS/password is in Git.
 On **4 Build**, use **Output folder → Choose folder** or enter an existing local
 folder. A fresh session has no preset destination. Review the displayed path;
 the builder creates a unique protected build folder beneath it. Saved presets
-retain your choice. `BuildManifest.json` identifies builder `4.1.0` and records
+retain your choice. `BuildManifest.json` identifies builder `4.2.0` and records
 the selected parent and actual build directory. See [output details](Builder/README.md#output).
 
 ## User experience

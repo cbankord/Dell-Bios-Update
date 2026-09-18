@@ -1,10 +1,27 @@
-# Dell BIOS deployment — v4.1
+# PSADT Deployment Builder — v4.2
 
-**Current release: v4.1 (BuilderVersion 4.1.0), on the v4 branch.** Choose your
+**Current release: v4.2 (BuilderVersion 4.2.0), on the v4 branch.** Choose
+**BIOS update** or **Application** in the Files tab's **Deployment type** list.
+
+| Mode | Input | Behavior |
+|---|---|---|
+| BIOS update | Approved Dell BIOS EXE plus PSADT 4.1.x template ZIP | Existing managed BIOS workflow with safety checks, custom UI, scheduling and guarded restart |
+| Application | Complete PSADT 4.x or legacy 3.x app ZIP | Preserves app scripts, payloads, framework, branding and existing install/uninstall/repair behavior |
+
+Application mode asks for app name/version, System or User install behavior and
+an optional detection script. Without a script, configure app-specific detection
+in Intune. The app's existing code controls its prompts, deferrals and restarts;
+no BIOS UI, power gates, password, BitLocker or scheduling code is added.
+See [Application packaging](Dell-BIOS-PSADT41/Builder/Application-Guide.md).
+
+Choose your
 package destination on **4 Build → Output folder → Choose folder** or type its
 path. New sessions start without a destination; presets remember your selection.
 The review and build records show where output goes. Each build gets a new
 protected subfolder containing Source, Intune scripts and optional .intunewin.
+
+New presets remember the selected mode. Old presets default to BIOS. Neither
+mode runs an installer while building. The details below describe **BIOS mode**.
 
 Includes the v4.0.1 Install Now fix for PSADT 4.1.4-4.1.8. Rebuild with the updated
 builder and replace the complete package plus matching Intune detection. See

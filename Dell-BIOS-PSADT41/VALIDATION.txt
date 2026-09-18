@@ -1,3 +1,59 @@
+V4.2 BIOS and application builder validation - 2026-09-18
+
+PASS: 403 assertions across seven isolated PowerShell 7.4.7/Linux suites:
+  64  Tests/Test-Deployment.ps1
+ 118  Tests/Test-Builder.ps1
+  39  Tests/Test-BuilderClose.ps1
+  15  Tests/V4/Test-BuilderOutput.ps1
+  88  Tests/V4/Test-ApplicationBuilder.ps1
+  16  Tests/V4/Test-BuilderModes.ps1
+  63  Tests/V4/Test-Experience.ps1
+Run separately from Dell-BIOS-PSADT41:
+  pwsh -NoProfile -File <path above>
+Counts include parser/fixture assertions, not independent Windows E2E scenarios.
+
+Application tests build complete inert ZIPs declaring PSADT 4.0.0/4.1.8/4.2.0,
+plus legacy 3.x EXE and script-only layouts. They compare every original/copied
+file's SHA256 and file counts, including original install/uninstall/repair,
+metadata, payload, branding, Common.ps1 and extension/module files. Supplied
+scripts/modules deliberately throw if executed; none run. BIOS integration,
+payload/config/policy/manifest functions are guarded to fail if app mode enters
+them. App Source contains no injected BIOS helpers, password or cache manifest.
+
+Both generic dispatcher and BIOS-only rejection are exercised. App records,
+System/User context, optional exact detection copy, actual setup entry points,
+Intune commands, manual-detection requirement and presets are checked. Complete
+inert content-prep output and failure paths validate selected output, child-only
+protection calls and preservation of sibling files/previous builds. Invalid
+metadata, context, review, path, detection syntax, app syntax, embedded BIOS
+passwords and ambiguous mixed-generation ZIPs fail with partial cleanup.
+
+Mode tests execute actual form/preset/review callbacks using inert controls:
+legacy default BIOS mode, app/BIOS switching, hidden inactive values ignored,
+password and review clearing, app-specific copy/context/detection, old preset
+restoration and custom close controls. Actual async worker/Close tests cover
+success/failure with and without a BIOS secret and app-specific completion logs.
+Existing BIOS full-build, output selection, scheduling and presentation tests pass.
+
+PASS: git diff --check; PS1/PSD1 parser coverage and builder XAML parsing.
+NOT RUN: native Windows PowerShell 5.1, WPF/dialog/keyboard/DPI/accessibility,
+NTFS ACL operations, actual Microsoft content prep, supplied PSADT/app install,
+Intune execution/detection or real Dell firmware/BitLocker/restart operations.
+Framework versions in app tests are inert layout fixtures, not live compatibility
+certifications. No app deployment or endpoint BIOS runtime change was performed.
+
+Windows pilot: both modes and old presets; mode switching clears credentials;
+real app ZIP, selected System/User context, silent install/uninstall/upgrade,
+requirements, installed/absent/wrong-version detection, return codes and restart
+policy. Validate 4.x and any legacy layout you use (including PowerShell host
+architecture for script-only launchers), source signatures, native folder dialogs,
+100/150/200% caption/layout, screen-reader/keyboard access and Close during app
+builds. Retain existing BIOS power/transaction/recovery/device pilot requirements.
+Application mode preserves existing app UI/deferral/restart behavior; it does not
+apply the BIOS frontend. Main/v2/v3 remain unchanged; release work is on v4.
+
+Previous validation records follow.
+
 V4.1 selectable package output validation - 2026-09-18
 
 PASS: 250 assertions across five isolated PowerShell 7.4.7 processes on Linux:

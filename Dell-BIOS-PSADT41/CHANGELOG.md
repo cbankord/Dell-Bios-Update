@@ -1,3 +1,37 @@
+# v4.2 BIOS and application packaging - 2026-09-18
+
+- Add BIOS update / Application deployment selection with PackageType persisted
+  in presets and build records. Older presets default to BIOS. Identify the
+  neutral custom-title-bar builder as PSADT Deployment Builder v4.2 and record
+  BuilderVersion 4.2.0 for both modes. Keep release work on v4.
+- Add a separate application engine and shared New-DeploymentPackage dispatcher.
+  New-DellBiosPackage remains BIOS-only. Application accepts complete PSADT 4.x
+  and legacy 3.x layouts, including the legacy script-only entry point; recognize
+  exactly one deployment and preserve all source bytes. Do not run imported code,
+  rewrite install/uninstall/repair or inject the BIOS workflow into app Source.
+- Add app name/version, System/User install behavior and optional custom detection.
+  Name/version label build records without rewriting the app's own metadata.
+  Copy/parse supplied detection without executing it; absent detection explicitly
+  requires app-specific configuration in Intune, never a fake installed result.
+- Use each package's actual launcher for optional Microsoft content preparation.
+  Record application commands/context, ZIP hash, output path and detection in a
+  separate manifest/guide. Commands use Silent mode; app code owns its behavior.
+  Keep protected unique output children and existing safe ZIP/path/size checks.
+  Preserve parent/siblings, original ZIPs, prior completed builds and signatures.
+- Hide BIOS executable, password, power, BitLocker, scheduling and custom BIOS
+  experience controls in app mode. Explain that app branding/prompts/deferrals/
+  restarts come from its ZIP. Ignore invalid inactive form fields, clear secrets
+  and review on switches, restore old presets, and allow cleanup with no secret.
+  Application completion reports an application ZIP hash, not a BIOS hash.
+- Preserve the existing BIOS model/hash/signature/password/safety/recovery and
+  v4.0.1 process-binding fixes. No endpoint runtime files or fixed-deadline/
+  accepted-work/guarded-restart behavior change. Main/v2/v3 remain unchanged.
+- Add real inert app builds and byte comparisons for 4.0.0/4.1.8/4.2.0 fixtures,
+  legacy 3.x EXE/script launchers, detection/context, mode isolation, presets,
+  malformed inputs and cleanup. Exercise actual form/review callbacks and async
+  Close with/without credentials. See VALIDATION.txt for measured results and
+  the remaining Windows native UI, app/PSADT/Intune and hardware pilot requirements.
+
 # v4.1 selectable package output - 2026-09-18
 
 - Move Output folder to the Build tab with a visible Choose folder button and

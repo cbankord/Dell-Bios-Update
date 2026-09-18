@@ -1,5 +1,5 @@
 #requires -Version 5.1
-# Reusable build engine. Dot-source, then call New-DellBiosPackage.
+# Reusable build engine. Dot-source, then call New-DeploymentPackage.
 # Never executes the BIOS, imported template scripts, or a secret from a preset.
 Set-StrictMode -Version 3
 $script:BuilderSource = Split-Path $PSScriptRoot -Parent
@@ -7,6 +7,7 @@ $script:BuilderSource = Split-Path $PSScriptRoot -Parent
 . "$script:BuilderSource/Files/Simple/State.ps1"
 . "$script:BuilderSource/Files/Simple/Cache.ps1"
 . "$script:BuilderSource/Files/UI/WindowChrome.ps1"
+. "$PSScriptRoot/Application-Package.ps1"
 
 function Get-BuilderFailureMessage([Management.Automation.ErrorRecord]$Record) {
     # EndInvoke can wrap a PSSecurityException. Never print script source or
@@ -32,6 +33,8 @@ function Stop-BuilderValidation([string]$Message) {
 }
 function New-PackageBuildSettings {
     @{
+        PackageType='BIOS'; ApplicationName=''; ApplicationVersion=''
+        ApplicationContext='System'; ApplicationDetectionScript=''
         BiosPath=''; FrameworkZip=''; OutputRoot=''; ContentPrepTool=''
         Models=@(); TargetVersion=''; MinimumCurrentVersion='0.0.0'
         BiosPasswordRequired=$true; RequireBattery=$true
@@ -138,6 +141,8 @@ function Assert-BuilderSettings([hashtable]$Settings) {
     $defaults=New-PackageBuildSettings
     foreach ($key in $defaults.Keys) { if (-not $Settings.ContainsKey($key)) { throw "Missing setting: $key." } }
     foreach ($key in $Settings.Keys) { if (-not $defaults.ContainsKey($key)) { throw 'Unknown build setting. Supply the password separately as a SecureString.' } }
+    if ($Settings.PackageType -notin @('BIOS','Application')) { throw 'Choose BIOS update or Application.' }
+    if ($Settings.PackageType -eq 'Application') { Assert-ApplicationBuildSettings $Settings; return }
     foreach ($key in @('BiosPasswordRequired','RequireBattery','PackageReviewed','AllowScheduleLater')) {
         if ($Settings[$key] -isnot [bool]) { throw "$key must be Boolean." }
     }
@@ -206,7 +211,7 @@ function Expand-BuilderZip([string]$ZipPath, [string]$Destination) {
             if ($entry.Length -gt 2GB -or $entry.Length -lt 0) { Stop-BuilderValidation 'A framework ZIP entry is too large.' }
             $total+=$entry.Length
             if ($total -gt 4GB) { Stop-BuilderValidation 'Framework ZIP exceeds the 4 GB extracted limit.' }
-            if ($parts[-1] -ieq 'BIOS-Password.psd1') { Stop-BuilderValidation 'Remove BIOS-Password.psd1 from the framework ZIP; enter the secret in the builder.' }
+            if ($parts[-1] -ieq 'BIOS-Password.psd1') { Stop-BuilderValidation 'Remove BIOS-Password.psd1 from the input ZIP. Managed BIOS deployments accept the secret locally in BIOS mode.' }
         }
         $null=[IO.Directory]::CreateDirectory($Destination)
         $prefix=[IO.Path]::GetFullPath($Destination) + [IO.Path]::DirectorySeparatorChar
@@ -293,12 +298,13 @@ function Set-BuilderTemplate([string]$ScriptPath, [string]$TargetVersion) {
     }
     [IO.File]::WriteAllText($ScriptPath,$text,(New-Object Text.UTF8Encoding($true)))
 }
-function Invoke-BuilderContentPrep([string]$Tool, [string]$Source, [string]$Output) {
+function Invoke-BuilderContentPrep([string]$Tool, [string]$Source, [string]$Output, [string]$SetupFile='Invoke-AppDeployToolkit.exe') {
+    if ($SetupFile -notin @('Invoke-AppDeployToolkit.exe','Deploy-Application.exe','Deploy-Application.ps1') -or -not (Test-Path -LiteralPath (Join-Path $Source $SetupFile) -PathType Leaf)) { Stop-BuilderValidation 'The selected PSADT setup entry point is missing or unsupported.' }
     $sig=Get-AuthenticodeSignature -LiteralPath $Tool
     if ($sig.Status -ne 'Valid' -or $null -eq $sig.SignerCertificate -or $sig.SignerCertificate.Subject -notmatch '(?i)(?:^|,\s*)O="?Microsoft Corporation"?(?:,|$)') { Stop-BuilderValidation 'The content prep tool must have a valid Microsoft signature.' }
     $info=New-Object Diagnostics.ProcessStartInfo
     $info.FileName=$Tool
-    $info.Arguments='-c {0} -s Invoke-AppDeployToolkit.exe -o {1} -q' -f (ConvertTo-WindowsQuotedArgument $Source),(ConvertTo-WindowsQuotedArgument $Output)
+    $info.Arguments='-c {0} -s {1} -o {2} -q' -f (ConvertTo-WindowsQuotedArgument $Source),(ConvertTo-WindowsQuotedArgument $SetupFile),(ConvertTo-WindowsQuotedArgument $Output)
     $info.UseShellExecute=$false; $info.CreateNoWindow=$true
     $process=[Diagnostics.Process]::Start($info)
     try { $process.WaitForExit(); if ($process.ExitCode -ne 0) { Stop-BuilderValidation 'Microsoft content preparation failed. Inspect the local tool output.' } }
@@ -311,6 +317,7 @@ function New-DellBiosPackage {
     [CmdletBinding()]
     param([Parameter(Mandatory)][hashtable]$Settings, [Security.SecureString]$BiosPassword, [scriptblock]$Progress = {})
     Assert-BuilderHost
+    if ($Settings.PackageType -ne 'BIOS') { throw 'Use New-DeploymentPackage for Application mode; BIOS integration is not allowed.' }
     Assert-BuilderSettings $Settings
     if ($Settings.BiosPasswordRequired -and ($null -eq $BiosPassword -or $BiosPassword.Length -eq 0)) { throw 'Enter the shared BIOS administrator password.' }
     # Validate again in the worker; UI validation is not an authorization boundary.
@@ -395,7 +402,7 @@ function New-DellBiosPackage {
         }
         $phase='writing build notes'
         $manifest=[ordered]@{
-            BuilderVersion='4.1.0'; BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
+            BuilderVersion='4.2.0'; PackageType='BIOS'; BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
             FrameworkVersion=$framework.Version; FrameworkSHA256=$frameworkHash
             BIOS=$config; DeploymentPolicy=$policy; HasPassword=$Settings.BiosPasswordRequired
             OutputMode=$(if ($intuneWin) { 'IntuneWin' } else { 'SourceOnly' })
@@ -409,6 +416,7 @@ function New-DellBiosPackage {
         [IO.File]::WriteAllLines((Join-Path $build 'Build.log'),@(
             'Build completed at ' + $manifest.BuiltUtc
             'Builder version: ' + $manifest.BuilderVersion
+            'Package type: BIOS'
             'PSADT module version: ' + $framework.Version
             'Framework ZIP SHA256: ' + $frameworkHash
             'Approved BIOS SHA256: ' + $config.SHA256
@@ -426,7 +434,7 @@ function New-DellBiosPackage {
         Remove-Item -LiteralPath $work -Recurse -Force
         $success=$true
         & $Progress 'Build complete. Use READ-ME-FIRST.txt for Intune settings and pilot checks.'
-        return [pscustomobject]@{OutputDirectory=$build; SourcePath=$source; IntuneWinFile=$intuneWin; SHA256=$config.SHA256; FrameworkVersion=$framework.Version}
+        return [pscustomobject]@{PackageType='BIOS';OutputDirectory=$build; SourcePath=$source; IntuneWinFile=$intuneWin; SHA256=$config.SHA256; FrameworkVersion=$framework.Version}
     } catch {
         # Never forward a parser error or native tool output that could contain a
         # line from the local password file. Keep diagnostics phase-specific.
