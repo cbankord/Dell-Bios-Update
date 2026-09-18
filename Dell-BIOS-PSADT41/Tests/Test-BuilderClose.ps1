@@ -31,9 +31,12 @@ $dialogTry=$ast.Find({param($node)
 },$true)
 $onExit=[scriptblock]::Create($dialogTry.Finally.Statements.Extent.Text -join "`n")
 $controls=@{}
-foreach ($name in @('FilesPanel','DeploymentPanel','ApplicationPanel','ExperiencePanel','OutputPanel','Reviewed','BuildButton','LoadButton','SaveButton','OpenButton','CloseButton','Progress')) {
+foreach ($name in @('FilesPanel','DeploymentPanel','ApplicationPanel','MaintenancePanel','EditorPanel','ExperiencePanel','OutputPanel','Reviewed','BuildButton','LoadButton','SaveButton','OpenButton','CloseButton','Progress')) {
     $controls[$name]=[pscustomobject]@{IsEnabled=$true;Content='Close';IsChecked=$false;IsIndeterminate=$false;Visibility='Collapsed'}
 }
+$script:fields=@{SectionTemplatePath=[pscustomobject]@{Text=''}}
+$controls.EditorStatus=[pscustomobject]@{Text=''}
+function Set-EditorDocument($Document) { $script:loadedEditorDocument=$Document }
 $controls.BuildLog=[pscustomobject]@{Text=''}
 $controls.BuildLog | Add-Member ScriptMethod AppendText {param($text) $this.Text+=$text}
 $controls.BuildLog | Add-Member ScriptMethod ScrollToEnd {}
@@ -55,7 +58,7 @@ $key=[pscustomobject]@{Key='Enter';Handled=$false}
 & $escape $window $key
 Assert (-not $key.Handled -and $window.Closed -eq 3) 'Other keys do not exit the builder'
 
-foreach ($packageType in @('BIOS','Application')) {
+foreach ($packageType in @('BIOS','Application','WindowsUpdate','Driver','Editor')) {
 foreach ($fail in @($false,$true)) {
     $partial=Join-Path ([IO.Path]::GetTempPath()) ('BuilderClose-'+[guid]::NewGuid()+'.tmp')
     $started=New-Object Threading.ManualResetEventSlim($false)
@@ -74,6 +77,7 @@ foreach ($fail in @($false,$true)) {
             } finally { if ([IO.File]::Exists($partial)) { [IO.File]::Delete($partial) } }
         }).AddArgument($started).AddArgument($release).AddArgument($partial).AddArgument($fail).AddArgument($packageType)
         $script:job=@{Worker=$worker;Handle=$worker.BeginInvoke();Secret=$secret;Queue=(New-Object 'System.Collections.Concurrent.ConcurrentQueue[string]')}
+        if ($packageType -eq 'Editor') { $script:job.Kind='Editor';$script:job.TemplatePath='' }
         Assert ($started.Wait(5000)) 'Background build reached its active operation'
         $script:closeRequested=$false; $window.Closed=0; $window.CleanExit=$false
         $controls.BuildLog.Text=''; $controls.CloseButton.IsEnabled=$true
@@ -94,9 +98,10 @@ foreach ($fail in @($false,$true)) {
             Assert $disposed 'Worker password disposed before exit'
         } else { Assert ($window.CleanExit -and $null -eq $script:job) 'Application worker closes cleanly without a BIOS secret' }
         if ($fail) { Assert ($controls.BuildLog.Text -match 'FAILED:') 'Worker failure is recorded before queued close' }
+        elseif ($packageType -eq 'Editor') { Assert ($controls.BuildLog.Text.Contains('Editor sections loaded') -and $null -ne $script:loadedEditorDocument) 'Editor load completes through the guarded background worker without reporting a built package' }
         else {
             Assert ($script:lastOutput -eq 'completed-output' -and $controls.BuildLog.Text -match 'Output: completed-output') 'Completed output retained and reported before queued close'
-            if ($packageType -eq 'Application') { Assert ($controls.BuildLog.Text.Contains('Application ZIP SHA256:') -and -not $controls.BuildLog.Text.Contains('BIOS SHA256:')) 'Application completion does not display a BIOS hash label' }
+            if ($packageType -ne 'BIOS') { Assert ($controls.BuildLog.Text.Contains('PSADT ZIP SHA256:') -and -not $controls.BuildLog.Text.Contains('BIOS SHA256:')) 'Application completion does not display a BIOS hash label' }
         }
     } finally {
         $release.Set(); $worker.Dispose(); if ($null -ne $secret) { $secret.Dispose() }; $script:job=$null
@@ -112,6 +117,8 @@ foreach ($name in @('Password','PasswordConfirm')) {
     $script:fields[$name]=[pscustomobject]@{Cleared=$false}
     $script:fields[$name] | Add-Member ScriptMethod Clear { $this.Cleared=$true }
 }
+$script:editorColorTimer=[pscustomobject]@{}; $script:editorColorTimer|Add-Member ScriptMethod Stop {}
+$script:editorBox=[pscustomobject]@{}; $script:editorBox|Add-Member ScriptMethod Dispose {}
 & $onExit
 Assert ($timer.Stopped -and $script:fields.Password.Cleared -and $script:fields.PasswordConfirm.Cleared) 'Dialog exit stops polling and clears both password boxes'
 Write-Output "PASS: $count builder close assertions (actual UI callbacks and async worker; WPF controls mocked). Windows Close/Escape/X pilot still required."

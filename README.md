@@ -1,12 +1,19 @@
-# PSADT Deployment Builder — v4.2
+# PSADT Deployment Builder — v4.3
 
-**Current release: v4.2 (BuilderVersion 4.2.0), on the v4 branch.** Choose
-**BIOS update** or **Application** in the Files tab's **Deployment type** list.
+**v4.3 adds Windows Update, Dell Driver and an inline PSADT section editor.**
+See the [servicing and editor guide](Dell-BIOS-PSADT41/Builder/Servicing-and-Editor-Guide.md) for supported payloads,
+section templates, restart ownership and Windows pilot requirements. PSADT is the
+default authoring view; Editor supports the ten PSADT 4.x deployment sections.
+
+**Current release: v4.3 (BuilderVersion 4.3.0), on the v4 branch.** Choose
+**BIOS update**, **Application**, **Windows Update** or **Dell Driver** in the Files tab's **Deployment type** list.
 
 | Mode | Input | Behavior |
 |---|---|---|
 | BIOS update | Approved Dell BIOS EXE plus PSADT 4.1.x template ZIP | Existing managed BIOS workflow with safety checks, custom UI, scheduling and guarded restart |
-| Application | Complete PSADT 4.x or legacy 3.x app ZIP | Preserves app scripts, payloads, framework, branding and existing install/uninstall/repair behavior |
+| Application | Complete PSADT 4.x or legacy 3.x app ZIP | Preserves the app in PSADT view; Editor can replace the ten PSADT 4.x sections |
+| Windows Update | PSADT 4.1.x ZIP, standalone MSU/CAB and detection script | Generates Windows servicing steps for an approved Windows build |
+| Dell Driver | PSADT 4.1.x ZIP, extracted INF driver ZIP and detection script | Generates installation for approved Dell models and Windows build |
 
 Application mode asks for app name/version, System or User install behavior and
 an optional detection script. Without a script, configure app-specific detection
@@ -15,7 +22,7 @@ no BIOS UI, power gates, password, BitLocker or scheduling code is added.
 See [Application packaging](Dell-BIOS-PSADT41/Builder/Application-Guide.md).
 
 Choose your
-package destination on **4 Build → Output folder → Choose folder** or type its
+package destination on **5 Build → Output folder → Choose folder** or type its
 path. New sessions start without a destination; presets remember your selection.
 The review and build records show where output goes. Each build gets a new
 protected subfolder containing Source, Intune scripts and optional .intunewin.

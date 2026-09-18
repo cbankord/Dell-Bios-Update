@@ -1,3 +1,54 @@
+V4.3 servicing and inline editor validation - 2026-09-18
+
+PASS: 553 assertions across ten isolated PowerShell 7.4.7/Linux suites:
+  71  Tests/Test-Deployment.ps1
+ 118  Tests/Test-Builder.ps1
+  89  Tests/Test-BuilderClose.ps1
+  15  Tests/V4/Test-BuilderOutput.ps1
+  88  Tests/V4/Test-ApplicationBuilder.ps1
+  22  Tests/V4/Test-BuilderModes.ps1
+  63  Tests/V4/Test-Experience.ps1
+  39  Tests/V4/Test-SectionEditor.ps1
+  31  Tests/V4/Test-MaintenanceBuilder.ps1
+  17  Tests/V4/Test-EditorUI.ps1
+Run each separately from Dell-BIOS-PSADT41:
+  pwsh -NoProfile -File <path above>
+Counts include parser/fixture assertions, not independent end-to-end scenarios.
+
+New tests exercise real archive/file IO, section-only JSON round trips, all ten
+section buffers, unchanged bootstrap/other payloads, Unicode, nested here-strings,
+malformed boundaries, signed source rejection, missing/reordered phases, old/new
+presets, stale ZIP snapshots, actual GUI mode/snapshot callbacks and detached
+worker data. Every imported framework/module/bootstrap fixture throws if run;
+the builder does not execute those files. Editor extraction is cleaned up.
+
+Inert WindowsUpdate/Driver builds exercise the generic dispatcher, required
+System/build/detection settings, generated metadata and sections, payload hashes,
+firmware INF rejection and partial-output cleanup. Copied runtime code executes
+with only the Windows host/native process/CIM/log boundaries mocked. Tests check
+DISM/PnPUtil command selection, no-restart/applicability behavior, exact model/build
+and Dell checks, changed/unlisted files, and 0/3010/error results. They do NOT run
+Windows servicing or validate a real driver/update signature.
+
+Actual async worker/close callbacks cover successful/failed BIOS, Application,
+WindowsUpdate, Driver and editor work, credential/no-credential cleanup, status,
+and idle/active X/Close/Escape behavior. Native controls are inert in these tests.
+
+Additional parse-only verification used the official PSADT 4.1.0 frontend:
+https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.0/src/PSAppDeployToolkit/Frontend/v4/Invoke-AppDeployToolkit.ps1
+All ten sections round-trip; generated servicing integration/metadata parses
+(12 checks). Upstream bootstrap was never executed. This is not a Windows pilot.
+
+NOT RUN HERE: Windows PowerShell 5.1; actual WPF/WinForms rendering/highlighting,
+caret/scroll/undo/clipboard, Narrator, keyboard traversal, 100/150/200% scaling,
+Windows ACLs/SYSTEM, actual PSADT module execution, Intune content preparation,
+MSU/CAB dependencies/signatures or INF catalog signing/device ranking, installed
+version detection/post-restart results, live firmware or restart policies.
+Tests/V4/Test-WindowsUI.ps1 includes a native editor-host smoke check for Windows.
+See Builder/Servicing-and-Editor-Guide.md for the required Windows pilot.
+
+Previous release evidence follows unchanged.
+
 V4.2 BIOS and application builder validation - 2026-09-18
 
 PASS: 403 assertions across seven isolated PowerShell 7.4.7/Linux suites:

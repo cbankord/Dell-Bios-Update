@@ -1,8 +1,14 @@
-# PSADT Deployment Builder v4.2 — BIOS and applications
+# PSADT Deployment Builder v4.3 — BIOS and applications
 
-Choose **BIOS update** or **Application** on the Files tab. BIOS mode creates the
+**v4.3 adds Windows Update, Dell Driver and an inline PSADT section editor.**
+See the [servicing and editor guide](Builder/Servicing-and-Editor-Guide.md) for supported payloads,
+section templates, restart ownership and Windows pilot requirements. PSADT is the
+default authoring view; Editor supports the ten PSADT 4.x deployment sections.
+
+Choose **BIOS update**, **Application**, **Windows Update** or **Dell Driver** on the Files tab. BIOS mode creates the
 managed Dell workflow described below. Application mode packages a complete
-existing PSADT app ZIP while preserving its scripts, payloads and experience.
+existing PSADT app ZIP while preserving its scripts, payloads and experience
+in the default PSADT view; Editor optionally replaces supported sections.
 It adds app metadata, optional custom detection and Intune setup instructions;
 it does not inject the BIOS UI, power/BitLocker gates or restart countdown.
 See [Application packaging](Builder/Application-Guide.md) for PSADT 4.x / legacy
@@ -15,10 +21,10 @@ and prepared PSADT 4.1.x ZIP. Review the generated `READ-ME-FIRST.txt` before up
 The builder keeps your custom framework and generates BIOS settings, branding,
 Intune scripts and a runtime integrity manifest. No BIOS/password is in Git.
 
-On **4 Build**, use **Output folder → Choose folder** or enter an existing local
+On **5 Build**, use **Output folder → Choose folder** or enter an existing local
 folder. A fresh session has no preset destination. Review the displayed path;
 the builder creates a unique protected build folder beneath it. Saved presets
-retain your choice. `BuildManifest.json` identifies builder `4.2.0` and records
+retain your choice. `BuildManifest.json` identifies builder `4.3.0` and records
 the selected parent and actual build directory. See [output details](Builder/README.md#output).
 
 ## User experience

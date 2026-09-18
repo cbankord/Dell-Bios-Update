@@ -1,11 +1,11 @@
 # Application packaging preserves the supplied deployment; it never runs its code.
 function New-DeploymentPackage {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][hashtable]$Settings,[Security.SecureString]$BiosPassword,[scriptblock]$Progress={})
+    param([Parameter(Mandatory)][hashtable]$Settings,[Security.SecureString]$BiosPassword,[scriptblock]$Progress={},[System.Collections.IDictionary]$EditorDocument)
     switch ($Settings.PackageType) {
         BIOS { return New-DellBiosPackage -Settings $Settings -BiosPassword $BiosPassword -Progress $Progress }
-        Application { return New-ApplicationPackage -Settings $Settings -Progress $Progress }
-        default { throw 'Choose BIOS update or Application.' }
+        { $_ -in @('Application','WindowsUpdate','Driver') } { return New-ApplicationPackage -Settings $Settings -Progress $Progress -EditorDocument $EditorDocument }
+        default { throw 'Choose BIOS update, Application, Windows Update or Dell Driver.' }
     }
 }
 function Assert-ApplicationBuildSettings([hashtable]$Settings) {
@@ -48,20 +48,20 @@ function Get-ApplicationFramework([string]$ExpandedRoot) {
 }
 function New-ApplicationPackage {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][hashtable]$Settings,[scriptblock]$Progress={})
+    param([Parameter(Mandatory)][hashtable]$Settings,[scriptblock]$Progress={},[System.Collections.IDictionary]$EditorDocument)
     Assert-BuilderHost
-    if ($Settings.PackageType -ne 'Application') { throw 'Application packaging requires Application mode.' }
+    if ($Settings.PackageType -notin @('Application','WindowsUpdate','Driver')) { throw 'Use Application, WindowsUpdate or Driver mode.' }
     Assert-BuilderSettings $Settings
     $outputParent=Resolve-BuilderOutputRoot $Settings.OutputRoot
     $label=($Settings.ApplicationName -replace '[^A-Za-z0-9_-]','-').Trim('-')
     if (-not $label) { $label='Application' }
     $label=$label.Substring(0,[math]::Min(40,$label.Length))
-    $build=Join-Path $outputParent ('PSADT-App-'+$label+'-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'-'+[guid]::NewGuid().ToString('N').Substring(0,8))
+    $build=Join-Path $outputParent ('PSADT-'+$Settings.PackageType+'-'+$label+'-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'-'+[guid]::NewGuid().ToString('N').Substring(0,8))
     $null=[IO.Directory]::CreateDirectory($build)
     $success=$false; $phase='securing application output'
     try {
         Protect-BuilderDirectory $build
-        & $Progress ('Creating application package in: '+$build)
+        & $Progress ('Creating '+$Settings.PackageType+' package in: '+$build)
         $work=Join-Path $build '.buildwork'; $null=[IO.Directory]::CreateDirectory($work)
         $phase='validating the application ZIP'
         $snapshot=Join-Path $work 'application.zip'
@@ -72,8 +72,34 @@ function New-ApplicationPackage {
         $framework=Get-ApplicationFramework $expanded
         $source=Join-Path $build 'Source'; $null=[IO.Directory]::CreateDirectory($source)
         Get-ChildItem -LiteralPath $framework.Root -Force | Copy-Item -Destination $source -Recurse -Force
+        $sections=$null; $payloadHash=''; $sectionHash=''
+        $maintenance=$Settings.PackageType -in @('WindowsUpdate','Driver')
+        if ($maintenance) {
+            if ($framework.Generation -ne 4 -or ([version]$framework.Version).Minor -ne 1) { Stop-BuilderValidation 'Generated Windows Update and Dell Driver deployments require a PSADT 4.1.x template.' }
+            $phase='preparing approved servicing payload'
+            $payloadHash=Add-MaintenancePayload $Settings $source $work
+            $sections=New-MaintenanceSections
+        }
+        if ($Settings.UseEditor) {
+            $phase='validating editor sections'
+            if ($framework.Generation -ne 4) { Stop-BuilderValidation 'The section editor supports PSADT 4.x deployments only.' }
+            if ($null -ne $EditorDocument) {
+                if ($EditorDocument.ZIP_SHA256 -ne $zipHash) { Stop-BuilderValidation 'The PSADT ZIP changed after the editor loaded it. Reload the package in Editor before building.' }
+                $sections=$EditorDocument.Sections
+            } elseif ($Settings.SectionTemplatePath) { $sections=Import-EditorTemplate $Settings.SectionTemplatePath }
+            else { Stop-BuilderValidation 'Load the selected ZIP in Editor, or select a saved section template before building in Editor mode.' }
+        }
+        if ($null -ne $sections) {
+            $phase='integrating PSADT sections'
+            $entry=Join-Path $source $framework.EntryScript
+            $text=Set-EditorSections (Read-EditorScript $entry) $sections
+            if ($maintenance) { $text=Set-MaintenanceIdentity $text $Settings }
+            [IO.File]::WriteAllText($entry,$text,(New-Object Text.UTF8Encoding($true)))
+            Export-EditorTemplate $sections (Join-Path $build 'Sections.psadt.json')
+            $sectionHash=(Get-FileHash -LiteralPath (Join-Path $build 'Sections.psadt.json')).Hash
+        }
         $phase='validating unchanged application source'
-        & $Progress 'Preserving application scripts, payloads, branding and framework configuration...'
+        & $Progress 'Checking PowerShell syntax; supplied scripts and payloads are never executed by the builder...'
         foreach ($file in Get-ChildItem -LiteralPath $source -Recurse -File | Where-Object Extension -in @('.ps1','.psd1')) {
             $tokens=$null; $errors=$null
             $null=[Management.Automation.Language.Parser]::ParseFile($file.FullName,[ref]$tokens,[ref]$errors)
@@ -104,7 +130,10 @@ function New-ApplicationPackage {
             'If CustomScript, upload Detect-Application.ps1. Otherwise configure an app-specific MSI, file, registry or custom detection rule in Intune.'
             'No universal detection script is generated. Check installed and absent states; use the required architecture and user/system context.'
             'Choose requirements, timeout, return-code mappings and restart policy to match this application. Review uninstall support in the original script.'
-            'Existing PSADT code owns app behavior. No BIOS policy, cache, BitLocker handling, scheduling or restart countdown is added.'
+            'Existing or edited PSADT code owns app behavior. No BIOS policy, cache, BitLocker handling, scheduling or restart countdown is added.'
+            'WindowsUpdate/Driver defaults suppress installer restarts and return 3010; configure Intune soft reboot handling and one restart policy. Do not add a competing timer.'
+            'Generated servicing defaults do not implement uninstall or repair. Do not assign an uninstall intent without authoring and testing an approved rollback.'
+            'Editor changes invalidate script signatures. Sign edited/generated scripts if required before final content preparation.'
             'Commands use Silent mode for Intune. Review custom bootstrap behavior; the builder does not certify arbitrary app code.'
             'For a script-only legacy launcher, review PowerShell host architecture; Intune command-line powershell.exe can start a 32-bit host.'
             'https://learn.microsoft.com/en-us/intune/app-management/deployment/add-win32'
@@ -113,36 +142,37 @@ function New-ApplicationPackage {
         $intuneWin=''
         if ($Settings.ContentPrepTool) {
             $phase='running Microsoft content preparation'
-            & $Progress 'Packaging the unchanged PSADT application with your Microsoft content prep tool...'
+            & $Progress 'Packaging the reviewed PSADT deployment with your Microsoft content prep tool...'
             $output=Join-Path $build 'Package'; $null=[IO.Directory]::CreateDirectory($output)
             $intuneWin=Invoke-BuilderContentPrep $Settings.ContentPrepTool $source $output -SetupFile $framework.SetupFile
         }
         $phase='writing application build records'
         $manifest=[ordered]@{
-            BuilderVersion='4.2.0';PackageType='Application';BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
+            BuilderVersion='4.3.0';PackageType=$Settings.PackageType;BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
             ApplicationName=$Settings.ApplicationName;ApplicationVersion=$Settings.ApplicationVersion
             InstallBehavior=$Settings.ApplicationContext;FrameworkVersion=$framework.Version
             FrameworkGeneration=$framework.Generation;PackageZIP_SHA256=$zipHash;SetupFile=$framework.SetupFile
             InstallCommand=$install;UninstallCommand=$uninstall;Detection=$detection
-            SourcePreserved=$true;OutputRoot=$outputParent;OutputDirectory=$build
+            SourcePreserved=($null -eq $sections);EditorApplied=$Settings.UseEditor;SectionsSHA256=$sectionHash;PayloadSHA256=$payloadHash;WindowsBuild=$Settings.WindowsBuild;DriverModels=@($Settings.DriverModels);OutputRoot=$outputParent;OutputDirectory=$build
             OutputMode=$(if ($intuneWin) {'IntuneWin'} else {'SourceOnly'})
             IntuneWinSHA256=$(if ($intuneWin) {(Get-FileHash -LiteralPath $intuneWin -Algorithm SHA256).Hash} else {''})
         }
         [IO.File]::WriteAllText((Join-Path $build 'BuildManifest.json'),($manifest|ConvertTo-Json -Depth 8),(New-Object Text.UTF8Encoding($true)))
         [IO.File]::WriteAllLines((Join-Path $build 'Build.log'),@(
-            'Builder version: 4.2.0'; 'Package type: Application'
+            'Builder version: 4.3.0'; ('Package type: '+$Settings.PackageType)
             ('Application: '+$Settings.ApplicationName+' / '+$Settings.ApplicationVersion)
             ('PSADT framework: '+$framework.Version); ('Input ZIP SHA256: '+$zipHash)
             ('Output folder: '+$outputParent); ('Build directory: '+$build)
             ('Output mode: '+$manifest.OutputMode); ('Detection: '+$detection.Mode)
-            'Application source retained unchanged; no BIOS helpers or credentials injected.'
+            ('Sections applied: '+($null -ne $sections)+'; sections SHA256: '+$sectionHash)
+            'No managed BIOS helpers or credentials injected.'
         ),(New-Object Text.UTF8Encoding($true)))
         Export-PackagePreset $Settings (Join-Path $build 'Settings.psd1')
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Application-Readme.txt') -Destination (Join-Path $build 'READ-ME-FIRST.txt')
         Remove-Item -LiteralPath $work -Recurse -Force
         $success=$true
-        & $Progress 'Application build complete. Review READ-ME-FIRST.txt and Intune/Install-Commands.txt before deployment.'
-        return [pscustomobject]@{PackageType='Application';OutputDirectory=$build;SourcePath=$source;IntuneWinFile=$intuneWin;SHA256=$zipHash;FrameworkVersion=$framework.Version}
+        & $Progress 'Package build complete. Review READ-ME-FIRST.txt and Intune/Install-Commands.txt before deployment.'
+        return [pscustomobject]@{PackageType=$Settings.PackageType;OutputDirectory=$build;SourcePath=$source;IntuneWinFile=$intuneWin;SHA256=$zipHash;FrameworkVersion=$framework.Version}
     } catch {
         $detail='Inspect the selected application ZIP and settings.'
         if ($_.Exception.Data.Contains('BuilderSafeMessage')) { $detail=[string]$_.Exception.Data['BuilderSafeMessage'] }

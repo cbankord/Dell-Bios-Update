@@ -23,7 +23,7 @@ try {
         if ($key -eq 'PackageType') {$fieldKind='PackageType'}
         elseif ($key -eq 'ApplicationContext') {$fieldKind='Context'}
         elseif ($key -eq 'EscrowDestination') {$fieldKind='Escrow'}
-        elseif ($key -eq 'Models') {$fieldKind='Models'}
+        elseif ($key -in @('Models','DriverModels')) {$fieldKind='Models'}
         $script:kind[$key]=$fieldKind
         $script:fields[$key]=[pscustomobject]@{Text='';SelectedItem='';SelectedValue='';IsChecked=$false;IsEnabled=$true}
         $script:fieldBoxes[$key]=[pscustomobject]@{Visibility='Visible'}
@@ -35,8 +35,8 @@ try {
         $script:kind[$key]='Password'
     }
     $controls=@{}
-    foreach ($key in @('DeploymentPanel','ApplicationPanel','ExperiencePanel','ApplicationExperiencePanel','Reviewed','ReviewConsent','OutputNotice','ReviewText')) {
-        $controls[$key]=[pscustomobject]@{Visibility='Visible';IsChecked=$true;Text=''}
+    foreach ($key in @('DeploymentPanel','ApplicationPanel','MaintenancePanel','EditorMode','ExperiencePanel','ApplicationExperiencePanel','Reviewed','ReviewConsent','OutputNotice','ReviewText')) {
+        $controls[$key]=[pscustomobject]@{Visibility='Visible';IsChecked=$true;Text='';SelectedIndex=0}
     }
     Set-FormSettings $defaults
     Check ($script:fields.PackageType.SelectedValue -eq 'BIOS' -and $controls.DeploymentPanel.Visibility -eq 'Visible' -and $controls.ApplicationPanel.Visibility -eq 'Collapsed') 'Initial BIOS form retains firmware controls'
@@ -68,8 +68,18 @@ try {
     Check ($script:fields.PackageType.SelectedValue -eq 'BIOS' -and $controls.ExperiencePanel.Visibility -eq 'Visible' -and $script:fieldBoxes.ApplicationDetectionScript.Visibility -eq 'Collapsed') 'Old BIOS preset restores BIOS UI after app mode'
     $bios=Get-FormSettings
     Check ($bios.TargetVersion -eq '2.7.3' -and $bios.Models[0] -eq 'Approved Dell' -and $bios.ApplicationName -eq '') 'BIOS form drops inactive app fields and keeps existing firmware settings'
+    foreach ($mode in @('WindowsUpdate','Driver')) {
+        $script:fields.PackageType.SelectedValue=$mode;Set-BuilderPackageMode
+        Check ($controls.MaintenancePanel.Visibility -eq 'Visible' -and $script:fields.ApplicationContext.SelectedItem -eq 'System' -and -not $script:fields.ApplicationContext.IsEnabled) "$mode exposes servicing inputs and requires System"
+        $script:fields.ApplicationName.Text='Servicing';$script:fields.ApplicationVersion.Text='1.0';$script:fields.WindowsBuild.Text='26100'
+        $script:fields.DriverModels.Text='Dell Pro Max 16 MC16250';$script:fields.MaintenancePayload.Text='C:\approved.zip'
+        $s=Get-FormSettings
+        Check ($s.PackageType -eq $mode -and $s.WindowsBuild -eq '26100' -and $s.DriverModels[0] -eq 'Dell Pro Max 16 MC16250') "$mode serializes its own servicing inputs"
+        Export-PackagePreset $s $preset;Set-FormSettings (Import-PackagePreset $preset)
+        Check ($script:fields.PackageType.SelectedValue -eq $mode -and -not $controls.Reviewed.IsChecked) "$mode preset restores mode without approval"
+    }
     [xml]$xml=Get-Content "$root/Builder/Window.xaml" -Raw
-    Check ($xml.DocumentElement.Title -eq 'PSADT Deployment Builder v4.2') 'Builder has neutral v4.2 identity'
+    Check ($xml.DocumentElement.Title -eq 'PSADT Deployment Builder v4.3') 'Builder has neutral v4.3 identity'
     $caption=$xml.SelectSingleNode("//*[@*[local-name()='Name']='CaptionClose']")
     Check ($null -ne $caption -and $null -ne $xml.SelectSingleNode("//*[@*[local-name()='Name']='CloseButton']")) 'Custom title-bar and footer close controls remain'
     Write-Output "PASS: $count builder mode assertions. Actual form/preset/review callbacks; native WPF remains a Windows pilot."

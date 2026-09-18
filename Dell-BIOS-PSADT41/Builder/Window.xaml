@@ -1,7 +1,7 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="PSADT Deployment Builder v4.2" Width="920" Height="740" MinWidth="560" MinHeight="460" WindowStyle="None" ResizeMode="CanResize"
+        Title="PSADT Deployment Builder v4.3" Width="920" Height="740" MinWidth="560" MinHeight="460" WindowStyle="None" ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen" Background="{DynamicResource BackgroundBrush}" Foreground="{DynamicResource TextBrush}"
         FontFamily="Segoe UI" FontSize="14" UseLayoutRounding="True">
   <shell:WindowChrome.WindowChrome>
@@ -28,19 +28,39 @@
       <StackPanel>
         <TextBlock Text="DEVICE CARE / PACKAGING" Foreground="{DynamicResource AccentTextBrush}" FontWeight="SemiBold" FontSize="12"/>
         <TextBlock Text="Build your next deployment" Foreground="{DynamicResource AccentTextBrush}" FontSize="24" FontWeight="SemiBold" Margin="0,6,0,5"/>
-        <TextBlock Text="BIOS update or application. Your PSADT package. Your output folder." Foreground="{DynamicResource AccentTextBrush}"/>
+        <TextBlock Text="BIOS, applications, Windows updates and Dell drivers. Your PSADT framework." Foreground="{DynamicResource AccentTextBrush}"/>
       </StackPanel>
     </Border>
     <TabControl x:Name="Tabs" Grid.Row="2" Margin="16,12,16,10" Background="{DynamicResource SurfaceBrush}">
       <TabItem Header="1  Files"><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="FilesPanel" Margin="22"/></ScrollViewer></TabItem>
-      <TabItem Header="2  Deployment"><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="22"><StackPanel x:Name="DeploymentPanel"/><StackPanel x:Name="ApplicationPanel" Visibility="Collapsed"/></StackPanel></ScrollViewer></TabItem>
+      <TabItem Header="2  Deployment"><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="22"><StackPanel x:Name="DeploymentPanel"/><StackPanel x:Name="ApplicationPanel" Visibility="Collapsed"/><StackPanel x:Name="MaintenancePanel" Visibility="Collapsed"/></StackPanel></ScrollViewer></TabItem>
       <TabItem Header="3  Experience"><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="22"><StackPanel x:Name="ExperiencePanel"/><StackPanel x:Name="ApplicationExperiencePanel" Visibility="Collapsed">
         <TextBlock Text="Your application's existing experience" FontSize="23" FontWeight="SemiBold"/>
-        <TextBlock Text="Application mode keeps the branding, prompts, deferrals and restart logic supplied in your PSADT ZIP. Configure those in the original application before packaging." Margin="0,14,0,12"/>
-        <TextBlock Text="The BIOS scheduling controls and one-hour restart countdown apply only to BIOS mode. Application mode adds no BIOS window, cache, BitLocker operations or scheduled tasks."/>
+        <TextBlock Text="Application mode keeps the branding, prompts, deferrals and restart logic supplied in your PSADT ZIP. Use PSADT / Editor to review and customize supported PSADT 4.x sections." Margin="0,14,0,12"/>
+        <TextBlock Text="The BIOS scheduling controls and one-hour restart countdown apply only to BIOS mode. Non-BIOS modes add no BIOS window, cache, BitLocker operations or scheduled tasks."/>
         <TextBlock Text="Generated Intune commands use Silent mode. Review your app's unattended behavior, return codes and restart policy during the Windows pilot." Margin="0,12,0,0"/>
       </StackPanel></StackPanel></ScrollViewer></TabItem>
-      <TabItem Header="4  Build"><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="22">
+      <TabItem Header="4  PSADT / Editor"><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><Grid x:Name="EditorPanel" Margin="16" MinHeight="410">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <WrapPanel>
+          <Label Content="Authoring view" Target="{Binding ElementName=EditorMode}"/>
+          <ComboBox x:Name="EditorMode" SelectedIndex="0" MinWidth="130" AutomationProperties.Name="Authoring view"><ComboBoxItem Content="PSADT"/><ComboBoxItem Content="Editor"/></ComboBox>
+          <CheckBox x:Name="UseEditor" Visibility="Collapsed"/>
+          <Button x:Name="EditorLoad" Content="Load selected _ZIP"/>
+          <Button x:Name="EditorImport" Content="Load _template"/>
+          <Button x:Name="EditorSave" Content="Save _template"/>
+          <Button x:Name="EditorValidate" Content="Check s_yntax"/>
+        </WrapPanel>
+        <TextBlock Grid.Row="1" x:Name="EditorStatus" Margin="0,8,0,10" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+        <Grid Grid.Row="2"><Grid.ColumnDefinitions><ColumnDefinition Width="145"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+          <ListBox x:Name="SectionList" AutomationProperties.Name="PSADT deployment sections"/>
+          <wfi:WindowsFormsHost xmlns:wfi="clr-namespace:System.Windows.Forms.Integration;assembly=WindowsFormsIntegration" Grid.Column="1" x:Name="EditorHost" Margin="10,0,0,0" MinHeight="140"/>
+        </Grid>
+        <StackPanel Grid.Row="3"><Label Content="Reusable section template (optional)" Target="{Binding ElementName=SectionTemplatePath}"/><TextBox x:Name="SectionTemplatePath" AutomationProperties.Name="Reusable section template path"/>
+          <TextBlock Text="Save template writes section text only. Keep credentials out of code. Build applies the current editor buffers when Editor is selected." FontSize="12" TextWrapping="Wrap"/>
+        </StackPanel>
+      </Grid></ScrollViewer></TabItem>
+      <TabItem Header="5  Build"><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="22">
         <TextBlock Text="Review and build" FontSize="23" FontWeight="SemiBold"/>
         <TextBlock Text="The builder packages your files without running the installer. Test the generated deployment on Windows before assignment." Margin="0,10,0,14"/>
         <StackPanel x:Name="OutputPanel"/>

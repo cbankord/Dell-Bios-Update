@@ -1,4 +1,19 @@
-PSADT APPLICATION - V4.2 GENERATED PACKAGE
+V4.3 APPLICATION / WINDOWS UPDATE / DELL DRIVER OUTPUT
+
+For generated servicing or edited apps, read BuildManifest.json and the exact
+Source/Invoke-AppDeployToolkit.ps1 before deployment. SourcePreserved=false means
+sections or servicing payload were added. Sections.psadt.json is a reusable
+section-only snapshot; it is not a full deployment. Never store credentials in it.
+WindowsUpdate/Driver require SYSTEM, the configured Windows build, and tested
+installed-state detection. Driver also requires an approved Dell model. Default
+servicing uses DISM or PnPUtil without requesting a restart, returns 3010 when
+required, and has no default uninstall/repair. Configure one Intune restart policy.
+Editor changes can alter those defaults and must be piloted. BIOS controls do not
+apply to these modes. See Builder/Servicing-and-Editor-Guide.md in the repository.
+
+APPLICATION WITH DEFAULT PSADT VIEW ONLY - V4.3
+The following source-preservation notes apply when PackageType=Application
+and SourcePreserved=true. Generated servicing and edited packages use the notes above.
 
 Source contains your existing application's scripts, payloads, framework and
 branding. The builder does not rewrite install/uninstall/repair logic, metadata,

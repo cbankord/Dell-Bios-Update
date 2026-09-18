@@ -1,5 +1,5 @@
 @{
-    AppTitle = 'PSADT Deployment Builder v4.2'
+    AppTitle = 'PSADT Deployment Builder v4.3'
     IconFile = '' # Optional local Assets/builder-icon.png or .ico; selected package IconPath overrides it in the builder preview.
     AccentColor = '#2457D6'
     BackgroundColor = '#F3F5FA'

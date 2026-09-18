@@ -8,6 +8,8 @@ $script:BuilderSource = Split-Path $PSScriptRoot -Parent
 . "$script:BuilderSource/Files/Simple/Cache.ps1"
 . "$script:BuilderSource/Files/UI/WindowChrome.ps1"
 . "$PSScriptRoot/Application-Package.ps1"
+. "$PSScriptRoot/Section-Editor.ps1"
+. "$PSScriptRoot/Maintenance-Package.ps1"
 
 function Get-BuilderFailureMessage([Management.Automation.ErrorRecord]$Record) {
     # EndInvoke can wrap a PSSecurityException. Never print script source or
@@ -35,6 +37,8 @@ function New-PackageBuildSettings {
     @{
         PackageType='BIOS'; ApplicationName=''; ApplicationVersion=''
         ApplicationContext='System'; ApplicationDetectionScript=''
+        UseEditor=$false; SectionTemplatePath=''
+        MaintenancePayload=''; WindowsBuild=''; DriverModels=@()
         BiosPath=''; FrameworkZip=''; OutputRoot=''; ContentPrepTool=''
         Models=@(); TargetVersion=''; MinimumCurrentVersion='0.0.0'
         BiosPasswordRequired=$true; RequireBattery=$true
@@ -88,7 +92,7 @@ function Import-PackagePreset([string]$Path) {
     foreach ($key in $data.Keys) {
         if ($key -in @('PreparationLeadMinutes','FinalWarningMinutes','SafetyRetryMinutes')) { continue }
         if (-not $settings.ContainsKey($key)) { throw 'Preset contains an unknown field. Passwords must never be stored in presets.' }
-        if ($key -in @('AllowScheduleLater','BiosPasswordRequired','RequireBattery','PackageReviewed') -and $data[$key] -isnot [bool]) { throw 'Preset Boolean settings must use literal $true or $false.' }
+        if ($key -in @('AllowScheduleLater','BiosPasswordRequired','RequireBattery','PackageReviewed','UseEditor') -and $data[$key] -isnot [bool]) { throw 'Preset Boolean settings must use literal $true or $false.' }
         $settings[$key]=$data[$key]
     }
     $settings.PackageReviewed=$false
@@ -141,8 +145,14 @@ function Assert-BuilderSettings([hashtable]$Settings) {
     $defaults=New-PackageBuildSettings
     foreach ($key in $defaults.Keys) { if (-not $Settings.ContainsKey($key)) { throw "Missing setting: $key." } }
     foreach ($key in $Settings.Keys) { if (-not $defaults.ContainsKey($key)) { throw 'Unknown build setting. Supply the password separately as a SecureString.' } }
-    if ($Settings.PackageType -notin @('BIOS','Application')) { throw 'Choose BIOS update or Application.' }
-    if ($Settings.PackageType -eq 'Application') { Assert-ApplicationBuildSettings $Settings; return }
+    if ($Settings.PackageType -notin @('BIOS','Application','WindowsUpdate','Driver')) { throw 'Choose BIOS update, Application, Windows Update or Dell Driver.' }
+    if ($Settings.UseEditor -isnot [bool]) { throw 'UseEditor must be Boolean.' }
+    if ($Settings.PackageType -eq 'BIOS' -and $Settings.UseEditor) { throw 'The managed BIOS workflow cannot be replaced by editor sections.' }
+    if ($Settings.PackageType -ne 'BIOS') {
+        Assert-ApplicationBuildSettings $Settings
+        if ($Settings.PackageType -in @('WindowsUpdate','Driver')) { Assert-MaintenanceSettings $Settings }
+        return
+    }
     foreach ($key in @('BiosPasswordRequired','RequireBattery','PackageReviewed','AllowScheduleLater')) {
         if ($Settings[$key] -isnot [bool]) { throw "$key must be Boolean." }
     }
@@ -402,7 +412,7 @@ function New-DellBiosPackage {
         }
         $phase='writing build notes'
         $manifest=[ordered]@{
-            BuilderVersion='4.2.0'; PackageType='BIOS'; BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
+            BuilderVersion='4.3.0'; PackageType='BIOS'; BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
             FrameworkVersion=$framework.Version; FrameworkSHA256=$frameworkHash
             BIOS=$config; DeploymentPolicy=$policy; HasPassword=$Settings.BiosPasswordRequired
             OutputMode=$(if ($intuneWin) { 'IntuneWin' } else { 'SourceOnly' })

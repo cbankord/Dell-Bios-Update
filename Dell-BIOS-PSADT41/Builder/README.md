@@ -1,14 +1,19 @@
-# PSADT Deployment Builder v4.2
+# PSADT Deployment Builder v4.3
+
+**v4.3 adds Windows Update, Dell Driver and an inline PSADT section editor.**
+See the [servicing and editor guide](Servicing-and-Editor-Guide.md) for supported payloads,
+section templates, restart ownership and Windows pilot requirements. PSADT is the
+default authoring view; Editor supports the ten PSADT 4.x deployment sections.
 
 Launch **Start-PackageBuilder.cmd** on your Windows packaging computer. Choose
-**BIOS update** or **Application** on the Files tab. BIOS mode builds the existing
+**BIOS update**, **Application**, **Windows Update** or **Dell Driver** on the Files tab. BIOS mode builds the existing
 managed Dell workflow from an approved BIOS and PSADT 4.1.x template. Application
-mode packages your complete PSADT app ZIP unchanged, with app metadata, an optional
+mode packages your complete PSADT app ZIP unchanged in PSADT view, with app metadata, an optional
 detection script and Intune setup notes. See [the application guide](Application-Guide.md).
 App mode supports complete PSADT 4.x and legacy 3.x layouts; it does not import
 or execute their scripts. The BIOS framework restriction remains 4.1.x.
 
-**Builder 4.2.0 includes the v4.0.1 Install Now launch fix for PSADT 4.1.4-4.1.8.**
+**Builder 4.3.0 includes the v4.0.1 Install Now launch fix for PSADT 4.1.4-4.1.8.**
 If an older package reports a parameter-set error and exits 60001, restart this
 builder from the updated v4 copy and rebuild with your existing approved settings
 and custom ZIP. Replace the complete package and its generated Intune detection;
@@ -37,7 +42,7 @@ exit, not a force-terminate control; a hung external packaging tool can still
 delay it. Completed output is kept in your selected output folder. The Close
 button does not cancel an endpoint BIOS update or change the deployment UI.
 
-## The four steps
+## The five tabs
 
 1. **Files:** choose the deployment type and PSADT ZIP. BIOS mode also needs the
    approved Dell EXE; Application mode optionally accepts a detection script.
@@ -53,7 +58,9 @@ button does not cancel an endpoint BIOS update or change the deployment UI.
    timeout, restart countdown and sound/recenter interval. Set **Allow schedule
    later** (enabled by default). Enter company text, colors, optional logo/banner
    images and a title-bar PNG/ICO icon. The selected icon previews immediately.
-4. **Build:** choose **Output folder → Choose folder** or type the destination.
+4. **PSADT / Editor:** optionally load and edit the ten PSADT 4.x sections, or
+   save/load a section-only template. Leave PSADT selected for default packaging.
+5. **Build:** choose **Output folder → Choose folder** or type the destination.
    Review its path and the settings, confirm that you reviewed the approved
    firmware and trusted template, then build. The GUI remains responsive during
    packaging. Select **Open output** and follow the generated `READ-ME-FIRST.txt`.
@@ -74,7 +81,9 @@ The utility is optional, is not bundled, and is never downloaded silently.
 
 ## Settings and their actual behavior
 
-`PackageType` is `BIOS` (default, including old presets) or `Application`.
+`PackageType` is `BIOS` (default, including old presets), `Application`,
+`WindowsUpdate` or `Driver`. The new modes and editor settings are documented in
+[the servicing/editor guide](Servicing-and-Editor-Guide.md).
 Application mode uses `ApplicationName`, `ApplicationVersion`,
 `ApplicationContext` (`System`/`User`) and optional `ApplicationDetectionScript`.
 It shares `FrameworkZip`, `OutputRoot`, `ContentPrepTool` and the review flag.
@@ -220,7 +229,7 @@ failure removes only that build's partial directory, preserving previous builds.
 Changing destination invalidates the review; it is locked while a build is active.
 
 Review text, progress, `Build.log` and `BuildManifest.json` identify the destination.
-The manifest records `BuilderVersion = 4.2.0`, `PackageType`, `OutputRoot` and `OutputDirectory`.
+The manifest records `BuilderVersion = 4.3.0`, `PackageType`, `OutputRoot` and `OutputDirectory`.
 `Settings.psd1` saves your selection for another build; **Open output** opens the
 completed build folder. These paths describe the build computer, not an endpoint
 cache location: BIOS endpoint files still use `C:\ProgramData\Medela\DellBIOS`.

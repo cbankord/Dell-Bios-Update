@@ -9,7 +9,7 @@ if($PSVersionTable.PSEdition -ne 'Desktop' -or [Threading.Thread]::CurrentThread
     throw 'Run this Windows-only check in Windows PowerShell 5.1 with -STA.'
 }
 if([Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0) {throw 'Run in the signed-in user session.'}
-Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
+Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase,WindowsFormsIntegration,System.Windows.Forms
 $root=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . "$root/Files/UI/WindowChrome.ps1"
 $count=0
@@ -36,6 +36,13 @@ foreach($folder in @('Builder','Files/UI')) {
             $button=$window.FindName($name)
             Check ($null -ne $button.Template -and [Windows.Shell.WindowChrome]::GetIsHitTestVisibleInChrome($button)) "$folder $name resolves its template and caption hit testing"
             Check ([Windows.Automation.AutomationProperties]::GetName($button).Length -gt 0) "$folder $name has an accessible name"
+        }
+        if ($folder -eq 'Builder') {
+            $hostControl=$window.FindName('EditorHost');$box=New-Object Windows.Forms.RichTextBox
+            $box.AccessibleName='PowerShell section editor';$box.Text='Write-Output "Inert preview"'
+            $hostControl.Child=$box
+            Check ($hostControl.Child.Text.Contains('Inert preview')) 'Inline native text editor attaches to WPF host'
+            Check ($window.FindName('EditorMode').SelectedIndex -eq 0) 'Default authoring view is PSADT'
         }
         Click-Caption $window CaptionMaximize
         Check ($window.WindowState -eq 'Maximized') "$folder maximize click works"

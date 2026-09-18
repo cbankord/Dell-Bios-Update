@@ -1,3 +1,45 @@
+# v4.3 Windows Update, Dell Driver and section authoring - 2026-09-18
+
+- Add WindowsUpdate and Driver modes alongside BIOS/Application. Persist type,
+  approved Windows build, driver models, payload and editor/template choices in
+  presets; older presets keep BIOS/default PSADT behavior. Use BuilderVersion
+  4.3.0 and retain the chosen output-folder workflow on the Build tab.
+- Generate PSADT 4.1.x servicing sections for one approved standalone MSU/CAB or
+  an extracted INF/CAT driver ZIP. Require System context, an approved client
+  Windows build and tested Intune detection; Driver requires exact Dell models.
+  Pin payload hashes, verify endpoint inventory, reject firmware-class drivers,
+  and retain native servicing validation. No scan/download/ring changes or raw
+  Dell EXE/CAB driver extraction are performed. Document prerequisite limits.
+- Run DISM with quiet/no-restart/prevent-pending flags, or matching PnPUtil INF
+  installation without reboot. Serialize these servicing packages with a mutex.
+  Accept only 0/3010; pass 3010 to Intune's restart policy. Default uninstall and
+  repair fail explicitly. No fake installed marker or universal detection.
+- Add the PSADT / Editor view with a native inline RichTextBox, PowerShell-token
+  syntax colors, high-contrast fallback, accessible section list and plain-text
+  paste. Expose custom/functions and all nine install/uninstall/repair phases.
+  Load the original app sections or generated servicing defaults, validate them,
+  and apply a detached editor snapshot only when Editor is selected.
+- Extract and replace sections using PowerShell AST boundaries. Preserve script
+  bootstrap, metadata and function scaffolding; validate full integration and
+  reject malformed/ambiguous layouts and signed authoring scripts. Preserve
+  UTF-8 and BOM-marked Unicode; reject invalid ANSI input instead of corrupting it.
+  Refuse BIOS replacement and legacy 3.x editing; unchanged legacy packaging stays.
+- Save/load schema-versioned section-only JSON templates. Never execute imported
+  code or put password fields/code buffers into settings presets. Detect a ZIP
+  changed since editor load. Record exact sections/payload/ZIP hashes and truthful
+  SourcePreserved/EditorApplied flags; save section snapshots outside Source.
+- Load editor ZIPs/templates in the background with protected temporary extraction
+  and guaranteed cleanup. Reuse the guarded worker close path: Close/X/Escape
+  waits for active work cleanup, while idle Close exits immediately. The editor
+  stops its coloring timer and disposes native controls when the window exits.
+- Keep the managed BIOS runtime, signatures, password handling, transaction/state,
+  BitLocker recovery, deadline/scheduling, ProgramData child permissions, progress
+  and one-hour/15-minute guarded restart behavior unchanged. No Main/v2/v3 changes.
+- Add portable section/servicing/UI callback regressions and expand close tests to
+  all four package modes plus editor loads. Update the native Windows smoke check
+  to attach an editor host. Document exact input limits, signing, Intune restart
+  ownership and the Windows pilot separately from automated checks.
+
 # v4.2 BIOS and application packaging - 2026-09-18
 
 - Add BIOS update / Application deployment selection with PackageType persisted
