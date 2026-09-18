@@ -39,8 +39,13 @@ try {
  $bareResult=Apply-UpgradeReferencePlan $bare $bareEdits
  Check ($bareEdits.Count -eq 1 -and $bareResult.Contains("Start-Process 'New Setup.msi'") -and $bareResult.Contains('# Old.msi')) 'Bare arguments quoted; comments and filename substrings unchanged'
  $duplicate=New-UpgradeReferencePlan "Write-Output 'Old.msi'" 'Old.msi' 'New.msi'
+ $duplicate[0].Selected=$true
  Reject {Apply-UpgradeReferencePlan "Write-Output 'Old.msi'" @($duplicate[0],$duplicate[0])} 'Overlapping selected edits refused'
  Reject {Apply-UpgradeReferencePlan 'different text' $edits} 'Stale script review refused'
+ $logOnly=New-UpgradeReferencePlan "Write-ADTLog 'Installing Old.msi'" 'Old.msi' 'New.msi'
+ Check (-not $logOnly[0].Selected -and -not $logOnly[0].CanDriveInstall) 'Log text is not an installation reference or an automatically selected change'
+ $assigned=New-UpgradeReferencePlan "`$installer='Old.msi'" 'Old.msi' 'New.msi'
+ Check (-not $assigned[0].Selected -and $assigned[0].CanDriveInstall) 'Assignments are available for explicit review without guessing data flow'
  $folder=Join-Path $temp 'Original';Write-Fixture (Join-Path $folder 'Invoke-AppDeployToolkit.ps1') $text
  Write-Fixture (Join-Path $folder 'Invoke-AppDeployToolkit.exe') 'INERT'
  Write-Fixture (Join-Path $folder 'PSAppDeployToolkit/PSAppDeployToolkit.psd1') "@{ModuleVersion='4.1.8';RootModule='PSAppDeployToolkit.psm1'}"

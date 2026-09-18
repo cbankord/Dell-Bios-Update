@@ -31,6 +31,7 @@ try {
   Set-UpgradeMsiProperty $installer $changed @{Name='SERVER';Value="example's server";Remove=$false} $true
   $null=Invoke-UpgradeCom $changed Commit;$null=Invoke-UpgradeCom $changed GenerateTransform @($base,$oldMst);$null=Invoke-UpgradeCom $changed CreateTransformSummaryInfo @($base,$oldMst,0,2339)
  } finally {foreach($com in @($changed,$base,$installer)){Close-UpgradeCom $com}}
+ (Get-Item $old).IsReadOnly=$true;(Get-Item $new).IsReadOnly=$true
  $names=@(New-UpgradeTransform $old $new $oldMst $newMst $temp)
  Check ($names.Count -eq 1 -and $names[0] -eq 'SERVER') 'Native transform migration carries intended property delta'
  Test-UpgradeTransform $new $newMst $temp
@@ -39,10 +40,15 @@ try {
  Check $failed 'Old product-bound transform rejected for replacement MSI'
  $installer=$null;$db=$null
  try {
-  $copy=Join-Path $temp 'verify.msi';Copy-Item $new $copy;$installer=New-Object -ComObject WindowsInstaller.Installer;$db=Invoke-UpgradeCom $installer OpenDatabase @($copy,1)
+  $copy=Join-Path $temp 'verify.msi';Copy-Item $new $copy;(Get-Item $copy).IsReadOnly=$false;$installer=New-Object -ComObject WindowsInstaller.Installer;$db=Invoke-UpgradeCom $installer OpenDatabase @($copy,1)
   $null=Invoke-UpgradeCom $db ApplyTransform @($newMst,0);$properties=Get-UpgradeMsiProperties $db
   Check ($properties.SERVER -eq "example's server" -and $properties.ProductVersion -eq '2.0.0' -and $properties.ProductCode -eq '{22222222-2222-2222-2222-222222222222}') 'Migrated property persists without old identity or SQL quoting errors'
  } finally {Close-UpgradeCom $db;Close-UpgradeCom $installer}
  Check ((Get-FileHash $old).Hash -eq $oldHash -and (Get-FileHash $new).Hash -eq $newHash) 'Original MSI bytes remain intact'
+ Check ((Get-Item $old).IsReadOnly -and (Get-Item $new).IsReadOnly) 'Original read-only MSI attributes remain intact'
  Write-Output "PASS: $count native Windows MSI assertions. No product installed."
+} catch {
+ # This suite only authors inert fixtures, so native diagnostic details contain no app secrets.
+ Write-Host ($Error|Out-String)
+ throw
 } finally {Remove-Item -LiteralPath $temp -Recurse -Force}

@@ -29,6 +29,7 @@
      <DataGridCheckBoxColumn Header="Apply" Binding="{Binding Selected,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" Width="55"/>
      <DataGridTextColumn Header="Change" Binding="{Binding Kind}" IsReadOnly="True" Width="100"/>
      <DataGridTextColumn Header="Section" Binding="{Binding Phase}" IsReadOnly="True" Width="100"/>
+     <DataGridTextColumn Header="Context" Binding="{Binding Context}" IsReadOnly="True" Width="120"/>
      <DataGridTextColumn Header="Line" Binding="{Binding Line}" IsReadOnly="True" Width="45"/>
      <DataGridTextColumn Header="Before" Binding="{Binding Before}" IsReadOnly="True" Width="*"/>
      <DataGridTextColumn Header="After" Binding="{Binding After}" IsReadOnly="True" Width="*"/>

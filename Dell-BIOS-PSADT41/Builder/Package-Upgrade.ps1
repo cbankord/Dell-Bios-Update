@@ -94,8 +94,16 @@ function New-UpgradeReferencePlan([string]$Text,[string]$OldName,[string]$NewNam
         if ($after -ceq $before) { continue }
         if ($node -is [Management.Automation.Language.StringConstantExpressionAst] -and $node.StringConstantType -eq 'BareWord' -and $after -match '\s') { $after="'"+$after.Replace("'","''")+"'" }
         $phase=Get-UpgradePhase $Text $node.Extent.StartOffset $layout
-        $selected=($kinds -notcontains 'ProductCode' -and $phase -ne 'PreInstall') -or ($phase -match '^(Pre|Post)?(Uninstall|Repair)$')
-        $null=$edits.Add([pscustomobject]@{Selected=[bool]$selected;Kind=($kinds -join ', ');Phase=$phase;Line=$node.Extent.StartLineNumber;Start=$node.Extent.StartOffset;End=$node.Extent.EndOffset;Before=$before;After=$after})
+        $parent=$node.Parent;$command='';$assignment=$false
+        while ($null -ne $parent) {
+            if ($parent -is [Management.Automation.Language.CommandAst] -and $parent.GetCommandName() -in @('Start-ADTMsiProcess','Execute-MSI','Start-ADTProcess','Execute-Process','Start-Process','msiexec','msiexec.exe')) {$command=$parent.GetCommandName();break}
+            if ($parent -is [Management.Automation.Language.AssignmentStatementAst]) {$assignment=$true;break}
+            $parent=$parent.Parent
+        }
+        $canDriveInstall=[bool]$command -or $assignment
+        $selected=[bool]$command -and (($kinds -notcontains 'ProductCode' -and $phase -ne 'PreInstall') -or ($phase -match '^(Pre|Post)?(Uninstall|Repair)$'))
+        $context=if ($command) {$command} elseif ($assignment) {'Assignment (review)'} else {'Other expression (review)'}
+        $null=$edits.Add([pscustomobject]@{Selected=[bool]$selected;CanDriveInstall=$canDriveInstall;Context=$context;Kind=($kinds -join ', ');Phase=$phase;Line=$node.Extent.StartLineNumber;Start=$node.Extent.StartOffset;End=$node.Extent.EndOffset;Before=$before;After=$after})
     }
     return ,$edits.ToArray()
 }
@@ -163,8 +171,8 @@ function Complete-PackageUpgrade([hashtable]$Workspace,[hashtable]$Plan) {
     Assert-LocalTestHashes $Workspace.Source $Plan.SourceHashes
     if ((Get-EditorByteHash ([Text.Encoding]::UTF8.GetBytes($Workspace.Text))) -ne $Plan.TextHash -or (Get-FileHash $Plan.NewFile).Hash -ne $Plan.NewHash -or (Get-FileHash (Join-Path $Workspace.Source $Plan.OldRelative)).Hash -ne $Plan.OldHash) {Stop-BuilderValidation 'A reviewed input changed. Analyze again before applying.'}
     $text=Apply-UpgradeReferencePlan $Workspace.Text $Plan.Edits
-    if ($Plan.OldRelative -ine $Plan.NewRelative -and -not @($Plan.Edits|Where-Object {$_.Selected -and $_.Kind -match 'Installer' -and $_.Phase -notmatch 'Uninstall|Repair|PreInstall'}).Count) {Stop-BuilderValidation 'Select an installer reference used by installation, or keep the existing filename. Updating only uninstall/repair would leave installation on the old payload.'}
-    if ($Plan.MstFile -and -not @($Plan.Edits|Where-Object {$_.Selected -and $_.Kind -match 'Transform' -and $_.Phase -notmatch 'Uninstall|Repair|PreInstall'}).Count) {Stop-BuilderValidation 'Select the installation transform reference in the review.'}
+    if ($Plan.OldRelative -ine $Plan.NewRelative -and -not @($Plan.Edits|Where-Object {$_.Selected -and $_.CanDriveInstall -and $_.Kind -match 'Installer' -and $_.Phase -notmatch 'Uninstall|Repair|PreInstall'}).Count) {Stop-BuilderValidation 'Select an installation command argument or reviewed assignment, or keep the existing filename. Changing only log text or uninstall/repair would not update installation.'}
+    if ($Plan.MstFile -and -not @($Plan.Edits|Where-Object {$_.Selected -and $_.CanDriveInstall -and $_.Kind -match 'Transform' -and $_.Phase -notmatch 'Uninstall|Repair|PreInstall'}).Count) {Stop-BuilderValidation 'Select the installation transform command argument or reviewed assignment.'}
     $output=Join-Path $Workspace.Root ('Upgraded-'+[guid]::NewGuid().ToString('N'));$source=Join-Path $output 'Source';$success=$false
     try {
         Copy-UpgradeTree $Workspace.Source $source

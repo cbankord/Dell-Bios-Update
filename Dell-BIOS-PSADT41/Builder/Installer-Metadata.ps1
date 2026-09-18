@@ -73,7 +73,7 @@ function Set-UpgradeMsiProperty($Installer,$Database,$Change,[bool]$Exists) {
         else { $query='INSERT INTO `Property` (`Property`, `Value`) VALUES (?, ?)';$values=@($Change.Name,$Change.Value) }
         $view=Invoke-UpgradeCom $Database 'OpenView' @($query)
         $record=Invoke-UpgradeCom $Installer 'CreateRecord' @($values.Count)
-        for ($i=0;$i -lt $values.Count;$i++) { $null=Invoke-UpgradeCom $record 'StringData' @($i+1,[string]$values[$i]) 'SetProperty' }
+        for ($i=0;$i -lt $values.Count;$i++) { $null=Invoke-UpgradeCom $record 'StringData' @(($i+1),[string]$values[$i]) 'SetProperty' }
         $null=Invoke-UpgradeCom $view 'Execute' @($record)
     } finally { Close-UpgradeCom $record;Close-UpgradeCom $view }
 }
@@ -85,6 +85,8 @@ function New-UpgradeTransform([string]$OldMsi,[string]$NewMsi,[string]$OldMst,[s
     try {
         Copy-Item -LiteralPath $OldMsi -Destination $oldCopy
         Copy-Item -LiteralPath $NewMsi -Destination $newCopy
+        (Get-Item -LiteralPath $oldCopy).IsReadOnly=$false
+        (Get-Item -LiteralPath $newCopy).IsReadOnly=$false
         $installer=New-Object -ComObject WindowsInstaller.Installer
         $viewDb=Invoke-UpgradeCom $installer 'OpenDatabase' @($oldCopy,1)
         $null=Invoke-UpgradeCom $viewDb 'ApplyTransform' @($OldMst,256)
@@ -117,6 +119,7 @@ function Test-UpgradeTransform([string]$Msi,[string]$Mst,[string]$Work) {
     $copy=Join-Path $Work ('mst-check-'+[guid]::NewGuid().ToString('N')+'.msi')
     try {
         Copy-Item -LiteralPath $Msi -Destination $copy
+        (Get-Item -LiteralPath $copy).IsReadOnly=$false
         $installer=New-Object -ComObject WindowsInstaller.Installer
         $db=Invoke-UpgradeCom $installer 'OpenDatabase' @($copy,1)
         $before=Get-UpgradeMsiProperties $db

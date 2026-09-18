@@ -23,7 +23,9 @@ Windows administrator elevation and a Microsoft-signed PsExec tool you supply.
 5. Review the proposed string edits and MSI identity. Tick individual changes.
    Pre-install references are unselected by default: they may intentionally remove
    the old product. Uninstall/repair product-code literals normally target the
-   replacement. References in custom code require your review.
+   replacement. The Context column distinguishes recognized process commands,
+   assignments and other expressions. Assignments require explicit selection;
+   changing a log message alone cannot satisfy an installation reference.
 6. Acknowledge the review and click **Create upgraded ZIP**. The new complete ZIP
    opens automatically in Editor. No installer has run. Re-select a reviewed
    detection script, update calculated metadata/EXE version labels as needed, then
