@@ -34,7 +34,7 @@ try {
     }
     foreach ($name in @('Local-Test.ps1','Invoke-LocalTest.ps1')) {Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination (Join-Path $stage $name)}
     $protectedRequest=Join-Path $stage 'Request.json';Write-LocalTestResult $protectedRequest $requestData
-    $hostExe=Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
+    $hostExe=Get-LocalTestHostPath
     # No -i: session 0 and Silent mode approximate Intune SYSTEM execution.
     $arguments=@('-accepteula','-nobanner','-r',('MedelaPSADTTest-'+$requestData.Id.Substring(0,12)),'-s','-w',$stage,$hostExe,'-NoProfile','-File',(Join-Path $stage 'Invoke-LocalTest.ps1'),'-Request',$protectedRequest,'-SystemChild')
     $phase='starting the SYSTEM process'

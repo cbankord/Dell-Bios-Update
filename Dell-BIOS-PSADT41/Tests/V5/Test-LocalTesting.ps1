@@ -2,13 +2,16 @@
 $ErrorActionPreference='Stop';Set-StrictMode -Version 3
 $root=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $temp=Join-Path ([IO.Path]::GetTempPath()) ('LocalTesting-'+[guid]::NewGuid().ToString('N'))
-$null=[IO.Directory]::CreateDirectory($temp);$count=0;$oldData=$env:ProgramData;$oldWindows=$env:SystemRoot;$env:ProgramData=$temp;$env:SystemRoot=$temp
+$null=[IO.Directory]::CreateDirectory($temp);$count=0;$oldData=$env:ProgramData
+if (-not $env:ProgramData) {$env:ProgramData=$temp} # Non-Windows portable test host only.
 function Check($Value,$Name){$script:count++;if(-not $Value){throw "FAIL: $Name"}}
 function Reject([scriptblock]$Code,$Name){$failed=$false;try{$null=&$Code}catch{$failed=$true};Check $failed $Name}
 function Write-Fixture($Path,$Text){$null=[IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($Path));[IO.File]::WriteAllText($Path,$Text)}
 try {
  . "$root/Builder/Build-Package.ps1"
  function Protect-BuilderDirectory($Path) {}
+ function Get-LocalTestHostPath {return Join-Path $temp 'System32/WindowsPowerShell/v1.0/powershell.exe'}
+ function Get-MedelaRoot {return Join-Path $temp 'Medela/DellBIOS'}
  $script:identity=@{SID='S-1-5-21-1-2-3-1001';Account='TEST\user';SessionId=1}
  function Get-LocalTestIdentity {return $script:identity}
  function Assert-LocalTestPsExec($Path) {if (-not (Test-Path $Path)) {throw 'No test tool'}}
@@ -75,4 +78,4 @@ try {
  & $closing $null $event
  Check ($event.Cancel -and $script:closeRequested -and $null -ne $script:localTestProcess -and $controls.TestStatus.Text.Contains('deployment continues')) 'Closing UI waits without terminating an active deployment'
  Write-Output "PASS: $count local-testing assertions. Real hashes, requests, receipts and callbacks; process launch, identity and native trust are inert."
-} finally {$env:ProgramData=$oldData;$env:SystemRoot=$oldWindows;if(Test-Path $temp){Remove-Item -LiteralPath $temp -Recurse -Force}}
+} finally {$env:ProgramData=$oldData;if(Test-Path $temp){Remove-Item -LiteralPath $temp -Recurse -Force}}

@@ -37,6 +37,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "$suite failed." }
           }
       - name: Native Windows Installer databases (no installation)
+        if: ${{ !cancelled() }}
         shell: powershell
         working-directory: Dell-BIOS-PSADT41
         run: |

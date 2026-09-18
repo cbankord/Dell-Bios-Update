@@ -41,6 +41,9 @@ function ConvertTo-LocalTestArgument([string]$Value) {
     if ($Value -match '["\r\n\x00]' -or $Value.EndsWith('\')) {throw 'Unsupported character in test argument.'}
     return '"'+$Value+'"'
 }
+function Get-LocalTestHostPath {
+    return Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
+}
 function Write-LocalTestResult([string]$Path,$Value) {
     # All privileged writes stay inside the protected, generated evidence directory.
     [IO.File]::WriteAllText($Path,($Value|ConvertTo-Json -Depth 5),(New-Object Text.UTF8Encoding($true)))
@@ -86,7 +89,7 @@ function New-LocalTestRequest([hashtable]$Workspace,[string]$Action,[string]$Con
     return @{Job=$job;Request=$requestPath;Result=$result;Action=$Action;Context=$Context;Id=$id;Source=$Workspace.Source}
 }
 function Start-LocalTestProcess([hashtable]$Test) {
-    $hostExe=Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
+    $hostExe=Get-LocalTestHostPath
     $arguments=@('-NoProfile','-File',(Join-Path $Test.Job 'Invoke-LocalTest.ps1'),'-Request',$Test.Request)
     $parameters=@{FilePath=$hostExe;ArgumentList=(@($arguments|ForEach-Object {ConvertTo-LocalTestArgument $_}) -join ' ');PassThru=$true;WorkingDirectory=$Test.Job;WindowStyle='Hidden'}
     if ($Test.Context -eq 'SYSTEM') {$parameters.Verb='RunAs'}
@@ -133,7 +136,7 @@ function Invoke-LocalTestPayload($Request,[string]$Evidence) {
         $exe=Join-Path $Request.Source $Request.Entry
         if ($Request.Entry -eq 'Deploy-Application.ps1') {
             $arguments=@('-NoProfile','-File',$exe)+$arguments
-            $exe=Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
+            $exe=Get-LocalTestHostPath
         }
         $result.Phase='Executing';Write-LocalTestResult $path $result
         $process=Start-Process -FilePath $exe -ArgumentList (@($arguments|ForEach-Object {ConvertTo-LocalTestArgument $_}) -join ' ') -WorkingDirectory $Request.Source -RedirectStandardOutput (Join-Path $Evidence 'stdout.log') -RedirectStandardError (Join-Path $Evidence 'stderr.log') -PassThru
