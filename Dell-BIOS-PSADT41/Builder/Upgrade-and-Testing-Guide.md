@@ -165,6 +165,11 @@ sensitive text; it stays in protected local folders, outside Git.
 Automated portable tests exercise real ZIP/file IO, AST rewriting, metadata,
 review and async callbacks, hash guards, command construction and receipts.
 Windows trust, identity, process execution and ACLs are mocked there.
+The [Windows CI run](https://github.com/cbankord/Dell-Bios-Update/actions/runs/35336901348)
+also passed Windows PowerShell 5.1 parsing and the three v5 regression suites,
+plus seven real COM MSI/MST checks using inert databases. It creates, migrates
+and validates transforms without installing a product. See `VALIDATION.txt`
+for the tested code commit and exact boundaries; CI does not test UAC or PsExec.
 
 Before distribution, run on x64 Windows PowerShell 5.1:
 
@@ -174,7 +179,7 @@ powershell.exe -NoProfile -File .\Tests\V5\Test-WindowsMsi.ps1
 ```
 
 The MSI test creates inert databases and transforms and never installs them.
-Also pilot the following; they were not executed in the Linux development host:
+Also pilot the following; neither automated gate covers these real device flows:
 
 | Scenario | Verify |
 |---|---|

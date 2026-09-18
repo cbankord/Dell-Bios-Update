@@ -43,12 +43,17 @@ while preserving source packages and keeping actual execution explicit.
 
 ## Validation and limits
 
-The Linux/PowerShell 7.4.7 run passed 743 assertions in 16 isolated suites,
-including 67 new upgrade/test/dialog assertions. Counts include parser/fixture
+The Linux/PowerShell 7.4.7 run passed 745 assertions in 16 isolated suites,
+including 69 new upgrade/test/dialog assertions. Counts include parser/fixture
 assertions, not independent end-to-end scenarios. Native boundaries are mocked.
-The new Windows workflow parses with Windows PowerShell 5.1, runs the three v5
-suites, then exercises real Windows Installer COM using inert databases. Workflow
-results must be checked separately; adding the workflow is not a passing result.
+The [Windows CI run](https://github.com/cbankord/Dell-Bios-Update/actions/runs/35336901348)
+passed on commit `ad6a95c40d419aa9e772906504f5cac5272ca116`: Windows PowerShell
+5.1 parsing, the same 69 v5 assertions and 7 additional native MSI/MST assertions.
+The native fixture generated and applied a replacement transform, rejected the
+old product-bound transform, and preserved read-only input MSI bytes/attributes.
+No product was installed. CI caught and fixed argument binding and PSObject/COM
+marshalling issues that portable mocks could not detect. The workflow also runs
+on subsequent v5 pushes; check its result for the commit you download.
 
 Native WPF, UAC, PsExec, NTFS permissions, real app install/repair/uninstall and
 BIOS/Intune behavior still require the documented Windows pilot. Tests are not a

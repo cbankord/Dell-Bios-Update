@@ -1,6 +1,6 @@
 V5.0 package upgrades and explicit local testing validation - 2026-09-18
 
-PASS: 743 assertions across sixteen isolated PowerShell 7.4.7/Linux suites:
+PASS: 745 assertions across sixteen isolated PowerShell 7.4.7/Linux suites:
   86  Tests/Test-Deployment.ps1
  118  Tests/Test-Builder.ps1
   89  Tests/Test-BuilderClose.ps1
@@ -15,7 +15,7 @@ PASS: 743 assertions across sixteen isolated PowerShell 7.4.7/Linux suites:
   39  Tests/V4/Test-SectionEditor.ps1
   41  Tests/V4/Test-ZipEditor.ps1
   22  Tests/V5/Test-LocalTesting.ps1
-  33  Tests/V5/Test-PackageUpgrade.ps1
+  35  Tests/V5/Test-PackageUpgrade.ps1
   12  Tests/V5/Test-UpgradeUI.ps1
 Run each suite in a separate pwsh process. Counts include syntax/file-fixture
 assertions, not independent end-to-end scenarios.
@@ -34,13 +34,28 @@ empty error stream. The v5 async handlers consume their explicit error envelope
 after EndInvoke, preserving useful errors and restoring controls. Regression
 coverage exercises this failure path rather than just checking source text.
 
-Added Windows CI: .github/workflows/v5-windows.yml, Windows PowerShell 5.1 parsing,
-inert v5 regression suites and Tests/V5/Test-WindowsMsi.ps1. The MSI suite creates
-native MSI/MST databases and never installs them. CI execution/results are separate
-from the Linux evidence above; verify the workflow status for the commit in use.
+PASS ON WINDOWS: GitHub Actions windows-2022 / Windows PowerShell 5.1:
+  All repository PS1/PSD1 syntax parsing in the project directory
+  35  Tests/V5/Test-PackageUpgrade.ps1
+  22  Tests/V5/Test-LocalTesting.ps1
+  12  Tests/V5/Test-UpgradeUI.ps1
+   7  Tests/V5/Test-WindowsMsi.ps1 (real Windows Installer COM, inert databases)
+Code commit: ad6a95c40d419aa9e772906504f5cac5272ca116
+Run: https://github.com/cbankord/Dell-Bios-Update/actions/runs/35336901348
+The 69 authoring assertions repeat portable scenarios on Windows; do not count
+them as new scenarios. The native fixture reads metadata, migrates a Property
+change containing an apostrophe through parameterized SQL, validates/applies its
+generated transform, rejects the old product-bound transform and preserves
+original MSI hashes/read-only attributes. No product is installed.
 
-NOT RUN ON THIS HOST: Windows PowerShell 5.1; native WPF/WinForms dialogs and
-controls; UAC; real PsExec or SYSTEM processes; COM MSI/MST operations; NTFS ACLs;
+Native CI found COM argument-index precedence and PSObject marshalling defects;
+both are fixed. The Windows test harness now injects its fake host path instead
+of changing SystemRoot, which broke the Windows SHA256 provider. These results
+demonstrate why portable mocks alone are insufficient for native adapters.
+Workflow: .github/workflows/v5-windows.yml. Check the status for the commit in use.
+
+NOT RUN BY EITHER AUTOMATED GATE: Native WPF/WinForms dialogs and controls;
+UAC; real PsExec or SYSTEM processes; vendor MSI/MST packages; NTFS ACLs;
 actual app lifecycle, Intune policy/detection/restart behavior or firmware.
 Pilot guidance: Builder/Upgrade-and-Testing-Guide.md. BIOS Files/ runtime remains
 unchanged. Main/v2/v3/v4 preserved; v5 is a new branch from d017531.
