@@ -103,6 +103,21 @@ function Assert-BuilderPath([string]$Path) {
         $item=if ($item -is [IO.DirectoryInfo]) { $item.Parent } else { $item.Directory }
     }
 }
+function Resolve-BuilderOutputRoot([string]$Path) {
+    if ([string]::IsNullOrWhiteSpace($Path)) { throw 'Choose an Output folder on the Build tab before building.' }
+    if (-not [IO.Path]::IsPathRooted($Path) -or $Path.StartsWith('\\') -or
+        ([IO.Path]::DirectorySeparatorChar -eq '\' -and $Path -notmatch '^[A-Za-z]:[\\/]')) {
+        throw 'Choose a local absolute output folder on an ACL-capable disk.'
+    }
+    if (-not (Test-Path -LiteralPath $Path -PathType Container)) { throw 'Create or select an existing output folder using Choose folder on the Build tab.' }
+    Assert-BuilderPath $Path
+    $full=[IO.Path]::GetFullPath($Path)
+    # Keep a drive root such as D:\ absolute; trimming it to D: is drive-relative.
+    if ($full.Length -gt [IO.Path]::GetPathRoot($full).Length) { $full=$full.TrimEnd([IO.Path]::DirectorySeparatorChar,[IO.Path]::AltDirectorySeparatorChar) }
+    $repo=[IO.Path]::GetFullPath((Split-Path $script:BuilderSource -Parent)).TrimEnd([IO.Path]::DirectorySeparatorChar)
+    if ($full -eq $repo -or $full.StartsWith($repo+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)) { throw 'Choose an output folder outside this repository.' }
+    return $full
+}
 function Protect-BuilderDirectory([string]$Path) {
     $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
     $acl=New-Object Security.AccessControl.DirectorySecurity
@@ -298,18 +313,14 @@ function New-DellBiosPackage {
     Assert-BuilderHost
     Assert-BuilderSettings $Settings
     if ($Settings.BiosPasswordRequired -and ($null -eq $BiosPassword -or $BiosPassword.Length -eq 0)) { throw 'Enter the shared BIOS administrator password.' }
-    if (-not [IO.Path]::IsPathRooted($Settings.OutputRoot) -or $Settings.OutputRoot.StartsWith('\\')) { throw 'Choose a local absolute output folder on an ACL-capable disk.' }
-    if (-not (Test-Path -LiteralPath $Settings.OutputRoot -PathType Container)) { throw 'Create or select an existing output folder.' }
-    Assert-BuilderPath $Settings.OutputRoot
-    # No output under the checkout: both source and .intunewin contain a shared secret.
-    $outputParent=[IO.Path]::GetFullPath($Settings.OutputRoot).TrimEnd([IO.Path]::DirectorySeparatorChar)
-    $repo=[IO.Path]::GetFullPath((Split-Path $script:BuilderSource -Parent)).TrimEnd([IO.Path]::DirectorySeparatorChar)
-    if ($outputParent -eq $repo -or $outputParent.StartsWith($repo+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)) { throw 'Choose an output folder outside this repository.' }
+    # Validate again in the worker; UI validation is not an authorization boundary.
+    $outputParent=Resolve-BuilderOutputRoot $Settings.OutputRoot
     $build=Join-Path $outputParent ('DellBIOS-'+$Settings.TargetVersion+'-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'-'+[guid]::NewGuid().ToString('N').Substring(0,8))
     $null=[IO.Directory]::CreateDirectory($build)
     $success=$false; $phase='securing the output directory'
     try {
         Protect-BuilderDirectory $build
+        & $Progress ('Creating package in: '+$build)
         $work=Join-Path $build '.buildwork'; $null=[IO.Directory]::CreateDirectory($work)
         $phase='validating and extracting the framework'; & $Progress 'Checking the PSADT ZIP and preparing your custom framework...'
         $snapshot=Join-Path $work 'framework.zip'
@@ -384,10 +395,11 @@ function New-DellBiosPackage {
         }
         $phase='writing build notes'
         $manifest=[ordered]@{
-            BuilderVersion='4.0.1'; BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
+            BuilderVersion='4.1.0'; BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
             FrameworkVersion=$framework.Version; FrameworkSHA256=$frameworkHash
             BIOS=$config; DeploymentPolicy=$policy; HasPassword=$Settings.BiosPasswordRequired
             OutputMode=$(if ($intuneWin) { 'IntuneWin' } else { 'SourceOnly' })
+            OutputRoot=$outputParent; OutputDirectory=$build
             IntuneWinSHA256=$(if ($intuneWin) { (Get-FileHash -LiteralPath $intuneWin -Algorithm SHA256).Hash } else { '' })
             RuntimeFiles=@(Get-ChildItem -LiteralPath $files -File -Recurse | Where-Object { $_.Name -ne 'BIOS-Password.psd1' } | ForEach-Object {
                 @{Path=$_.FullName.Substring($source.Length+1); SHA256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}
@@ -401,6 +413,8 @@ function New-DellBiosPackage {
             'Framework ZIP SHA256: ' + $frameworkHash
             'Approved BIOS SHA256: ' + $config.SHA256
             'Output mode: ' + $manifest.OutputMode
+            'Output folder: ' + $outputParent
+            'Build directory: ' + $build
             'Allow schedule later: ' + $policy.AllowScheduleLater
             'Original deployment script archived. Three deployment functions and BIOS metadata replaced.'
             'Configuration, branding, deferral policy and Intune scripts generated.'

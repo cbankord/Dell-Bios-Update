@@ -1,4 +1,9 @@
-DELL BIOS V4 - GENERATED PACKAGE
+DELL BIOS V4.1 - GENERATED PACKAGE
+
+This build was saved beneath the output folder selected on the builder's Build
+tab. BuildManifest.json and Build.log record the chosen parent and unique build
+directory. Source, Intune scripts and optional Package/.intunewin are grouped in
+this directory. Settings.psd1 remembers the output folder for future builds.
 
 1. Source is your complete customized PSADT 4.1.x deployment. Review preserved
    bootstrap/extensions for additional installs or competing restart behavior.

@@ -6,7 +6,7 @@ param(
 )
 . "$PSScriptRoot\Files\Common.ps1"
 . "$PSScriptRoot\Files\Simple\Cache.ps1"
-$config = Import-PowerShellDataFile (Join-Path $PackageRoot 'Files/BIOS-Config.psd1')
+$config = Import-PowerShellDataFile -LiteralPath (Join-Path $PackageRoot 'Files/BIOS-Config.psd1')
 Assert-Config $config
 Assert-Payload (Join-Path (Join-Path $PackageRoot 'Files') $config.FileName) $config
 $json = ($config | ConvertTo-Json -Depth 5 -Compress).Replace("'", "''")

@@ -31,7 +31,7 @@ $dialogTry=$ast.Find({param($node)
 },$true)
 $onExit=[scriptblock]::Create($dialogTry.Finally.Statements.Extent.Text -join "`n")
 $controls=@{}
-foreach ($name in @('FilesPanel','DeploymentPanel','ExperiencePanel','Reviewed','BuildButton','LoadButton','SaveButton','OpenButton','CloseButton','Progress')) {
+foreach ($name in @('FilesPanel','DeploymentPanel','ExperiencePanel','OutputPanel','Reviewed','BuildButton','LoadButton','SaveButton','OpenButton','CloseButton','Progress')) {
     $controls[$name]=[pscustomobject]@{IsEnabled=$true;Content='Close';IsChecked=$false;IsIndeterminate=$false;Visibility='Collapsed'}
 }
 $controls.BuildLog=[pscustomobject]@{Text=''}

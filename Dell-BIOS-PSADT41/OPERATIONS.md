@@ -1,5 +1,29 @@
 # Medela BIOS operations and Windows pilot
 
+## Updating the builder to v4.1
+
+Use the latest v4 branch and launch its `Builder/Start-PackageBuilder.cmd`; the
+caption reads **Dell BIOS Package Builder v4.1**. On **4 Build**, select **Output
+folder → Choose folder** or enter an existing local destination. New sessions
+have no default output path; existing presets keep their saved `OutputRoot`.
+Confirm `BuildManifest.json` records `BuilderVersion` `4.1.0` and the expected
+`OutputRoot` / unique `OutputDirectory`. The chosen parent contains Source,
+Intune scripts and optional Package/.intunewin under one new protected build folder.
+
+Rebuild the full package and matching detection to deliver the literal-path cache
+helper fix (`Cache.ps1` tattoo 4.1.0); other runtime files keep their own versions.
+The v4.0.1 PSADT launch fix is included. Existing replacement holds, appointments,
+deadlines, recovery and Medela parent/sibling permission boundaries still apply.
+
+Windows pilot for this change: choose/create a folder in the native picker, cancel
+with and without a prior selection, type another local drive/path, load an older
+preset and build with a destination containing spaces and brackets. Check owner/
+focus behavior with the custom caption at 100/150/200% scaling, verify the displayed
+and actual paths match, and confirm the selected parent/siblings retain their
+permissions and contents. Test Open output and graceful Close during a build.
+Native folder dialogs, Windows ACLs and Microsoft content-prep execution are not
+proved by the portable tests. Continue the deployment/hardware pilot below.
+
 ## Moving from v3 to v4
 
 V4 branches from latest v3 (`243f384`) and keeps the existing package identity,
@@ -7,7 +31,8 @@ deadline state and firmware recovery workflow. Main/v2/v3 remain unchanged.
 Rebuild with the v4 builder and deploy the **complete package and matching new
 Intune detection**. New presentation helpers and policy cannot be delivered by
 copying only `Show-BiosUI.ps1`. V4 presentation files use 4.0.0 tattoos; the
-v4.0.1 launch fix uses 4.0.1 on `Deployment.ps1` and `Live.ps1`. Other files
+v4.0.1 launch fix uses 4.0.1 on `Deployment.ps1` and `Live.ps1`, and the v4.1
+literal-path fix uses 4.1.0 on `Cache.ps1`. Other files
 retain their own versions. There are 15 core managed files plus brand assets.
 
 **Allow schedule later** defaults to enabled, including imported v3 presets
@@ -284,12 +309,12 @@ does not prove whether a previous attempt staged firmware.
 2. Load your preset and use the same approved BIOS, settings and prepared PSADT
    4.1 ZIP. Re-enter the password locally if required. Build a fresh complete
    package; there is no need to downgrade the framework for this correction.
-3. Confirm `BuildManifest.json` has `BuilderVersion` equal to `4.0.1`, and generated
+3. Confirm `BuildManifest.json` has `BuilderVersion` equal to `4.1.0` (current), and generated
    `Source/Files/Simple/Deployment.ps1` and `Live.ps1` start with version `4.0.1`.
    Follow the existing final-signing/manifest regeneration instructions if applicable.
 4. Replace the Intune package **and its matching generated detection script**, or
    run the newly generated complete Source through the existing SYSTEM pilot
-   method. Do not reuse an older output folder or edit cached files independently.
+   method. Do not deploy an older build or edit cached files independently.
 
 Normal cache refresh replaces the corrected helpers while preserving the fixed
 deadline and state. Do not delete `C:\ProgramData\Medela\DellBIOS`, reset its

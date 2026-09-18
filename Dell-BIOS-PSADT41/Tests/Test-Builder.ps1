@@ -93,6 +93,7 @@ throw 'The build must NEVER execute the template'
     $zip=Join-Path $fixture 'Custom Framework.zip'; [IO.Compression.ZipFile]::CreateFromDirectory($template,$zip)
     $settings=New-PackageBuildSettings
     Assert ($settings.AllowScheduleLater -is [bool] -and $settings.AllowScheduleLater -and $settings.IconPath -eq '') 'New packages default to enabled scheduling and built-in icon'
+    Assert ($settings.OutputRoot -eq '') 'Output destination requires a choice instead of silently selecting Documents'
     $legacyPreset=Join-Path $fixture 'v3-preset.psd1'
     Write-BuilderData $legacyPreset @{WindowHours=48;CompanyName='Legacy company'}
     $legacySettings=Import-PackagePreset $legacyPreset
@@ -110,7 +111,8 @@ throw 'The build must NEVER execute the template'
     # Mock only Windows trust/ACL boundaries, never extraction, AST rewrite or serialization.
     function Assert-BuilderHost { }
     $script:protected=0
-    function Protect-BuilderDirectory { param($Path) $script:protected++ }
+    $script:protectedPaths=New-Object 'Collections.Generic.List[string]'
+    function Protect-BuilderDirectory { param($Path) $script:protected++; $script:protectedPaths.Add($Path) }
     $global:DellBuilderTestSignatureValid=$true
     function Get-AuthenticodeSignature {
         param($LiteralPath)
@@ -152,6 +154,7 @@ throw 'The build must NEVER execute the template'
     Assert (-not $manifest.Contains('BIOS-Password.psd1')) 'No secret file path or password hash in manifest'
     $loaded=Import-PackagePreset (Join-Path $result.OutputDirectory 'Settings.psd1')
     Assert (-not $loaded.PackageReviewed -and $loaded.Models[0] -eq $settings.Models[0]) 'Reusable preset clears prior approval'
+    Assert ($loaded.OutputRoot -eq $settings.OutputRoot) 'Existing preset output choice round-trips without a new default'
     $injected=$settings.Clone(); $injected.Password=$passwordText
     Export-PackagePreset $injected (Join-Path $fixture 'safe.psd1')
     Assert (-not (Get-Content -LiteralPath (Join-Path $fixture 'safe.psd1') -Raw).Contains($passwordText)) 'Preset exporter allowlist drops unexpected secrets'
@@ -229,7 +232,7 @@ throw 'The build must NEVER execute the template'
     $secondPreset=Import-PackagePreset (Join-Path $second.OutputDirectory 'Settings.psd1')
     Assert (-not $secondPolicy.AllowScheduleLater -and -not $secondManifest.DeploymentPolicy.AllowScheduleLater -and -not $secondPreset.AllowScheduleLater) 'Disabled scheduling survives full build, records and preset round trip'
     Assert ($secondPolicy.WindowHours -eq 48 -and $secondPolicy.RestartCountdownMinutes -eq 60 -and $secondPolicy.RestartReminderMinutes -eq 15) 'Scheduling toggle leaves deferral and restart policy intact'
-    Assert ($secondManifest.BuilderVersion -eq '4.0.1' -and (Test-Path (Join-Path $second.SourcePath 'Files/UI/WindowChrome.ps1')) -and (Test-Path (Join-Path $second.SourcePath 'Files/UI/Theme.xaml'))) 'V4 packages shared custom caption and theme resources'
+    Assert ($secondManifest.BuilderVersion -eq '4.1.0' -and (Test-Path (Join-Path $second.SourcePath 'Files/UI/WindowChrome.ps1')) -and (Test-Path (Join-Path $second.SourcePath 'Files/UI/Theme.xaml'))) 'V4.1 packages shared custom caption and theme resources'
     # WPF image decoding is a Windows boundary. Exercise real packaging/hash/
     # allowlist logic with inert icon bytes and mock only assembly load/decode.
     function Add-Type {param($AssemblyName)
@@ -267,6 +270,12 @@ throw 'The build must NEVER execute the template'
     Reject { Assert-BuilderSettings $bad } 'Runtime gate requires a battery'
     $bad=$settings.Clone(); $bad.OutputRoot=$root
     Reject { New-DellBiosPackage $bad } 'Refuse output inside checkout'
+    foreach ($destination in @('', 'relative-output', '\\server\share', (Join-Path $fixture 'missing-output'), $settings.BiosPath)) {
+        $bad=$settings.Clone(); $bad.OutputRoot=$destination
+        Reject {New-DellBiosPackage $bad} 'Invalid destination cannot generate a package'
+    }
+    $volumeRoot=[IO.Path]::GetPathRoot($fixture)
+    Assert ((Resolve-BuilderOutputRoot $volumeRoot) -eq $volumeRoot) 'Root output remains absolute rather than becoming drive-relative'
     # ZIP traversal, Windows path normalization, duplicate names and embedded secrets.
     function New-TestZip([string]$Path,[string[]]$Names,[int]$Attributes=0) {
         $stream=[IO.File]::Open($Path,'CreateNew'); $archive=New-Object IO.Compression.ZipArchive($stream,[IO.Compression.ZipArchiveMode]::Create)
@@ -308,14 +317,27 @@ throw 'The build must NEVER execute the template'
         return $file
     }
     $settings.ContentPrepTool=$tool
+    $selectedOutput=Join-Path $fixture 'Chosen Output [pilot]'
+    $null=[IO.Directory]::CreateDirectory($selectedOutput)
+    $sentinel=Join-Path $selectedOutput 'unrelated.txt'
+    [IO.File]::WriteAllText($sentinel,'keep this sibling')
+    $settings.OutputRoot=$selectedOutput+[IO.Path]::DirectorySeparatorChar
     $packaged=New-DellBiosPackage $settings
     $manifestData=Get-Content -LiteralPath (Join-Path $packaged.OutputDirectory 'BuildManifest.json') -Raw | ConvertFrom-Json
     Assert ($script:prepCalls -eq 1 -and $packaged.IntuneWinFile -and $manifestData.OutputMode -eq 'IntuneWin') 'Optional packaging invoked once and reported accurately'
     Assert ($manifestData.IntuneWinSHA256 -eq (Get-FileHash -LiteralPath $packaged.IntuneWinFile).Hash) 'Completed package hash recorded'
+    Assert ((Split-Path $packaged.OutputDirectory -Parent) -eq $selectedOutput) 'Package is built below the chosen folder with spaces and brackets'
+    Assert ($packaged.SourcePath.StartsWith($packaged.OutputDirectory+[IO.Path]::DirectorySeparatorChar) -and $packaged.IntuneWinFile.StartsWith($packaged.OutputDirectory+[IO.Path]::DirectorySeparatorChar)) 'Source and optional intunewin share the chosen build directory'
+    Assert ($manifestData.OutputRoot -eq $selectedOutput -and $manifestData.OutputDirectory -eq $packaged.OutputDirectory) 'Build manifest records canonical destination and actual unique output'
+    $notes=Get-Content -LiteralPath (Join-Path $packaged.OutputDirectory 'Build.log') -Raw
+    Assert ($notes.Contains('Output folder: '+$selectedOutput) -and $notes.Contains('Build directory: '+$packaged.OutputDirectory)) 'Build notes identify the selected destination'
+    Assert ((Import-PackagePreset (Join-Path $packaged.OutputDirectory 'Settings.psd1')).OutputRoot -eq $settings.OutputRoot) 'Changed destination is retained in generated preset'
+    Assert (-not $script:protectedPaths.Contains($selectedOutput) -and $script:protectedPaths.Contains($packaged.OutputDirectory)) 'Only new build directory receives output protection; selected parent is not modified'
     function Invoke-BuilderContentPrep { throw 'Inert simulated tool failure' }
-    $before=@(Get-ChildItem -LiteralPath $fixture -Directory -Filter 'DellBIOS-*').Count
+    $before=@(Get-ChildItem -LiteralPath $selectedOutput -Directory -Filter 'DellBIOS-*').Count
     Reject { New-DellBiosPackage $settings } 'Content preparation failure cannot return build success'
-    Assert (@(Get-ChildItem -LiteralPath $fixture -Directory -Filter 'DellBIOS-*').Count -eq $before) 'Tool failure removes partial build'
+    Assert (@(Get-ChildItem -LiteralPath $selectedOutput -Directory -Filter 'DellBIOS-*').Count -eq $before) 'Tool failure removes partial build from selected output'
+    Assert ((Get-Content -LiteralPath $sentinel -Raw) -eq 'keep this sibling' -and (Test-Path -LiteralPath $packaged.IntuneWinFile)) 'Failed build preserves unrelated files and previously completed package'
     ${function:Invoke-BuilderContentPrep}=$savedPrep
     Assert ((Get-FileHash -LiteralPath $settings.BiosPath).Hash -eq $result.SHA256) 'Original BIOS input unchanged'
     Assert ((Get-Content -LiteralPath (Join-Path $template 'Invoke-AppDeployToolkit.ps1') -Raw) -eq $bootstrap) 'Original custom template unchanged'

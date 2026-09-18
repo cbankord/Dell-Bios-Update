@@ -1,4 +1,4 @@
-# MedelaBIOS-FileVersion: 4.0.0
+# MedelaBIOS-FileVersion: 4.1.0
 # The trusted Intune package is the source of truth. Tattoos identify versions;
 # SHA256 detects drift. Neither is an Authenticode signature or trust bootstrap.
 function Get-MedelaRoot { Join-Path $env:ProgramData 'Medela\DellBIOS' }
@@ -117,7 +117,7 @@ function Get-ManagedFileMap([string]$Files) {
     foreach ($file in @('Common.ps1','Install-DellBIOS.ps1','Verify-AfterReboot.ps1')) { $map[$file]='Runtime/'+$file }
     foreach ($file in @('Cache.ps1','Deployment.ps1','Live.ps1','State.ps1','Safety.ps1','Scheduling.ps1','Policy.psd1')) { $map['Simple/'+$file]='Runtime/'+$file }
     foreach ($file in @('Show-BiosUI.ps1','Window.xaml','WindowChrome.ps1','Theme.xaml','Branding.psd1')) { $map['UI/'+$file]='UI/'+$file }
-    $brand=Import-PowerShellDataFile (Join-Path $Files 'UI/Branding.psd1')
+    $brand=Import-PowerShellDataFile -LiteralPath (Join-Path $Files 'UI/Branding.psd1')
     foreach ($name in @('LogoFile','BannerFile')) {
         if ($brand[$name]) {
             $path=$brand[$name].Replace('\','/')

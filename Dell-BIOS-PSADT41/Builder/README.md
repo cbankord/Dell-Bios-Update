@@ -1,11 +1,11 @@
-# Dell BIOS package builder v4
+# Dell BIOS package builder v4.1
 
 Launch **Start-PackageBuilder.cmd** on your Windows packaging computer. The wizard
 builds a fresh deployment from your approved Dell BIOS executable and your own
 prepared **PSADT 4.1.x template ZIP**. You do not need to edit the deployment
 functions or calculate/paste a SHA256.
 
-**Builder 4.0.1 includes the Install Now launch fix for PSADT 4.1.4-4.1.8.**
+**Builder 4.1.0 includes the v4.0.1 Install Now launch fix for PSADT 4.1.4-4.1.8.**
 If an older package reports a parameter-set error and exits 60001, restart this
 builder from the updated v4 copy and rebuild with your existing approved settings
 and custom ZIP. Replace the complete package and its generated Intune detection;
@@ -36,7 +36,7 @@ button does not cancel an endpoint BIOS update or change the deployment UI.
 
 ## The four steps
 
-1. **Files:** choose the BIOS EXE, custom PSADT ZIP and output folder. Optionally
+1. **Files:** choose the BIOS EXE and custom PSADT ZIP. Optionally
    choose your official `IntuneWinAppUtil.exe` to produce `.intunewin` in the same
    build. Without it, the result is complete deployment source plus Intune scripts.
 2. **Deployment:** enter exact CIM model names, target/prerequisite BIOS versions,
@@ -45,9 +45,10 @@ button does not cancel an endpoint BIOS update or change the deployment UI.
    timeout, restart countdown and sound/recenter interval. Set **Allow schedule
    later** (enabled by default). Enter company text, colors, optional logo/banner
    images and a title-bar PNG/ICO icon. The selected icon previews immediately.
-4. **Build:** review the settings, confirm that you reviewed the approved firmware
-   and trusted template, then build. The GUI remains responsive during packaging.
-   Select **Open output** and follow the generated `READ-ME-FIRST.txt`.
+4. **Build:** choose **Output folder → Choose folder** or type the destination.
+   Review its path and the settings, confirm that you reviewed the approved
+   firmware and trusted template, then build. The GUI remains responsive during
+   packaging. Select **Open output** and follow the generated `READ-ME-FIRST.txt`.
 
 Save a preset to reuse the same settings for the next model or version. Presets
 contain **no password**; loading one clears the password boxes and the prior
@@ -180,6 +181,33 @@ then rebuild `.intunewin` from that signed Source. Upload the matching detection
 script with the package. See [the refresh/signing procedure](../README.md#storage-and-automatic-file-refresh).
 
 ## Output
+
+V4.1 places the destination picker directly on the **Build** tab. New sessions
+start with a blank Output folder instead of defaulting to Documents. Type an
+existing local absolute path, or use **Choose folder** to select/create a folder.
+The picker opens at the current valid selection, is owned by the builder window,
+and leaves the prior selection intact on Cancel. If the picker cannot open, use
+the editable path field. Old and new presets retain `OutputRoot`; review it when
+moving a preset to another packaging computer.
+
+The selected folder must be outside the repository, on a local ACL-capable disk.
+Existing UNC/junction/symlink restrictions remain. The GUI validates the path
+before starting a worker; the worker validates it again. An empty/invalid choice
+does not silently fall back to Documents. Spaces and square brackets in local
+paths are handled literally; a drive root remains absolute.
+
+Every build creates `DellBIOS-<target-version>-<timestamp>-<id>` beneath the chosen
+folder. This contains **all** output in the table below, including the optional
+`Package/*.intunewin`. The new build directory receives the existing protected
+permissions; the selected parent and unrelated files are not changed. A handled
+failure removes only that build's partial directory, preserving previous builds.
+Changing destination invalidates the review; it is locked while a build is active.
+
+Review text, progress, `Build.log` and `BuildManifest.json` identify the destination.
+The manifest records `BuilderVersion = 4.1.0`, `OutputRoot` and `OutputDirectory`.
+`Settings.psd1` saves your selection for another build; **Open output** opens the
+completed build folder. These paths describe the build computer, not an endpoint
+cache location: endpoint files still use `C:\ProgramData\Medela\DellBIOS`.
 
 | Item | Use |
 |---|---|

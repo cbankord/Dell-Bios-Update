@@ -1,3 +1,34 @@
+# v4.1 selectable package output - 2026-09-18
+
+- Move Output folder to the Build tab with a visible Choose folder button and
+  editable path. Start new sessions without an implicit Documents destination;
+  preserve OutputRoot from existing/new presets. Show the destination separately
+  from output contents in the final review, updating it when the path changes.
+- Own the native folder picker with the builder window, start at the current
+  valid folder and allow folder creation. Cancel keeps the previous selection;
+  dialog failure preserves it and explains manual entry. Release picker resources
+  on every exit. Lock output controls during the worker and re-enable after cleanup.
+- Validate the selected local absolute folder before starting the GUI worker and
+  again within the build engine. Preserve drive roots instead of trimming them
+  to a drive-relative path. Retain repository, UNC and reparse-point restrictions.
+- Keep all generated Source/Intune/optional .intunewin output under one new unique
+  protected child of the chosen folder. Record OutputRoot and OutputDirectory in
+  the build manifest/log and report the actual directory during progress. Preserve
+  the selected parent's permissions, unrelated files and previous completed builds.
+- Fix two data-file reads that interpreted square brackets in selected output
+  paths as wildcards: runtime manifest branding and Intune-script configuration.
+  Use LiteralPath and bump the changed Cache.ps1 tattoo to 4.1.0. Other runtime
+  versions remain individual; the v4.0.1 PSADT launch correction is included.
+- Identify the builder/caption/generated guide as v4.1 and BuilderVersion as
+  4.1.0. Update destination, preset, packaging, migration and Windows pilot notes.
+  Continue on v4; Main/v2/v3 and all firmware/restart/state safety behavior persist.
+- Pass 250 assertions across five PowerShell 7.4.7/Linux suites: real inert builds
+  to chosen paths with spaces/brackets, preset and manifest round-trips, invalid
+  destinations, root normalization, partial-output cleanup/sibling preservation,
+  picker callback selection/cancel/failure, review text, close behavior and cache.
+  Actual Windows dialogs, NTFS ACLs, PS5.1 and Microsoft packaging/device execution
+  remain pilot requirements. No endpoint deployment or firmware operation was run.
+
 # v4.0.1 fix Install Now process binding - 2026-09-17
 
 - Reproduce the reported "Parameter set cannot be resolved" / wrapper exit

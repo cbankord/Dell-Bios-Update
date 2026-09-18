@@ -1,8 +1,14 @@
-# Dell BIOS deployment — v4
+# Dell BIOS deployment — v4.1
 
-**Current patch: v4.0.1.** Fixes the Install Now parameter-set failure with PSADT
-4.1.4-4.1.8. Rebuild with the updated builder and replace the complete package plus
-matching Intune detection. See [the recovery/rebuild instructions](Dell-BIOS-PSADT41/OPERATIONS.md#install-now-fails-with-a-parameter-set-error-and-60001).
+**Current release: v4.1 (BuilderVersion 4.1.0), on the v4 branch.** Choose your
+package destination on **4 Build → Output folder → Choose folder** or type its
+path. New sessions start without a destination; presets remember your selection.
+The review and build records show where output goes. Each build gets a new
+protected subfolder containing Source, Intune scripts and optional .intunewin.
+
+Includes the v4.0.1 Install Now fix for PSADT 4.1.4-4.1.8. Rebuild with the updated
+builder and replace the complete package plus matching Intune detection. See
+[the recovery/rebuild instructions](Dell-BIOS-PSADT41/OPERATIONS.md#install-now-fails-with-a-parameter-set-error-and-60001).
 
 V4 adds **Allow schedule later** to the package builder, enabled by default.
 Enabled packages offer **Install Now / Schedule Install / Defer**; disabled

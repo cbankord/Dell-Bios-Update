@@ -1,3 +1,46 @@
+V4.1 selectable package output validation - 2026-09-18
+
+PASS: 250 assertions across five isolated PowerShell 7.4.7 processes on Linux:
+  61  Tests/Test-Deployment.ps1
+ 118  Tests/Test-Builder.ps1
+  22  Tests/Test-BuilderClose.ps1
+  15  Tests/V4/Test-BuilderOutput.ps1
+  34  Tests/V2/Test-Cache.ps1
+Run each suite in its own process from Dell-BIOS-PSADT41:
+  pwsh -NoProfile -File <path above>
+Counts include parser/fixture assertions, not independent Windows E2E scenarios.
+
+Coverage includes complete inert source/optional-intunewin builds, old/new preset
+output choices, blank/relative/UNC/missing/file/repository rejection, a chosen
+destination containing spaces and square brackets, root preservation, manifest
+and log destinations, only-new-child protection calls and cleanup that retains
+previous builds and unrelated siblings. Square-bracket output initially exposed
+two wildcard data-file reads; both now use LiteralPath and the full build passes.
+The runtime manifest and Intune detection are generated from that actual output.
+
+The new UI suite executes the actual folder-selection and review callbacks with
+inert native-dialog/owner edges. Accept updates the field, Cancel retains the old
+or blank value, failures permit manual entry, and resources are released in all
+cases. It checks the picker owner/current folder and v4.1 caption/Build placement.
+Existing async close tests prove successful/failed workers finish cleanup and
+dispose credentials before closing. Cache and base/parser regressions pass.
+
+PASS: git diff --check; all PS1/PSD1 sources parse; builder XAML is well formed.
+NOT RUN: Windows PowerShell 5.1, actual WPF/folder dialogs/owner focus, DPI/keyboard/
+screen-reader checks, native NTFS ACLs, Microsoft content-prep execution or Intune/
+Dell device deployment. API edges are mocked; no BIOS or packaging EXE is run.
+
+Required Windows pilot: choose/create/cancel/type a destination and load an old
+preset; verify the Build tab, review, actual unique directory, Open output and
+BuildManifest BuilderVersion 4.1.0. Test local drive roots and bracket/space paths,
+parent/sibling permissions and failed-build cleanup. Validate custom chrome and
+the owned picker at 100/150/200% scaling, and Close during an active build. Keep
+the existing actual-custom-framework, firmware safety and recovery pilot gates.
+Full package and matching detection rebuild deliver Cache.ps1 4.1.0; other runtime
+tattoos retain their versions and accepted-work/transaction holds still apply.
+
+Previous validation records follow.
+
 V4.0.1 Install Now / PSADT parameter binding validation - 2026-09-17
 
 PASS: 615 assertions across six isolated PowerShell 7.4.7 processes on Linux:

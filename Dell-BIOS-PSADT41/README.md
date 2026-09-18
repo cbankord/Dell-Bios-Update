@@ -1,9 +1,15 @@
-# Dell BIOS v4 — configurable scheduling and custom windows
+# Dell BIOS v4.1 — selectable package output and custom windows
 
 Build with `Builder/Start-PackageBuilder.cmd`, using your approved Dell BIOS EXE
 and prepared PSADT 4.1.x ZIP. Review the generated `READ-ME-FIRST.txt` before upload.
 The builder keeps your custom framework and generates BIOS settings, branding,
 Intune scripts and a runtime integrity manifest. No BIOS/password is in Git.
+
+On **4 Build**, use **Output folder → Choose folder** or enter an existing local
+folder. A fresh session has no preset destination. Review the displayed path;
+the builder creates a unique protected build folder beneath it. Saved presets
+retain your choice. `BuildManifest.json` identifies builder `4.1.0` and records
+the selected parent and actual build directory. See [output details](Builder/README.md#output).
 
 ## User experience
 
