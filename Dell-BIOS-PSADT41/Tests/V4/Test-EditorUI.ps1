@@ -14,7 +14,7 @@ try {
         . ([scriptblock]::Create($fn.Extent.Text))
     }
     $controls=@{}
-    foreach($name in @('EditorMode','EditorLoad','EditorImport','EditorSave','EditorValidate','EditorHost','SectionList','EditorStatus','EditorOpenScript','EditorEditScript','EditorSaveScript','EditorSaveScriptAs','EditorCloseScript','EditorDocumentLabel','MetadataView','Reviewed')){
+    foreach($name in @('EditorMode','EditorLoad','EditorImport','EditorSave','EditorValidate','EditorHost','SectionList','EditorStatus','EditorOpenScript','EditorOpenZip','EditorEditScript','EditorSaveScript','EditorSaveScriptAs','EditorCloseScript','EditorDocumentLabel','MetadataView','Reviewed')){
         $controls[$name]=[pscustomobject]@{IsEnabled=$true;SelectedIndex=0;Text='';Visibility='Visible';IsChecked=$false}
     }
     $controls.MetadataFields=[pscustomobject]@{Children=(New-Object Collections.ArrayList)}

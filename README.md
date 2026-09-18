@@ -1,18 +1,21 @@
-# PSADT Deployment Builder — v4.4
+# PSADT Deployment Builder — v4.5
 
-**v4.4 adds direct PS1 editing: Open PS1 → EDIT → Save PS1.**
+**v4.5: Open ZIP → Editor, with automatic deployment-script detection.**
 Edit common app metadata, the full custom settings table, custom/functions and all
-nine install/uninstall/repair phases without selecting a ZIP or package settings.
+nine install/uninstall/repair phases. Load either Deploy-Application.ps1 or
+Invoke-AppDeployToolkit.ps1 from a ZIP, or open a PS1 directly. Legacy metadata
+variables and calculated metadata no longer prevent opening; custom layouts
+use full script editing. No build settings are needed just to open a document.
 [Direct editing and safe saves](Dell-BIOS-PSADT41/Builder/Direct-Script-Editor-Guide.md) explains backups, Save as, supported
 layouts and the Windows pilot. The four packaging modes and ZIP editor remain.
 
-**Current release: v4.4 (BuilderVersion 4.4.0), on the v4 branch.** Choose
+**Current release: v4.5 (BuilderVersion 4.5.0), on the v4 branch.** Choose
 **BIOS update**, **Application**, **Windows Update** or **Dell Driver** in the Files tab's **Deployment type** list.
 
 | Mode | Input | Behavior |
 |---|---|---|
 | BIOS update | Approved Dell BIOS EXE plus PSADT 4.1.x template ZIP | Existing managed BIOS workflow with safety checks, custom UI, scheduling and guarded restart |
-| Application | Complete PSADT 4.x or legacy 3.x app ZIP | Preserves the app in PSADT view; Editor can replace the ten PSADT 4.x sections |
+| Application | Complete PSADT 4.x or legacy 3.x app ZIP | Preserves the app in PSADT view; Editor supports mapped sections or full script editing |
 | Windows Update | PSADT 4.1.x ZIP, standalone MSU/CAB and detection script | Generates Windows servicing steps for an approved Windows build |
 | Dell Driver | PSADT 4.1.x ZIP, extracted INF driver ZIP and detection script | Generates installation for approved Dell models and Windows build |
 

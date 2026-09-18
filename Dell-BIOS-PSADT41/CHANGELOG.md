@@ -1,3 +1,42 @@
+# v4.5 ZIP-first editor and compatible script loading - 2026-09-18
+
+- Fix the reported metadata/EndInvoke failure: loading no longer requires one
+  literal adtSession table before an app can open. Recognize typed/script-scoped
+  tables and script-level try wrappers. Calculated/unavailable metadata remains
+  untouched while supported deployment sections stay editable.
+- Add Open ZIP on the Editor tab and a Files shortcut. Detect either deployment
+  filename, including wrapper folders, and select Editor automatically. Entering
+  an empty Editor tab loads the ZIP already selected on Files. Load selected ZIP
+  also activates Editor; existing documents are retained when changing tabs.
+- Open ZIP authors the original app in Application mode without requiring build
+  settings. Existing Windows Update/Driver selected-ZIP authoring still loads the
+  generated defaults. Populate literal app identity on new ZIP opens; preserve
+  intentional existing package labels on selected-ZIP reload and clear stale
+  identity when a newly opened ZIP cannot supply literal values.
+- Add PSADT 3.x metadata variable and nine-phase dispatcher adapters using AST
+  boundaries. Preserve bootstrap, helpers, comments, calculated values and types;
+  apply edits to the original legacy script without converting framework APIs.
+- Provide Full script authoring for valid layouts that cannot be mapped reliably.
+  Disable section templates there and retain syntax/signature/save/hash guards.
+  Application builds support detached full-script snapshots and record EditorLayout
+  plus the complete entry-script hash; no misleading section snapshot is emitted.
+- Allow ZIP authoring before a framework is complete, but keep complete-package
+  validation mandatory at Build. Reject archives with multiple deployment scripts
+  explicitly. Export an edited ZIP entry with Save as new PS1 without rewriting
+  the original archive or discarding its in-memory document.
+- Return sanitized editor load diagnostics through the worker result so expected
+  errors do not surface as EndInvoke wrappers. Failed loads retain the previous
+  document/settings, dispose workers and restore controls. Close still waits for
+  active extraction cleanup; credentials and imported source are not logged.
+- Add real legacy ZIP/source builds, all-phase and metadata edits, no-op bytes,
+  custom-layout and calculated-metadata cases, incomplete/ambiguous archives,
+  saved PS1 and stale archive checks. Exercise the actual asynchronous loader,
+  poller, completion, auto-load and snapshot callbacks with native controls mocked.
+- Publish builder 4.5.0 on v4. No BIOS runtime file changes or changes to Main/v2/v3.
+  Existing firmware, state, deadline, BitLocker, ProgramData child permissions and
+  managed restart safeguards remain intact. See VALIDATION.txt for measured
+  portable checks and the Windows PS5.1/WPF/Intune pilot still required.
+
 # v4.4 direct PS1 authoring and editor reliability - 2026-09-18
 
 - Add Open PS1 → EDIT → Save PS1 / Save as new PS1, independent of ZIP and package

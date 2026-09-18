@@ -1,9 +1,9 @@
-# Application packaging in v4.4
+# Application packaging in v4.5
 
 Application source preservation described here applies to the default **PSADT**
-view. v4.4 can optionally edit sections and metadata in **Editor**; see
-[the editor guide](Direct-Script-Editor-Guide.md). Legacy 3.x remains
-unchanged packaging only.
+view. v4.5 can optionally edit sections and metadata in **Editor**; see
+[the editor guide](Direct-Script-Editor-Guide.md). Standard legacy 3.x metadata and nine-phase layouts are now editable too.
+Customized layouts use full script editing; no framework API conversion is performed.
 
 Select **Application** in the Files tab's **Deployment type** list, choose your
 complete PSADT application ZIP, and optionally select a custom Intune detection
@@ -48,7 +48,7 @@ use the BIOS mode password field for managed BIOS deployments.
 | `Intune/Install-Commands.txt` | Install/uninstall commands, System/User behavior and setup notes |
 | `Intune/Detect-Application.ps1` | Exact copy of your detection script, only when selected |
 | `Package/*.intunewin` | Optional output of the selected, Microsoft-signed content prep tool |
-| `BuildManifest.json` / `Build.log` | Builder 4.4.0, Application mode, app metadata, ZIP hash, output and detection records |
+| `BuildManifest.json` / `Build.log` | Builder 4.5.0, Application mode, app metadata, ZIP hash, output and detection records |
 | `Settings.psd1` | Reusable mode/app/path settings, without a BIOS password |
 | `READ-ME-FIRST.txt` | Application setup and pilot instructions |
 

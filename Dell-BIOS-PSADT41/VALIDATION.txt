@@ -1,3 +1,60 @@
+V4.5 ZIP editor and compatible script loading validation - 2026-09-18
+
+PASS: 666 assertions across thirteen isolated PowerShell 7.4.7/Linux suites:
+  76  Tests/Test-Deployment.ps1
+ 118  Tests/Test-Builder.ps1
+  89  Tests/Test-BuilderClose.ps1
+  15  Tests/V4/Test-BuilderOutput.ps1
+  88  Tests/V4/Test-ApplicationBuilder.ps1
+  22  Tests/V4/Test-BuilderModes.ps1
+  63  Tests/V4/Test-Experience.ps1
+  39  Tests/V4/Test-SectionEditor.ps1
+  34  Tests/V4/Test-MaintenanceBuilder.ps1
+  26  Tests/V4/Test-EditorUI.ps1
+  33  Tests/V4/Test-ScriptEditor.ps1
+  41  Tests/V4/Test-ZipEditor.ps1
+  22  Tests/V4/Test-EditorLoading.ps1
+Run separately from Dell-BIOS-PSADT41: pwsh -NoProfile -File <path above>.
+Counts include fixture/parser assertions, not independent end-to-end scenarios.
+
+New coverage uses real file/ZIP IO: standard legacy variable metadata and all
+nine phases plus helpers; safe quoting, calculated expressions without execution,
+bootstrap preservation, typed/script-scoped and try-wrapped modern metadata,
+calculated modern metadata with editable phases, and complete-script fallback.
+Legacy no-op/edited builds preserve payloads and the original ZIP; manifests record
+actual entry hashes and EditorLayout. Full-script builds retain signed-source,
+syntax and stale-ZIP guards and do not emit misleading section templates.
+Incomplete authoring ZIPs can open but cannot build; ambiguous archives fail cleanly.
+
+The actual asynchronous loader and polling/completion callbacks are exercised,
+including automatic Application/Editor selection, selected-ZIP tab loading,
+legacy metadata pages, inferred identity, full-script buffers/snapshots and
+clearing stale identity. Expected errors reach the Editor tab without EndInvoke
+wrappers. Failed opens preserve the prior document and settings. Workers dispose
+and controls restore after success or failure. Existing close/cleanup tests pass.
+Only native UI objects and Windows host/ACL application are mocked in these tests.
+
+PASS: 28 additional parse-only checks using official upstream templates:
+https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/3.10.2/Toolkit/Deploy-Application.ps1
+https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.0/src/PSAppDeployToolkit/Frontend/v4/Invoke-AppDeployToolkit.ps1
+Both map all sections, retain exact text on a no-op, accept edits to all ten
+sections and app/author metadata, and re-parse correctly. Upstream scripts,
+framework modules and payloads were never executed.
+
+PASS: PowerShell/XAML parsing and git diff --check.
+No Files/ BIOS runtime changes. Main/v2/v3 are preserved.
+
+NOT RUN HERE: Windows PowerShell 5.1, native WPF/WinForms dialogs/rendering,
+TabItem routed events, COM highlighting/undo/scroll, keyboard/Narrator/DPI,
+NTFS ACL/backup merging, actual PSADT execution, content prep, Intune/SYSTEM,
+Windows servicing, driver applicability or Dell BIOS/BitLocker/restart behavior.
+Tests/V4/Test-WindowsUI.ps1 includes Open ZIP control presence for the native
+pilot; it was not executed here. Pilot real ZIPs/PS1s and the full app lifecycle
+as described in Builder/Direct-Script-Editor-Guide.md. Legacy edits do not convert
+3.x API calls into 4.x commands or certify cross-generation section templates.
+
+Previous release evidence follows unchanged.
+
 V4.4 direct PS1 editor and reliability validation - 2026-09-18
 
 PASS: 600 assertions across eleven isolated PowerShell 7.4.7/Linux suites:

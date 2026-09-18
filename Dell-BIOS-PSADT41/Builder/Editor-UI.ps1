@@ -23,27 +23,28 @@ function Save-EditorBuffer {
     if ($null -eq $script:editorDocument -or -not $script:editorSection) { return }
     if ($script:editorSection -eq 'Metadata') {
         if ($script:metadataEdits.Count) {
-            $script:editorDocument.MetadataText=Set-EditorMetadataValues $script:editorDocument.MetadataText $script:metadataEdits
+            $script:editorDocument.MetadataText=Set-EditorMetadataValues $script:editorDocument.MetadataText $script:metadataEdits (Get-EditorDocumentMetadataKind $script:editorDocument)
             $script:metadataEdits=@{}
         }
         return
     }
     $isSettings=$script:editorSection -eq 'CustomSettings'
     if ($isSettings -and -not $script:editorDocument.Contains('MetadataText')) { return }
-    $prior=if ($isSettings) { $script:editorDocument.MetadataText } else { $script:editorDocument.Sections[$script:editorSection] }
+    $prior=if ($script:editorSection -eq 'FullScript') {$script:editorDocument.CurrentScript} elseif ($isSettings) { $script:editorDocument.MetadataText } else { $script:editorDocument.Sections[$script:editorSection] }
     $text=$script:editorBox.Text
     # RichTextBox normalizes CRLF to LF. Merely visiting a page must not dirty it.
     if ($prior.Replace("`r`n","`n") -ceq $text.Replace("`r`n","`n")) { return }
     $newline=if ($script:editorDocument.Text.Contains("`r`n")) {"`r`n"} else {"`n"}
     $text=$text.Replace("`r`n","`n").Replace("`n",$newline)
-    if ($isSettings) { $script:editorDocument.MetadataText=$text } else { $script:editorDocument.Sections[$script:editorSection]=$text }
+    if ($script:editorSection -eq 'FullScript') {$script:editorDocument.CurrentScript=$text} elseif ($isSettings) { $script:editorDocument.MetadataText=$text } else { $script:editorDocument.Sections[$script:editorSection]=$text }
 }
 function Show-EditorMetadata {
     $controls.MetadataFields.Children.Clear(); $script:metadataControls=@{}; $script:metadataEdits=@{}
     if ($null -eq $script:editorDocument -or -not $script:editorDocument.Contains('MetadataText')) { return }
-    $values=Get-EditorMetadataFields $script:editorDocument.MetadataText
+    $kind=Get-EditorDocumentMetadataKind $script:editorDocument
+    $values=Get-EditorMetadataFields $script:editorDocument.MetadataText $kind
     $note=New-Object Windows.Controls.TextBlock
-    $note.Text='Common metadata fields. Custom settings contains the full adtSession table, including arrays, flags and calculated values.'
+    $note.Text=if ($kind -eq 'Variables') {'Legacy PSADT metadata. Custom settings contains the original variable declarations. Calculated values are never evaluated.'} else {'Common metadata fields. Custom settings contains the full adtSession table, including arrays, flags and calculated values.'}
     $note.TextWrapping='Wrap';$note.Margin='0,0,0,12';$null=$controls.MetadataFields.Children.Add($note)
     foreach ($item in @(@('AppName','App name'),@('AppVendor','Publisher / vendor'),@('AppVersion','App version'),@('AppScriptAuthor','Script author'),@('AppScriptVersion','Script version'),@('AppScriptDate','Script date'),@('AppArch','Architecture'),@('AppLang','Language'),@('AppRevision','Revision'),@('InstallName','Install name'),@('InstallTitle','Install title'))) {
         $key=$item[0];$label=New-Object Windows.Controls.Label;$label.Content=$item[1]
@@ -64,9 +65,22 @@ function Show-EditorMetadata {
     }
 }
 function Set-EditorDocument($Document) {
-    $script:editorDocument=$Document; $script:editorSection=''; $script:metadataEdits=@{}
-    $controls.EditorDocumentLabel.Text=if ($Document.Contains('Path')) {$Document.Path} else {'Selected ZIP deployment script'}
-    $controls.SectionList.SelectedIndex=-1; $controls.SectionList.SelectedIndex=0
+    $script:editorChanging=$true
+    try {
+        $script:editorDocument=$Document; $script:editorSection=''; $script:metadataEdits=@{}
+        $controls.EditorDocumentLabel.Text=if ($Document.Contains('Path')) {$Document.Path} else {'Selected ZIP deployment script'}
+        if ($Document.Contains('EntryPath')) { $controls.EditorDocumentLabel.Text+='  >  '+$Document.EntryPath }
+        $controls.SectionList.Items.Clear()
+        if (Test-EditorFullScript $Document) { $null=$controls.SectionList.Items.Add([pscustomobject]@{Label='Full script';Value='FullScript'}) }
+        else {
+            if ($Document.Contains('MetadataText')) {
+                foreach ($item in @(@{Label='Metadata';Value='Metadata'},@{Label='Custom settings';Value='CustomSettings'})) { $null=$controls.SectionList.Items.Add([pscustomobject]$item) }
+            }
+            for ($i=0;$i -lt $names.Count;$i++) { $null=$controls.SectionList.Items.Add([pscustomobject]@{Label=$labels[$i];Value=$names[$i]}) }
+        }
+        $controls.SectionList.SelectedIndex=-1
+    } finally { $script:editorChanging=$false }
+    $controls.SectionList.SelectedIndex=0
     $controls.Reviewed.IsChecked=$false
     Set-EditorAvailability
 }
@@ -94,31 +108,41 @@ function Get-ActiveEditorDocument([hashtable]$Settings) {
     }
     if (Test-EditorDirectDocument) { throw 'This is a standalone PS1. Save it, then ZIP the complete app and load that ZIP before building with editor changes.' }
     if ($script:editorDocument.Mode -ne $Settings.PackageType) { throw 'Deployment type changed. Reload the selected ZIP in Editor before building.' }
+    if (Test-EditorFullScript $script:editorDocument) {
+        if ($Settings.PackageType -ne 'Application') { throw 'Generated servicing requires mapped PSADT 4.1 sections. Use Application mode for a custom full script.' }
+        return @{ZIP_SHA256=$script:editorDocument.ZIP_SHA256;LayoutKind='FullScript';CurrentScript=(Get-EditorDocumentText $script:editorDocument)}
+    }
     Assert-EditorSections $script:editorDocument.Sections
     # A detached snapshot prevents UI changes racing the background build.
     $sections=[ordered]@{}
     foreach ($name in Get-EditorSectionNames) { $sections[$name]=[string]$script:editorDocument.Sections[$name] }
     $snapshot=@{ZIP_SHA256=$script:editorDocument.ZIP_SHA256;Sections=$sections}
-    if ($script:editorDocument.Contains('MetadataText')) { $null=Get-EditorMetadataTable $script:editorDocument.MetadataText; $snapshot.MetadataText=[string]$script:editorDocument.MetadataText }
+    if ($script:editorDocument.Contains('MetadataText')) {
+        $kind=Get-EditorDocumentMetadataKind $script:editorDocument
+        $null=Get-EditorMetadataFields $script:editorDocument.MetadataText $kind
+        $snapshot.MetadataText=[string]$script:editorDocument.MetadataText;$snapshot.MetadataKind=$kind
+    }
     return $snapshot
 }
 function Set-EditorAvailability {
     $direct=Test-EditorDirectDocument
     $allowed=$script:fields.PackageType.SelectedValue -ne 'BIOS'
     $controls.EditorMode.IsEnabled=($allowed -and -not $direct)
-    if (-not $allowed) { $controls.EditorMode.SelectedIndex=0 }
+    if ($direct) { $controls.EditorMode.SelectedIndex=1 } elseif (-not $allowed) { $controls.EditorMode.SelectedIndex=0 }
     $packageEditing=$allowed -and $controls.EditorMode.SelectedIndex -eq 1 -and -not $direct
     $script:fields.UseEditor.IsChecked=$packageEditing
     $hasDocument=$null -ne $script:editorDocument
     $signed=$hasDocument -and $script:editorDocument.Contains('Signed') -and $script:editorDocument.Signed
     $editing=($hasDocument -and -not $signed -and (($direct -and $script:editorDocument.Editable) -or $packageEditing))
     $controls.EditorOpenScript.IsEnabled=$true
+    $controls.EditorOpenZip.IsEnabled=$true
     $controls.EditorEditScript.IsEnabled=($direct -and -not $signed -and -not $script:editorDocument.Editable)
-    $controls.EditorSaveScript.IsEnabled=($direct -and $editing);$controls.EditorSaveScriptAs.IsEnabled=$controls.EditorSaveScript.IsEnabled
-    $controls.EditorCloseScript.IsEnabled=$direct
-    $controls.EditorLoad.IsEnabled=($allowed -and $controls.EditorMode.SelectedIndex -eq 1 -and -not $direct)
-    $controls.EditorImport.IsEnabled=($editing -or $controls.EditorLoad.IsEnabled)
+    $controls.EditorSaveScript.IsEnabled=($direct -and $editing);$controls.EditorSaveScriptAs.IsEnabled=$editing
+    $controls.EditorCloseScript.IsEnabled=$hasDocument
+    $controls.EditorLoad.IsEnabled=$true
+    $controls.EditorImport.IsEnabled=($editing -and -not (Test-EditorFullScript $script:editorDocument))
     foreach ($name in @('EditorSave','EditorValidate')) { $controls[$name].IsEnabled=($hasDocument -and ($direct -or $packageEditing)) }
+    if (Test-EditorFullScript $script:editorDocument) { $controls.EditorSave.IsEnabled=$false }
     $controls.SectionList.IsEnabled=($hasDocument -and ($direct -or $packageEditing))
     $controls.EditorHost.IsEnabled=$controls.SectionList.IsEnabled
     $controls.MetadataView.IsEnabled=$editing
@@ -127,9 +151,10 @@ function Set-EditorAvailability {
         if ($signed) {'Signed script opened for review. Create an unsigned authoring copy to edit; signatures are never removed automatically.'}
         elseif ($editing) {'Editing PS1. Save PS1 includes metadata and code; replacing the opened file keeps a backup. Save template stores only sections.'}
         else {'PS1 opened for review. Click EDIT to change metadata, custom settings and deployment sections.'}
-    } elseif (-not $allowed) {'Open PS1 works independently of package settings. Managed BIOS package functions remain protected.'}
-    elseif (-not $packageEditing) {'Choose Editor for ZIP section editing, or Open PS1 for direct script editing.'}
+    } elseif (-not $allowed) {'Open ZIP loads its deployment script into Editor automatically. Managed BIOS package functions remain protected.'}
+    elseif (-not $packageEditing) {'Open ZIP or Load selected ZIP switches to Editor automatically. Open PS1 also works without a package.'}
     else {'Load the selected ZIP to edit its sections and metadata. Imported code is never executed.'}
+    if ($hasDocument -and $script:editorDocument.Contains('LayoutNotice')) { $controls.EditorStatus.Text+=' '+$script:editorDocument.LayoutNotice }
 }
 $controls.EditorMode.Add_SelectionChanged({ Set-EditorAvailability; $controls.Reviewed.IsChecked=$false })
 $controls.SectionList.Add_SelectionChanged({
@@ -146,8 +171,10 @@ $controls.SectionList.Add_SelectionChanged({
         else {
             $script:editorBox.Text=if ($null -eq $script:editorDocument -or -not $script:editorSection) {''}
                 elseif ($script:editorSection -eq 'CustomSettings') { if ($script:editorDocument.Contains('MetadataText')) {$script:editorDocument.MetadataText} else {'# This app calculates metadata. Its original bootstrap is preserved.'} }
+                elseif ($script:editorSection -eq 'FullScript') {$script:editorDocument.CurrentScript}
                 else {$script:editorDocument.Sections[$script:editorSection]}
         }
+        $script:editorBox.MaxLength=if ($script:editorSection -eq 'FullScript') {2MB} else {100000}
         Set-EditorAvailability
         if ($script:editorSection -in @('Metadata','CustomSettings') -and $null -ne $script:editorDocument -and -not $script:editorDocument.Contains('MetadataText')) {
             $script:editorBox.ReadOnly=$true; $controls.EditorStatus.Text='This app calculates metadata. The original script is preserved; metadata editing is unavailable for this layout.'
@@ -165,6 +192,11 @@ function Open-EditorScriptDialog {
     $dialog=New-Object Microsoft.Win32.OpenFileDialog;$dialog.Filter='PSADT deployment script (*.ps1)|*.ps1'
     if ($dialog.ShowDialog($window)) { Start-EditorPackageLoad -ScriptPath $dialog.FileName }
 }
+function Open-EditorZipDialog {
+    $dialog=New-Object Microsoft.Win32.OpenFileDialog;$dialog.Filter='PSADT framework or application ZIP (*.zip)|*.zip'
+    if ($dialog.ShowDialog($window)) { Start-EditorPackageLoad -ZipPath $dialog.FileName }
+}
+$controls.EditorOpenZip.Add_Click({ Open-EditorZipDialog })
 $controls.EditorOpenScript.Add_Click({ Open-EditorScriptDialog })
 $controls.EditorEditScript.Add_Click({
     if (Test-EditorDirectDocument) {
@@ -175,15 +207,23 @@ $controls.EditorEditScript.Add_Click({
 function Save-EditorScriptUI([bool]$SaveAs) {
     try {
         Save-EditorBuffer
-        if (-not (Test-EditorDirectDocument)) { throw 'Open a PS1 first.' }
+        if ($null -eq $script:editorDocument) { throw 'Open a ZIP or PS1 first.' }
+        $direct=Test-EditorDirectDocument
+        if (-not $direct -and -not $SaveAs) { throw 'Use Save as new PS1 to export the deployment script from this ZIP.' }
         $path=$script:editorDocument.Path
         if ($SaveAs) {
             $dialog=New-Object Microsoft.Win32.SaveFileDialog;$dialog.Filter='PowerShell script (*.ps1)|*.ps1';$dialog.OverwritePrompt=$false
-            $dialog.InitialDirectory=[IO.Path]::GetDirectoryName($path);$dialog.FileName=[IO.Path]::GetFileNameWithoutExtension($path)+'.edited.ps1'
+            $dialog.InitialDirectory=[IO.Path]::GetDirectoryName($path)
+            $dialog.FileName=if ($direct) {[IO.Path]::GetFileNameWithoutExtension($path)+'.edited.ps1'} else {$script:editorDocument.EntryScript}
             if (-not $dialog.ShowDialog($window)) { return };$path=$dialog.FileName
         }
-        $result=Save-EditorScriptDocument $script:editorDocument $path
-        Set-EditorDocument $result.Document
+        $saveDocument=$script:editorDocument
+        if (-not $direct) {
+            $saveDocument=@{};foreach ($key in $script:editorDocument.Keys) {$saveDocument[$key]=$script:editorDocument[$key]}
+            $saveDocument.SourceKind='Script';$saveDocument.Editable=$true
+        }
+        $result=Save-EditorScriptDocument $saveDocument $path
+        if ($direct) { Set-EditorDocument $result.Document }
         $controls.EditorStatus.Text=if (-not $result.Changed) {'No changes to save; original file left intact.'} elseif ($result.BackupPath) {'Saved PS1. Previous version: '+$result.BackupPath} else {'Saved new PS1: '+$path}
     } catch { $controls.EditorStatus.Text=Get-BuilderFailureMessage $_ }
 }
@@ -193,13 +233,40 @@ $controls.EditorCloseScript.Add_Click({
     try { if (Confirm-EditorReplacement) { Clear-EditorDocument } }
     catch { $controls.EditorStatus.Text=Get-BuilderFailureMessage $_ }
 })
-function Start-EditorPackageLoad([string]$TemplatePath='',[string]$ScriptPath='') {
+function Get-EditorLoadSettings([string]$ScriptPath,[string]$ZipPath) {
+    $s=New-PackageBuildSettings
+    if ($ScriptPath) { $s.PackageType='Script';return $s }
+    $s.FrameworkZip=if ($ZipPath) {$ZipPath} else {$script:fields.FrameworkZip.Text}
+    if (-not $s.FrameworkZip) { throw 'Choose Open ZIP, or select a PSADT ZIP in Files first.' }
+    $s.PackageType=if (-not $ZipPath -and $script:fields.PackageType.SelectedValue -in @('WindowsUpdate','Driver')) {$script:fields.PackageType.SelectedValue} else {'Application'}
+    if ($s.PackageType -ne 'Application') { $s.ApplicationName=$script:fields.ApplicationName.Text;$s.ApplicationVersion=$script:fields.ApplicationVersion.Text }
+    return $s
+}
+function Complete-EditorLoad($Document,$Job) {
+    if ($Document.SourceKind -eq 'ZIP') {
+        $script:fields.PackageType.SelectedValue=$Document.Mode
+        $script:fields.FrameworkZip.Text=$Document.Path
+        $controls.EditorMode.SelectedIndex=1
+        if ($Document.Mode -eq 'Application') {
+            $replaceIdentity=$Job.ContainsKey('OpenedZip') -and $Job.OpenedZip
+            $values=if ($Document.Contains('MetadataText')) {Get-EditorMetadataFields $Document.MetadataText (Get-EditorDocumentMetadataKind $Document)} else {[ordered]@{}}
+            foreach ($pair in @(@('AppName','ApplicationName'),@('AppVersion','ApplicationVersion'))) {
+                if ($replaceIdentity) { $script:fields[$pair[1]].Text='' }
+                if (-not $script:fields[$pair[1]].Text -and $values.Contains($pair[0]) -and $values[$pair[0]].Literal) { $script:fields[$pair[1]].Text=$values[$pair[0]].Value }
+            }
+        }
+    }
+    $controls.EditorTab.IsSelected=$true
+    Set-EditorDocument $Document
+    $script:fields.SectionTemplatePath.Text=$Job.TemplatePath
+}
+function Start-EditorPackageLoad([string]$TemplatePath='',[string]$ScriptPath='',[string]$ZipPath='') {
     $worker=$null
     try {
         if ($null -ne $script:job) { throw 'Wait for the current operation to finish.' }
         if (-not (Confirm-EditorReplacement)) { return }
-        $s=if ($ScriptPath) { @{FrameworkZip='';PackageType='Script'} } else { Get-FormSettings }
-        if ($s.PackageType -eq 'BIOS') { throw 'BIOS package sections are protected. Use Open PS1 for a separate authoring script.' }
+        if ($ScriptPath -and [IO.Path]::GetExtension($ScriptPath) -eq '.zip') { $ZipPath=$ScriptPath;$ScriptPath='' }
+        $s=Get-EditorLoadSettings $ScriptPath $ZipPath
         $worker=[PowerShell]::Create()
         $queue=New-Object 'System.Collections.Concurrent.ConcurrentQueue[string]'
         $null=$worker.AddScript({param($engine,$zip,$mode,$template,$scriptPath,$identity)
@@ -210,19 +277,24 @@ function Start-EditorPackageLoad([string]$TemplatePath='',[string]$ScriptPath=''
                 $doc=Read-EditorPackage $zip
                 if ($template) {
                     $doc.Sections=Import-EditorTemplate $template
+                    if (Test-EditorFullScript $doc) { Stop-BuilderValidation 'Section templates require a recognized section layout. This deployment uses Full script editing.' }
                     $null=Set-EditorSections $doc.Text $doc.Sections
                 } elseif ($mode -in @('WindowsUpdate','Driver')) {
+                    if (Test-EditorFullScript $doc) { Stop-BuilderValidation 'Generated servicing requires the standard PSADT 4.1 section layout.' }
                     $doc.Sections=New-MaintenanceSections
                     $doc.MetadataText=(Get-EditorMetadataLayout (Set-MaintenanceIdentity $doc.Text $identity)).Extent.Text
+                    $doc.MetadataKind='Table'
                 }
                 $doc.Mode=$mode
                 return $doc
             } catch {
-                if ($_.Exception.Data.Contains('BuilderSafeMessage')) { throw [string]$_.Exception.Data['BuilderSafeMessage'] }
-                throw 'Could not load this PSADT file. Check its path, supported layout and permissions. No imported script was executed.'
+                $detail='Could not open this file. Check its path, valid PowerShell syntax and permissions. Imported code was not executed.'
+                $cause=$_.Exception
+                while ($null -ne $cause) { if ($cause.Data.Contains('BuilderSafeMessage')) {$detail=[string]$cause.Data['BuilderSafeMessage'];break};$cause=$cause.InnerException }
+                return @{EditorLoadError=$detail}
             }
         }).AddArgument((Join-Path $PSScriptRoot 'Build-Package.ps1')).AddArgument($s.FrameworkZip).AddArgument($s.PackageType).AddArgument($TemplatePath).AddArgument($ScriptPath).AddArgument($s)
-        $script:job=@{Worker=$worker;Handle=$worker.BeginInvoke();Queue=$queue;Secret=$null;Kind='Editor';TemplatePath=$TemplatePath}
+        $script:job=@{Worker=$worker;Handle=$worker.BeginInvoke();Queue=$queue;Secret=$null;Kind='Editor';TemplatePath=$TemplatePath;OpenedZip=[bool]$ZipPath}
         Set-BuilderBusy $true
         $controls.BuildLog.Text='Loading PSADT sections in the background. No imported script is executed.'
         $controls.EditorStatus.Text='Loading sections... Close will wait for extraction cleanup.'
@@ -232,6 +304,10 @@ function Start-EditorPackageLoad([string]$TemplatePath='',[string]$ScriptPath=''
     }
 }
 $controls.EditorLoad.Add_Click({ Start-EditorPackageLoad })
+$controls.EditorTab.Add_Selected({param($sender,$eventArgs)
+    if (-not [object]::ReferenceEquals($eventArgs.OriginalSource,$sender)) { return }
+    if ($sender.IsSelected -and $null -eq $script:job -and $null -eq $script:editorDocument -and $script:fields.FrameworkZip.Text) { Start-EditorPackageLoad }
+})
 $controls.EditorImport.Add_Click({
     $dialog=New-Object Microsoft.Win32.OpenFileDialog; $dialog.Filter='PSADT section template (*.psadt.json)|*.psadt.json|JSON (*.json)|*.json'
     if ($dialog.ShowDialog($window)) {
@@ -288,6 +364,7 @@ $script:editorColorTimer.Add_Tick({
     if ($script:editorChanging -or -not $controls.EditorHost.IsVisible) { return }
     $box=$script:editorBox; $text=$box.Text
     if ($text -ceq $script:lastColoredText) { return }
+    if ($text.Length -gt 100000) { $script:lastColoredText=$text;return } # Large full scripts stay responsive in plain text.
     $start=$box.SelectionStart; $length=$box.SelectionLength; $modified=$box.Modified; $render=$null
     $script:editorChanging=$true
     try {

@@ -14,7 +14,7 @@ $window.Title=$builderBrand.AppTitle
 Initialize-BiosWindowChrome $window (Join-Path $script:BuilderSource 'Files/UI/Theme.xaml') $builderBrand (Get-BiosBrandIconPath $PSScriptRoot $builderBrand)
 $script:fields=@{}; $script:fieldBoxes=@{}; $script:kind=@{}; $script:job=$null; $script:lastOutput=''; $script:closeRequested=$false
 $controls=@{}
-foreach ($name in @('Tabs','FilesPanel','DeploymentPanel','ApplicationPanel','MaintenancePanel','EditorPanel','ExperiencePanel','ApplicationExperiencePanel','OutputPanel','ReviewText','ReviewConsent','OutputNotice','Reviewed','BuildButton','OpenButton','Progress','BuildLog','LoadButton','SaveButton','CloseButton','EditorMode','EditorLoad','EditorImport','EditorSave','EditorValidate','EditorHost','SectionList','EditorStatus','EditorTab','EditorOpenScript','EditorEditScript','EditorSaveScript','EditorSaveScriptAs','EditorCloseScript','EditorDocumentLabel','MetadataView','MetadataFields')) { $controls[$name]=$window.FindName($name) }
+foreach ($name in @('Tabs','FilesPanel','DeploymentPanel','ApplicationPanel','MaintenancePanel','EditorPanel','ExperiencePanel','ApplicationExperiencePanel','OutputPanel','ReviewText','ReviewConsent','OutputNotice','Reviewed','BuildButton','OpenButton','Progress','BuildLog','LoadButton','SaveButton','CloseButton','EditorMode','EditorLoad','EditorImport','EditorSave','EditorValidate','EditorHost','SectionList','EditorStatus','EditorTab','EditorOpenScript','EditorOpenZip','EditorEditScript','EditorSaveScript','EditorSaveScriptAs','EditorCloseScript','EditorDocumentLabel','MetadataView','MetadataFields')) { $controls[$name]=$window.FindName($name) }
 function Set-BuilderBusy([bool]$Busy) {
     foreach ($name in @('FilesPanel','DeploymentPanel','ApplicationPanel','MaintenancePanel','EditorPanel','ExperiencePanel','OutputPanel','Reviewed','BuildButton','LoadButton','SaveButton')) { $controls[$name].IsEnabled=-not $Busy }
     $controls.OpenButton.IsEnabled=(-not $Busy -and [bool]$script:lastOutput)
@@ -81,10 +81,10 @@ function Add-Field($Panel,[string]$Key,[string]$Label,[string]$Type='Text',[stri
     if ($Help) { $note=New-Object Windows.Controls.TextBlock; $note.Text=$Help; $note.FontSize=12; $note.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty,'MutedBrush'); $null=$box.Children.Add($note) }
     $null=$Panel.Children.Add($box); $script:fields[$Key]=$inputControl; $script:fieldBoxes[$Key]=$box; $script:kind[$Key]=$Type
 }
-$openScriptShortcut=New-Object Windows.Controls.Button; $openScriptShortcut.Content='Open a PSADT PS1 to edit...'
-$openScriptShortcut.ToolTip='Open the script directly without configuring a package or selecting a ZIP.'
+$openScriptShortcut=New-Object Windows.Controls.Button; $openScriptShortcut.Content='Open a PSADT ZIP in Editor...'
+$openScriptShortcut.ToolTip='Detect the deployment script and begin authoring without configuring a package.'
 $null=$controls.FilesPanel.Children.Add($openScriptShortcut)
-$openScriptShortcut.Add_Click({ $controls.EditorTab.IsSelected=$true; Open-EditorScriptDialog })
+$openScriptShortcut.Add_Click({ Open-EditorZipDialog })
 Add-Heading $controls.FilesPanel 'Choose what you are deploying' 'Choose the package type. PSADT is the default authoring view; Editor lets you change supported deployment sections.'
 Add-Field $controls.FilesPanel PackageType '_Deployment type' PackageType 'BIOS, Windows Update and Dell Driver use PSADT 4.1.x. Application also accepts prepared PSADT 4.x or legacy 3.x app ZIPs.'
 Add-Field $controls.FilesPanel BiosPath '_Dell BIOS executable' Bios 'The copied EXE is renamed ApprovedBIOS.exe, hashed and checked for a valid Dell signature. It is never run by the builder.'
@@ -307,15 +307,16 @@ $timer.Add_Tick({
     if ($script:job.Handle.IsCompleted) {
         try {
             $results=$script:job.Worker.EndInvoke($script:job.Handle)
-            if ($script:job.Worker.HadErrors -or $results.Count -ne 1) {
+            if ($script:job.ContainsKey('Kind') -and $script:job.Kind -eq 'Editor' -and $results.Count -eq 1 -and $results[0].Contains('EditorLoadError')) {
+                $controls.EditorStatus.Text=$results[0].EditorLoadError
+                $controls.BuildLog.AppendText("`r`nFAILED: "+$results[0].EditorLoadError)
+            } elseif ($script:job.Worker.HadErrors -or $results.Count -ne 1) {
                 # Engine's catch deliberately sanitizes phase-specific build errors.
                 $detail=if ($script:job.Worker.Streams.Error.Count) { Get-BuilderFailureMessage $script:job.Worker.Streams.Error[0] } else {'The build did not produce one result.'}
                 $controls.BuildLog.AppendText("`r`nFAILED: "+$detail)
                 if ($script:job.ContainsKey('Kind') -and $script:job.Kind -eq 'Editor') { $controls.EditorStatus.Text=$detail }
             } elseif ($script:job.ContainsKey('Kind') -and $script:job.Kind -eq 'Editor') {
-                Set-EditorDocument $results[0]
-                $script:fields.SectionTemplatePath.Text=$script:job.TemplatePath
-                $controls.EditorStatus.Text=if ($results[0].Contains('SourceKind') -and $results[0].SourceKind -eq 'Script') {'PS1 opened for review. Click EDIT to change metadata, custom settings and deployment sections.'} else {'Loaded PSADT sections and available metadata. Review, edit, check syntax, or save a reusable section template.'}
+                Complete-EditorLoad $results[0] $script:job
                 $controls.BuildLog.AppendText("`r`nEditor sections loaded. No package has been built.")
                 $controls.OpenButton.IsEnabled=[bool]$script:lastOutput
             } else {

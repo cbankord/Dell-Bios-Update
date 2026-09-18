@@ -81,6 +81,6 @@ try {
     $panel=$xml.SelectSingleNode("//*[@*[local-name()='Name']='OutputPanel']")
     $tab=$panel.ParentNode.ParentNode.ParentNode
     Check ($tab.LocalName -eq 'TabItem' -and $tab.Header -eq '5  Build') 'Destination is on the Build screen before review and build'
-    Check ($xml.DocumentElement.Title -eq 'PSADT Deployment Builder v4.4' -and (Import-PowerShellDataFile "$root/Builder/Branding.psd1").AppTitle -eq $xml.DocumentElement.Title) 'Default caption and branded title identify v4.4'
+    Check ($xml.DocumentElement.Title -eq 'PSADT Deployment Builder v4.5' -and (Import-PowerShellDataFile "$root/Builder/Branding.psd1").AppTitle -eq $xml.DocumentElement.Title) 'Default caption and branded title identify v4.5'
     Write-Output "PASS: $count builder output assertions. Actual selection/review callbacks; native folder picker and WPF require Windows pilot."
 } finally { $env:ProgramData=$oldData; Remove-Item -LiteralPath $temp -Recurse -Force }

@@ -1,8 +1,11 @@
-# PSADT Deployment Builder v4.4
+# PSADT Deployment Builder v4.5
 
-**v4.4 adds direct PS1 editing: Open PS1 → EDIT → Save PS1.**
+**v4.5: Open ZIP → Editor, with automatic deployment-script detection.**
 Edit common app metadata, the full custom settings table, custom/functions and all
-nine install/uninstall/repair phases without selecting a ZIP or package settings.
+nine install/uninstall/repair phases. Load either Deploy-Application.ps1 or
+Invoke-AppDeployToolkit.ps1 from a ZIP, or open a PS1 directly. Legacy metadata
+variables and calculated metadata no longer prevent opening; custom layouts
+use full script editing. No build settings are needed just to open a document.
 [Direct editing and safe saves](Direct-Script-Editor-Guide.md) explains backups, Save as, supported
 layouts and the Windows pilot. The four packaging modes and ZIP editor remain.
 
@@ -14,7 +17,7 @@ detection script and Intune setup notes. See [the application guide](Application
 App mode supports complete PSADT 4.x and legacy 3.x layouts; it does not import
 or execute their scripts. The BIOS framework restriction remains 4.1.x.
 
-**Builder 4.4.0 includes the v4.0.1 Install Now launch fix for PSADT 4.1.4-4.1.8.**
+**Builder 4.5.0 includes the v4.0.1 Install Now launch fix for PSADT 4.1.4-4.1.8.**
 If an older package reports a parameter-set error and exits 60001, restart this
 builder from the updated v4 copy and rebuild with your existing approved settings
 and custom ZIP. Replace the complete package and its generated Intune detection;
@@ -59,7 +62,7 @@ button does not cancel an endpoint BIOS update or change the deployment UI.
    timeout, restart countdown and sound/recenter interval. Set **Allow schedule
    later** (enabled by default). Enter company text, colors, optional logo/banner
    images and a title-bar PNG/ICO icon. The selected icon previews immediately.
-4. **PSADT / Editor:** optionally load and edit the ten PSADT 4.x sections, or
+4. **PSADT / Editor:** optionally load and edit the supported deployment sections and metadata, or
    save/load a section-only template. Leave PSADT selected for default packaging.
 5. **Build:** choose **Output folder → Choose folder** or type the destination.
    Review its path and the settings, confirm that you reviewed the approved
@@ -230,7 +233,7 @@ failure removes only that build's partial directory, preserving previous builds.
 Changing destination invalidates the review; it is locked while a build is active.
 
 Review text, progress, `Build.log` and `BuildManifest.json` identify the destination.
-The manifest records `BuilderVersion = 4.4.0`, `PackageType`, `OutputRoot` and `OutputDirectory`.
+The manifest records `BuilderVersion = 4.5.0`, `PackageType`, `OutputRoot` and `OutputDirectory`.
 `Settings.psd1` saves your selection for another build; **Open output** opens the
 completed build folder. These paths describe the build computer, not an endpoint
 cache location: BIOS endpoint files still use `C:\ProgramData\Medela\DellBIOS`.

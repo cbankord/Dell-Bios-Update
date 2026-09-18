@@ -2,7 +2,7 @@
 # Reusable build engine. Dot-source, then call New-DeploymentPackage.
 # Never executes the BIOS, imported template scripts, or a secret from a preset.
 Set-StrictMode -Version 3
-$script:BuilderVersion='4.4.0'
+$script:BuilderVersion='4.5.0'
 $script:BuilderSource = Split-Path $PSScriptRoot -Parent
 . "$script:BuilderSource/Files/Common.ps1"
 . "$script:BuilderSource/Files/Simple/State.ps1"
@@ -11,6 +11,7 @@ $script:BuilderSource = Split-Path $PSScriptRoot -Parent
 . "$PSScriptRoot/Application-Package.ps1"
 . "$PSScriptRoot/Section-Editor.ps1"
 . "$PSScriptRoot/Script-Editor.ps1"
+. "$PSScriptRoot/Legacy-Editor.ps1"
 . "$PSScriptRoot/Maintenance-Package.ps1"
 
 function Get-BuilderFailureMessage([Management.Automation.ErrorRecord]$Record) {

@@ -45,7 +45,7 @@ foreach($folder in @('Builder','Files/UI')) {
             $hostControl.Child=$box
             Check ($hostControl.Child.Text.Contains('Inert preview')) 'Inline native text editor attaches to WPF host'
             Check ($window.FindName('EditorMode').SelectedIndex -eq 0) 'Default authoring view is PSADT'
-            foreach ($name in @('EditorOpenScript','EditorEditScript','EditorSaveScript','EditorSaveScriptAs','EditorCloseScript')) {
+            foreach ($name in @('EditorOpenZip','EditorOpenScript','EditorEditScript','EditorSaveScript','EditorSaveScriptAs','EditorCloseScript')) {
                 Check ($null -ne $window.FindName($name)) "$name is present in the native editor window"
             }
             $window.UpdateLayout();$box.WordWrap=$false

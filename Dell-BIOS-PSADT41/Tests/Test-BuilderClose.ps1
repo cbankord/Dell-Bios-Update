@@ -39,6 +39,10 @@ foreach ($name in @('FilesPanel','DeploymentPanel','ApplicationPanel','Maintenan
 }
 $script:fields=@{SectionTemplatePath=[pscustomobject]@{Text=''}}
 $controls.EditorStatus=[pscustomobject]@{Text=''}
+$controls.EditorTab=[pscustomobject]@{IsSelected=$false}
+$editorAst=[Management.Automation.Language.Parser]::ParseFile("$root/Builder/Editor-UI.ps1",[ref]$tokens,[ref]$errors)
+$complete=$editorAst.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Complete-EditorLoad'},$true)
+. ([scriptblock]::Create($complete.Extent.Text))
 function Set-EditorDocument($Document) { $script:loadedEditorDocument=$Document }
 $controls.BuildLog=[pscustomobject]@{Text=''}
 $controls.BuildLog | Add-Member ScriptMethod AppendText {param($text) $this.Text+=$text}

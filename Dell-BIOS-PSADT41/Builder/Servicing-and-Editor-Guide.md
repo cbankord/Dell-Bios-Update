@@ -1,8 +1,8 @@
-# v4.4 Windows Update, Dell Driver and inline editor
+# v4.5 Windows Update, Dell Driver and inline editor
 
 Run `Start-PackageBuilder.cmd` on an x64 Windows packaging computer using Windows
-PowerShell 5.1. The deployment list has four choices. The authoring view defaults
-to **PSADT**; choose **Editor** when you want to modify deployment sections.
+PowerShell 5.1. The deployment list has four choices. The packaging view starts as **PSADT**. **Open ZIP** and **Load selected ZIP**
+automatically enter **Editor**; there is no need to change the dropdown first.
 
 | Deployment type | PSADT ZIP | Additional input | Default behavior |
 |---|---|---|---|
@@ -88,12 +88,14 @@ Windows DISM/CBS logs for updates, and SetupAPI device logs for drivers.
 ## Inline PSADT section editor
 
 For direct **Open PS1 → EDIT**, common metadata fields and custom settings, see
-[the v4.4 direct editor guide](Direct-Script-Editor-Guide.md). No ZIP is required
+[the v4.5 direct editor guide](Direct-Script-Editor-Guide.md). No ZIP is required
 for that workflow. The steps below describe ZIP authoring.
 
-1. Choose the deployment type and PSADT ZIP on **Files**.
-2. Open **4 PSADT / Editor** and select **Editor**.
-3. Click **Load selected ZIP**. For Application, all supported sections are loaded
+1. Click **Open ZIP** in **4 PSADT / Editor** to load the original deployment as
+   Application authoring, without completing build settings.
+2. Alternatively choose the deployment type and PSADT ZIP on **Files**. Entering
+   an empty Editor tab loads that ZIP automatically.
+3. **Load selected ZIP** reloads on request and selects Editor automatically. For Application, all supported sections are loaded
    from its actual deployment script. For Windows Update/Driver, the editor shows
    the generated servicing defaults that the build would use.
 4. Choose a section in the left list and edit its PowerShell text:
@@ -119,12 +121,13 @@ The builder passes a detached snapshot to its background worker. If the ZIP's ha
 has changed since it was loaded, the build stops and asks you to reload. Saving a
 section template never modifies the original ZIP or deployment script. Settings
 presets remember `UseEditor` and `SectionTemplatePath`, not unsaved section text.
-Every generated/edited build includes `Sections.psadt.json` outside Source and its
+Every generated or mapped-section build includes `Sections.psadt.json` outside Source and its
 SHA256 in `BuildManifest.json`, together with payload/ZIP hashes, mode and whether
 source was preserved. EntryScriptSHA256 also covers metadata edits in the resulting
 entry script; section templates exclude metadata. A no-op Application editor build
 keeps the original entry bytes and records SourcePreserved=true. Build logs contain
-the decision and hashes, not section text.
+the decision and hashes, not section text. Full script builds record
+EditorLayout=FullScript and omit the section-only snapshot.
 
 For approved scripts that need signing, edit an unsigned authoring copy. The editor
 refuses to replace sections in a signed deployment script. Sign the generated entry
@@ -144,11 +147,15 @@ The metadata table changes only when explicitly edited. Nested braces, here-stri
 Custom functions must be one contiguous block before the deployment functions, or
 inside the editor's `BuilderCustomFunctions` region before them. Unrelated top-level
 initialization and imported helper files are not automatically captured. This is a
-section/metadata editor; it does not edit imported modules or extensions. Ambiguous layouts, extra/missing
-phase assignments, malformed code or unsupported templates fail without guessing.
+section/metadata editor; it does not edit imported modules or extensions. Ambiguous boundaries or extra/missing phase assignments fall back to full script
+editing when the script is valid. Invalid PowerShell still fails before saving.
 Input text must be UTF-8 (with or without BOM) or BOM-marked Unicode; convert
-legacy ANSI authoring files first. PSADT 3.x remains supported for unchanged Application packaging; it has no inline
-section editing. BIOS mode disables replacement of its managed safety functions.
+legacy ANSI authoring files first. Standard PSADT 3.x phase blocks and metadata
+variables are also supported. Unknown valid layouts open in Full script without
+guessing boundaries; section-template actions are disabled there. Calculated
+metadata stays intact while mapped phases remain editable. BIOS package generation
+still protects its managed functions. See the direct editor guide for ZIP and
+legacy behavior; editing never upgrades a framework or translates its APIs.
 
 Changing generated servicing code is an authoring action: your edited sections own
 its endpoint behavior. Removing the generated install call or adding restart code

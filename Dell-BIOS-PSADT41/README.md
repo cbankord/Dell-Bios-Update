@@ -1,8 +1,11 @@
-# PSADT Deployment Builder v4.4 — BIOS and applications
+# PSADT Deployment Builder v4.5 — BIOS and applications
 
-**v4.4 adds direct PS1 editing: Open PS1 → EDIT → Save PS1.**
+**v4.5: Open ZIP → Editor, with automatic deployment-script detection.**
 Edit common app metadata, the full custom settings table, custom/functions and all
-nine install/uninstall/repair phases without selecting a ZIP or package settings.
+nine install/uninstall/repair phases. Load either Deploy-Application.ps1 or
+Invoke-AppDeployToolkit.ps1 from a ZIP, or open a PS1 directly. Legacy metadata
+variables and calculated metadata no longer prevent opening; custom layouts
+use full script editing. No build settings are needed just to open a document.
 [Direct editing and safe saves](Builder/Direct-Script-Editor-Guide.md) explains backups, Save as, supported
 layouts and the Windows pilot. The four packaging modes and ZIP editor remain.
 
@@ -25,7 +28,7 @@ Intune scripts and a runtime integrity manifest. No BIOS/password is in Git.
 On **5 Build**, use **Output folder → Choose folder** or enter an existing local
 folder. A fresh session has no preset destination. Review the displayed path;
 the builder creates a unique protected build folder beneath it. Saved presets
-retain your choice. `BuildManifest.json` identifies builder `4.4.0` and records
+retain your choice. `BuildManifest.json` identifies builder `4.5.0` and records
 the selected parent and actual build directory. See [output details](Builder/README.md#output).
 
 ## User experience

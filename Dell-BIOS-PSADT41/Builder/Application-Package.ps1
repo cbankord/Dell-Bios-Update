@@ -72,7 +72,7 @@ function New-ApplicationPackage {
         $framework=Get-ApplicationFramework $expanded
         $source=Join-Path $build 'Source'; $null=[IO.Directory]::CreateDirectory($source)
         Get-ChildItem -LiteralPath $framework.Root -Force | Copy-Item -Destination $source -Recurse -Force
-        $sections=$null; $payloadHash=''; $sectionHash=''; $entryChanged=$false
+        $sections=$null; $payloadHash=''; $sectionHash=''; $entryChanged=$false; $fullScript=$false
         $maintenance=$Settings.PackageType -in @('WindowsUpdate','Driver')
         if ($maintenance) {
             if ($framework.Generation -ne 4 -or ([version]$framework.Version).Minor -ne 1) { Stop-BuilderValidation 'Generated Windows Update and Dell Driver deployments require a PSADT 4.1.x template.' }
@@ -82,24 +82,28 @@ function New-ApplicationPackage {
         }
         if ($Settings.UseEditor) {
             $phase='validating editor sections'
-            if ($framework.Generation -ne 4) { Stop-BuilderValidation 'The section editor supports PSADT 4.x deployments only.' }
             if ($null -ne $EditorDocument) {
                 if ($EditorDocument.ZIP_SHA256 -ne $zipHash) { Stop-BuilderValidation 'The PSADT ZIP changed after the editor loaded it. Reload the package in Editor before building.' }
-                $sections=$EditorDocument.Sections
+                $fullScript=Test-EditorFullScript $EditorDocument
+                if ($fullScript) {
+                    if ($maintenance) { Stop-BuilderValidation 'Generated servicing requires mapped PSADT 4.1 sections. Use Application mode for full script editing.' }
+                } else { $sections=$EditorDocument.Sections }
             } elseif ($Settings.SectionTemplatePath) { $sections=Import-EditorTemplate $Settings.SectionTemplatePath }
             else { Stop-BuilderValidation 'Load the selected ZIP in Editor, or select a saved section template before building in Editor mode.' }
         }
-        if ($null -ne $sections) {
+        if ($null -ne $sections -or $fullScript) {
             $phase='integrating PSADT sections'
             $entry=Join-Path $source $framework.EntryScript
             $originalText=Read-EditorScript $entry
-            $text=Set-EditorSections $originalText $sections
+            $text=if ($fullScript) { Get-EditorDocumentText @{LayoutKind='FullScript';Text=$originalText;CurrentScript=$EditorDocument.CurrentScript} } else { Set-EditorSections $originalText $sections }
             if ($maintenance) { $text=Set-MaintenanceIdentity $text $Settings }
-            if ($Settings.UseEditor -and $null -ne $EditorDocument -and $EditorDocument.Contains('MetadataText')) { $text=Set-EditorScriptMetadata $text $EditorDocument.MetadataText }
+            if (-not $fullScript -and $Settings.UseEditor -and $null -ne $EditorDocument -and $EditorDocument.Contains('MetadataText')) { $text=Set-EditorScriptMetadata $text $EditorDocument.MetadataText (Get-EditorDocumentMetadataKind $EditorDocument) }
             $entryChanged=$text -cne $originalText
             if ($entryChanged) { [IO.File]::WriteAllText($entry,$text,(New-Object Text.UTF8Encoding($true))) }
-            Export-EditorTemplate $sections (Join-Path $build 'Sections.psadt.json')
-            $sectionHash=(Get-FileHash -LiteralPath (Join-Path $build 'Sections.psadt.json')).Hash
+            if (-not $fullScript) {
+                Export-EditorTemplate $sections (Join-Path $build 'Sections.psadt.json')
+                $sectionHash=(Get-FileHash -LiteralPath (Join-Path $build 'Sections.psadt.json')).Hash
+            }
         }
         $phase='validating resulting application source'
         & $Progress 'Checking PowerShell syntax; supplied scripts and payloads are never executed by the builder...'
@@ -157,6 +161,7 @@ function New-ApplicationPackage {
             FrameworkGeneration=$framework.Generation;PackageZIP_SHA256=$zipHash;SetupFile=$framework.SetupFile
             InstallCommand=$install;UninstallCommand=$uninstall;Detection=$detection
             EntryScriptSHA256=(Get-FileHash -LiteralPath (Join-Path $source $framework.EntryScript)).Hash
+            EditorLayout=$(if ($fullScript) {'FullScript'} elseif ($null -ne $sections) {'Sections'} else {'Unchanged'})
             SourcePreserved=(-not $maintenance -and -not $entryChanged);EditorApplied=$Settings.UseEditor;SectionsSHA256=$sectionHash;PayloadSHA256=$payloadHash;WindowsBuild=$Settings.WindowsBuild;DriverModels=@($Settings.DriverModels);OutputRoot=$outputParent;OutputDirectory=$build
             OutputMode=$(if ($intuneWin) {'IntuneWin'} else {'SourceOnly'})
             IntuneWinSHA256=$(if ($intuneWin) {(Get-FileHash -LiteralPath $intuneWin -Algorithm SHA256).Hash} else {''})
@@ -169,6 +174,7 @@ function New-ApplicationPackage {
             ('Output folder: '+$outputParent); ('Build directory: '+$build)
             ('Output mode: '+$manifest.OutputMode); ('Detection: '+$detection.Mode)
             ('Sections applied: '+($null -ne $sections)+'; sections SHA256: '+$sectionHash)
+            ('Editor layout: '+$manifest.EditorLayout)
             'No managed BIOS helpers or credentials injected.'
         ),(New-Object Text.UTF8Encoding($true)))
         Export-PackagePreset $Settings (Join-Path $build 'Settings.psd1')

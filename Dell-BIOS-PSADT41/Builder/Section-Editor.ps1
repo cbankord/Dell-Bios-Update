@@ -43,6 +43,7 @@ function Get-EditorLayout([string]$Text) {
     if ($parsed.Errors.Count) { Stop-BuilderValidation 'The deployment script has syntax errors; no sections were changed.' }
     $ast=$parsed.Ast
     $functions=@($ast.EndBlock.Statements | Where-Object { $_ -is [Management.Automation.Language.FunctionDefinitionAst] })
+    if (-not @($functions|Where-Object Name -in @('Install-ADTDeployment','Uninstall-ADTDeployment','Repair-ADTDeployment')).Count) { return Get-LegacyEditorLayout $Text $parsed }
     $ranges=[ordered]@{}
     $deployment=@()
     foreach ($verb in @('Install','Uninstall','Repair')) {
@@ -130,12 +131,13 @@ function Read-EditorPackage([string]$ZipPath) {
         $snapshot=Join-Path $work 'input.zip'; Copy-Item -LiteralPath $ZipPath -Destination $snapshot
         $hash=(Get-FileHash -LiteralPath $snapshot).Hash
         $expanded=Join-Path $work 'Expanded'; Expand-BuilderZip $snapshot $expanded
-        $framework=Get-ApplicationFramework $expanded
-        if ($framework.Generation -ne 4) { Stop-BuilderValidation 'The inline editor supports PSADT 4.x. Legacy 3.x packages can still be built unchanged in PSADT mode.' }
-        $text=Read-EditorScript (Join-Path $framework.Root $framework.EntryScript)
-        $document=@{SourceKind='ZIP';Sections=(Get-EditorSections $text);ZIP_SHA256=$hash;Text=$text;Editable=$true;Signed=($text -match '(?m)^# SIG # Begin signature block')}
-        # Some custom apps calculate all metadata. Keep their original ZIP support.
-        try { $document.MetadataText=(Get-EditorMetadataLayout $text).Extent.Text } catch { $document.MetadataUnavailable=$true }
+        $entries=@(Get-ChildItem -LiteralPath $expanded -Recurse -File | Where-Object Name -in @('Invoke-AppDeployToolkit.ps1','Deploy-Application.ps1'))
+        if ($entries.Count -ne 1) { Stop-BuilderValidation 'The ZIP must contain one Invoke-AppDeployToolkit.ps1 or Deploy-Application.ps1. If it contains several deployments, open the intended PS1 or ZIP that deployment separately.' }
+        $entry=$entries[0]
+        $document=New-EditorTextDocument (Read-EditorScript $entry.FullName)
+        $document.SourceKind='ZIP';$document.Mode='Application';$document.ZIP_SHA256=$hash;$document.Path=[IO.Path]::GetFullPath($ZipPath)
+        $document.EntryScript=$entry.Name;$document.EntryPath=$entry.FullName.Substring($expanded.Length).TrimStart([char[]]@('\','/')).Replace('\','/')
+        $document.Editable=$true
         return $document
     } finally { if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -Force } }
 }

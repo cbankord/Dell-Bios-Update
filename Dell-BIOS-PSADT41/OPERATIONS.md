@@ -9,17 +9,18 @@ For Windows Update, Dell Driver and PSADT section templates, use the
 modes use Intune restart handling, require tested detection, and do not use BIOS
 state or the BIOS countdown. The remaining BIOS operations below still apply.
 
-## V4.4 package modes
+## V4.5 package modes
 
-The latest v4 builder is **PSADT Deployment Builder v4.4**. Choose **BIOS update**
+The latest v4 builder is **PSADT Deployment Builder v4.5**. Choose **BIOS update**
 **Application**, **Windows Update** or **Dell Driver** on Files. Old presets default to BIOS; switching/loading clears
 the password and review. Application mode preserves a complete supplied PSADT
 4.x or legacy 3.x deployment and its experience in the default PSADT view.
-Editor can replace supported PSADT 4.x sections. It packages app metadata,
+Editor opens ZIPs automatically and supports standard 3.x/4.x sections, metadata,
+or complete script editing for custom layouts. It packages app metadata,
 optional detection and Intune instructions without adding managed BIOS behavior.
 See [the application guide](Builder/Application-Guide.md).
 
-Check `BuildManifest.json`: `BuilderVersion` must be `4.4.0`; `PackageType` must
+Check `BuildManifest.json`: `BuilderVersion` must be `4.5.0`; `PackageType` must
 match the selected `BIOS`, `Application`, `WindowsUpdate` or `Driver` path. Use the README and Intune files
 from that build. Do not use BIOS detection/requirements or BIOS return-code
 mappings for software applications. An app without a supplied detection script
@@ -36,10 +37,10 @@ Intune context. Windows native dialogs and app execution were not tested here.
 ## Output selection introduced in v4.1
 
 Use the latest v4 branch and launch its `Builder/Start-PackageBuilder.cmd`; the
-caption reads **PSADT Deployment Builder v4.4**. On **5 Build**, select **Output
+caption reads **PSADT Deployment Builder v4.5**. On **5 Build**, select **Output
 folder → Choose folder** or enter an existing local destination. New sessions
 have no default output path; existing presets keep their saved `OutputRoot`.
-Confirm `BuildManifest.json` records `BuilderVersion` `4.4.0` and the expected
+Confirm `BuildManifest.json` records `BuilderVersion` `4.5.0` and the expected
 `OutputRoot` / unique `OutputDirectory`. The chosen parent contains Source,
 Intune scripts and optional Package/.intunewin under one new protected build folder.
 
@@ -342,7 +343,7 @@ does not prove whether a previous attempt staged firmware.
 2. Load your preset and use the same approved BIOS, settings and prepared PSADT
    4.1 ZIP. Re-enter the password locally if required. Build a fresh complete
    package; there is no need to downgrade the framework for this correction.
-3. Confirm `BuildManifest.json` has `BuilderVersion` equal to `4.4.0` (current), and generated
+3. Confirm `BuildManifest.json` has `BuilderVersion` equal to `4.5.0` (current), and generated
    `Source/Files/Simple/Deployment.ps1` and `Live.ps1` start with version `4.0.1`.
    Follow the existing final-signing/manifest regeneration instructions if applicable.
 4. Replace the Intune package **and its matching generated detection script**, or

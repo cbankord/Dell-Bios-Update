@@ -1,9 +1,12 @@
-V4.4 APPLICATION / WINDOWS UPDATE / DELL DRIVER OUTPUT
+V4.5 APPLICATION / WINDOWS UPDATE / DELL DRIVER OUTPUT
 
 For generated servicing or edited apps, read BuildManifest.json and the exact
 Source/Invoke-AppDeployToolkit.ps1 before deployment. SourcePreserved=false means
 source metadata/sections changed or servicing payload was added. Sections.psadt.json is a reusable
 section-only snapshot; it excludes metadata and is not a full deployment. Never store credentials in it.
+Full script editing records EditorLayout=FullScript and does not create a section
+template. Review Source and EntryScriptSHA256; the rest of the framework/payloads
+are preserved. Legacy script edits do not convert PSADT 3.x commands into 4.x APIs.
 WindowsUpdate/Driver require SYSTEM, the configured Windows build, and tested
 installed-state detection. Driver also requires an approved Dell model. Default
 servicing uses DISM or PnPUtil without requesting a restart, returns 3010 when
@@ -12,7 +15,7 @@ EntryScriptSHA256 records the resulting entry script, including metadata edits.
 Editor changes can alter those defaults and must be piloted. BIOS controls do not
 apply to these modes. See Builder/Servicing-and-Editor-Guide.md in the repository.
 
-APPLICATION WITH DEFAULT PSADT VIEW ONLY - V4.4
+APPLICATION WITH DEFAULT PSADT VIEW ONLY - V4.5
 The following source-preservation notes apply when PackageType=Application
 and SourcePreserved=true. Generated servicing and edited packages use the notes above.
 
