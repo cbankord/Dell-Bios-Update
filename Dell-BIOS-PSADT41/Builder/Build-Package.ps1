@@ -2,6 +2,7 @@
 # Reusable build engine. Dot-source, then call New-DeploymentPackage.
 # Never executes the BIOS, imported template scripts, or a secret from a preset.
 Set-StrictMode -Version 3
+$script:BuilderVersion='4.4.0'
 $script:BuilderSource = Split-Path $PSScriptRoot -Parent
 . "$script:BuilderSource/Files/Common.ps1"
 . "$script:BuilderSource/Files/Simple/State.ps1"
@@ -9,6 +10,7 @@ $script:BuilderSource = Split-Path $PSScriptRoot -Parent
 . "$script:BuilderSource/Files/UI/WindowChrome.ps1"
 . "$PSScriptRoot/Application-Package.ps1"
 . "$PSScriptRoot/Section-Editor.ps1"
+. "$PSScriptRoot/Script-Editor.ps1"
 . "$PSScriptRoot/Maintenance-Package.ps1"
 
 function Get-BuilderFailureMessage([Management.Automation.ErrorRecord]$Record) {
@@ -412,7 +414,7 @@ function New-DellBiosPackage {
         }
         $phase='writing build notes'
         $manifest=[ordered]@{
-            BuilderVersion='4.3.0'; PackageType='BIOS'; BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
+            BuilderVersion=$script:BuilderVersion; PackageType='BIOS'; BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
             FrameworkVersion=$framework.Version; FrameworkSHA256=$frameworkHash
             BIOS=$config; DeploymentPolicy=$policy; HasPassword=$Settings.BiosPasswordRequired
             OutputMode=$(if ($intuneWin) { 'IntuneWin' } else { 'SourceOnly' })

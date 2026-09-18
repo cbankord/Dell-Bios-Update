@@ -72,7 +72,7 @@ function New-ApplicationPackage {
         $framework=Get-ApplicationFramework $expanded
         $source=Join-Path $build 'Source'; $null=[IO.Directory]::CreateDirectory($source)
         Get-ChildItem -LiteralPath $framework.Root -Force | Copy-Item -Destination $source -Recurse -Force
-        $sections=$null; $payloadHash=''; $sectionHash=''
+        $sections=$null; $payloadHash=''; $sectionHash=''; $entryChanged=$false
         $maintenance=$Settings.PackageType -in @('WindowsUpdate','Driver')
         if ($maintenance) {
             if ($framework.Generation -ne 4 -or ([version]$framework.Version).Minor -ne 1) { Stop-BuilderValidation 'Generated Windows Update and Dell Driver deployments require a PSADT 4.1.x template.' }
@@ -92,13 +92,16 @@ function New-ApplicationPackage {
         if ($null -ne $sections) {
             $phase='integrating PSADT sections'
             $entry=Join-Path $source $framework.EntryScript
-            $text=Set-EditorSections (Read-EditorScript $entry) $sections
+            $originalText=Read-EditorScript $entry
+            $text=Set-EditorSections $originalText $sections
             if ($maintenance) { $text=Set-MaintenanceIdentity $text $Settings }
-            [IO.File]::WriteAllText($entry,$text,(New-Object Text.UTF8Encoding($true)))
+            if ($Settings.UseEditor -and $null -ne $EditorDocument -and $EditorDocument.Contains('MetadataText')) { $text=Set-EditorScriptMetadata $text $EditorDocument.MetadataText }
+            $entryChanged=$text -cne $originalText
+            if ($entryChanged) { [IO.File]::WriteAllText($entry,$text,(New-Object Text.UTF8Encoding($true))) }
             Export-EditorTemplate $sections (Join-Path $build 'Sections.psadt.json')
             $sectionHash=(Get-FileHash -LiteralPath (Join-Path $build 'Sections.psadt.json')).Hash
         }
-        $phase='validating unchanged application source'
+        $phase='validating resulting application source'
         & $Progress 'Checking PowerShell syntax; supplied scripts and payloads are never executed by the builder...'
         foreach ($file in Get-ChildItem -LiteralPath $source -Recurse -File | Where-Object Extension -in @('.ps1','.psd1')) {
             $tokens=$null; $errors=$null
@@ -148,18 +151,19 @@ function New-ApplicationPackage {
         }
         $phase='writing application build records'
         $manifest=[ordered]@{
-            BuilderVersion='4.3.0';PackageType=$Settings.PackageType;BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
+            BuilderVersion=$script:BuilderVersion;PackageType=$Settings.PackageType;BuiltUtc=[datetimeoffset]::UtcNow.ToString('o')
             ApplicationName=$Settings.ApplicationName;ApplicationVersion=$Settings.ApplicationVersion
             InstallBehavior=$Settings.ApplicationContext;FrameworkVersion=$framework.Version
             FrameworkGeneration=$framework.Generation;PackageZIP_SHA256=$zipHash;SetupFile=$framework.SetupFile
             InstallCommand=$install;UninstallCommand=$uninstall;Detection=$detection
-            SourcePreserved=($null -eq $sections);EditorApplied=$Settings.UseEditor;SectionsSHA256=$sectionHash;PayloadSHA256=$payloadHash;WindowsBuild=$Settings.WindowsBuild;DriverModels=@($Settings.DriverModels);OutputRoot=$outputParent;OutputDirectory=$build
+            EntryScriptSHA256=(Get-FileHash -LiteralPath (Join-Path $source $framework.EntryScript)).Hash
+            SourcePreserved=(-not $maintenance -and -not $entryChanged);EditorApplied=$Settings.UseEditor;SectionsSHA256=$sectionHash;PayloadSHA256=$payloadHash;WindowsBuild=$Settings.WindowsBuild;DriverModels=@($Settings.DriverModels);OutputRoot=$outputParent;OutputDirectory=$build
             OutputMode=$(if ($intuneWin) {'IntuneWin'} else {'SourceOnly'})
             IntuneWinSHA256=$(if ($intuneWin) {(Get-FileHash -LiteralPath $intuneWin -Algorithm SHA256).Hash} else {''})
         }
         [IO.File]::WriteAllText((Join-Path $build 'BuildManifest.json'),($manifest|ConvertTo-Json -Depth 8),(New-Object Text.UTF8Encoding($true)))
         [IO.File]::WriteAllLines((Join-Path $build 'Build.log'),@(
-            'Builder version: 4.3.0'; ('Package type: '+$Settings.PackageType)
+            ('Builder version: '+$script:BuilderVersion); ('Package type: '+$Settings.PackageType)
             ('Application: '+$Settings.ApplicationName+' / '+$Settings.ApplicationVersion)
             ('PSADT framework: '+$framework.Version); ('Input ZIP SHA256: '+$zipHash)
             ('Output folder: '+$outputParent); ('Build directory: '+$build)

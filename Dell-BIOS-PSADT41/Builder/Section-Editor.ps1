@@ -77,6 +77,9 @@ function Get-EditorLayout([string]$Text) {
     if ($customStart.Count -or $customEnd.Count) {
         if ($customStart.Count -ne 1 -or $customEnd.Count -ne 1 -or $customEnd[0].Extent.StartOffset -le $customStart[0].Extent.EndOffset -or $customEnd[0].Extent.EndOffset -ge $first) { Stop-BuilderValidation 'Custom/functions markers are ambiguous or outside the supported location before the deployment functions.' }
         $ranges.CustomFunctions=@{Start=$customStart[0].Extent.EndOffset;End=$customEnd[0].Extent.StartOffset;Marked=$true}
+        foreach ($helper in $functions|Where-Object { $_.Name -notin @('Install-ADTDeployment','Uninstall-ADTDeployment','Repair-ADTDeployment') }) {
+            if ($helper.Extent.StartOffset -lt $ranges.CustomFunctions.Start -or $helper.Extent.EndOffset -gt $ranges.CustomFunctions.End) { Stop-BuilderValidation 'Custom functions outside the marked editor region must be moved into that region before editing.' }
+        }
     } else {
         $helpers=@($functions|Where-Object { $_.Name -notin @('Install-ADTDeployment','Uninstall-ADTDeployment','Repair-ADTDeployment') })
         if ($helpers.Count) {
@@ -98,9 +101,14 @@ function Get-EditorSections([string]$Text) {
 function Set-EditorSections([string]$Text,[System.Collections.IDictionary]$Sections) {
     Assert-EditorSections $Sections
     $layout=Get-EditorLayout $Text
+    $changed=$false
+    foreach ($name in Get-EditorSectionNames) { $range=$layout[$name]; if ($Sections[$name] -cne $Text.Substring($range.Start,$range.End-$range.Start)) { $changed=$true; break } }
+    if (-not $changed) { return $Text }
     if ($Text -match '(?m)^# SIG # Begin signature block') { Stop-BuilderValidation 'The deployment script is signed. Supply an unsigned authoring copy for editing, then sign the generated script under your policy.' }
     $edits=@(foreach ($name in Get-EditorSectionNames) {
         $range=$layout[$name]; $replacement=$Sections[$name]
+        # A no-op edit must preserve the original bytes, comments and line endings.
+        if ($replacement -ceq $Text.Substring($range.Start,$range.End-$range.Start)) { continue }
         if ($name -eq 'CustomFunctions' -and -not $range.Marked) {
             if (-not $replacement -and $range.Start -eq $range.End) { continue }
             $replacement="#region BuilderCustomFunctions`r`n"+$replacement+"`r`n#endregion BuilderCustomFunctions`r`n`r`n"
@@ -125,6 +133,9 @@ function Read-EditorPackage([string]$ZipPath) {
         $framework=Get-ApplicationFramework $expanded
         if ($framework.Generation -ne 4) { Stop-BuilderValidation 'The inline editor supports PSADT 4.x. Legacy 3.x packages can still be built unchanged in PSADT mode.' }
         $text=Read-EditorScript (Join-Path $framework.Root $framework.EntryScript)
-        return @{Sections=(Get-EditorSections $text);ZIP_SHA256=$hash;Text=$text}
+        $document=@{SourceKind='ZIP';Sections=(Get-EditorSections $text);ZIP_SHA256=$hash;Text=$text;Editable=$true;Signed=($text -match '(?m)^# SIG # Begin signature block')}
+        # Some custom apps calculate all metadata. Keep their original ZIP support.
+        try { $document.MetadataText=(Get-EditorMetadataLayout $text).Extent.Text } catch { $document.MetadataUnavailable=$true }
+        return $document
     } finally { if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -Force } }
 }

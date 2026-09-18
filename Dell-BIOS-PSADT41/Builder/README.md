@@ -1,9 +1,10 @@
-# PSADT Deployment Builder v4.3
+# PSADT Deployment Builder v4.4
 
-**v4.3 adds Windows Update, Dell Driver and an inline PSADT section editor.**
-See the [servicing and editor guide](Servicing-and-Editor-Guide.md) for supported payloads,
-section templates, restart ownership and Windows pilot requirements. PSADT is the
-default authoring view; Editor supports the ten PSADT 4.x deployment sections.
+**v4.4 adds direct PS1 editing: Open PS1 → EDIT → Save PS1.**
+Edit common app metadata, the full custom settings table, custom/functions and all
+nine install/uninstall/repair phases without selecting a ZIP or package settings.
+[Direct editing and safe saves](Direct-Script-Editor-Guide.md) explains backups, Save as, supported
+layouts and the Windows pilot. The four packaging modes and ZIP editor remain.
 
 Launch **Start-PackageBuilder.cmd** on your Windows packaging computer. Choose
 **BIOS update**, **Application**, **Windows Update** or **Dell Driver** on the Files tab. BIOS mode builds the existing
@@ -13,7 +14,7 @@ detection script and Intune setup notes. See [the application guide](Application
 App mode supports complete PSADT 4.x and legacy 3.x layouts; it does not import
 or execute their scripts. The BIOS framework restriction remains 4.1.x.
 
-**Builder 4.3.0 includes the v4.0.1 Install Now launch fix for PSADT 4.1.4-4.1.8.**
+**Builder 4.4.0 includes the v4.0.1 Install Now launch fix for PSADT 4.1.4-4.1.8.**
 If an older package reports a parameter-set error and exits 60001, restart this
 builder from the updated v4 copy and rebuild with your existing approved settings
 and custom ZIP. Replace the complete package and its generated Intune detection;
@@ -229,7 +230,7 @@ failure removes only that build's partial directory, preserving previous builds.
 Changing destination invalidates the review; it is locked while a build is active.
 
 Review text, progress, `Build.log` and `BuildManifest.json` identify the destination.
-The manifest records `BuilderVersion = 4.3.0`, `PackageType`, `OutputRoot` and `OutputDirectory`.
+The manifest records `BuilderVersion = 4.4.0`, `PackageType`, `OutputRoot` and `OutputDirectory`.
 `Settings.psd1` saves your selection for another build; **Open output** opens the
 completed build folder. These paths describe the build computer, not an endpoint
 cache location: BIOS endpoint files still use `C:\ProgramData\Medela\DellBIOS`.

@@ -1,3 +1,60 @@
+V4.4 direct PS1 editor and reliability validation - 2026-09-18
+
+PASS: 600 assertions across eleven isolated PowerShell 7.4.7/Linux suites:
+  73  Tests/Test-Deployment.ps1
+ 118  Tests/Test-Builder.ps1
+  89  Tests/Test-BuilderClose.ps1
+  15  Tests/V4/Test-BuilderOutput.ps1
+  88  Tests/V4/Test-ApplicationBuilder.ps1
+  22  Tests/V4/Test-BuilderModes.ps1
+  63  Tests/V4/Test-Experience.ps1
+  39  Tests/V4/Test-SectionEditor.ps1
+  34  Tests/V4/Test-MaintenanceBuilder.ps1
+  26  Tests/V4/Test-EditorUI.ps1
+  33  Tests/V4/Test-ScriptEditor.ps1
+Run each separately from Dell-BIOS-PSADT41:
+  pwsh -NoProfile -File <path above>
+Counts include fixture/parser assertions, not independent end-to-end scenarios.
+
+Direct-script checks perform real file IO and replacement: exact open snapshot,
+preview-before-EDIT, no-op byte preservation, metadata quoting and calculated
+values without execution, nested tables, all sections, full-script validation,
+previous-file backup, UTF-8 BOM, changed-on-disk refusal, new-copy salvage,
+unrelated-file refusal and cleanup after protection failures. Windows ACL
+application is mocked; Linux File.Replace is not NTFS validation. A separate
+Windows requirement covers file/backup permissions and native save failures.
+
+ZIP checks exercise changed metadata reaching the package, complete entry script
+SHA256, no-op source bytes/encoding and accurate SourcePreserved, section-template
+reuse and stale ZIP rejection. Actual editor callbacks check direct-mode isolation,
+EDIT/read-only states, pending metadata, newline preservation, signed input,
+keyboard preview guards, document clearing and return to ZIP authoring. Actual
+async worker/close paths remain covered across all package modes and editor loads.
+
+PASS: 16 additional parse-only checks against the official PSADT 4.1.0 frontend:
+https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/blob/4.1.0/src/PSAppDeployToolkit/Frontend/v4/Invoke-AppDeployToolkit.ps1
+The ten sections round-trip, generated servicing integrates, direct read-only
+opening preserves full text, and edited app/author metadata parses correctly.
+The upstream script and framework were never executed.
+
+PASS: Editor-Rendering.cs compiles; native Rich Edit methods were NOT called.
+PASS: git diff --check and PowerShell/XAML parsing.
+No BIOS runtime files under Files/ were changed in this release.
+
+NOT RUN HERE: Windows PowerShell 5.1, WPF/WinForms rendering, COM/Rich Edit undo,
+redo/scroll/selection, native dialogs/drag-drop, Narrator, keyboard traversal,
+high contrast and 100/150/200% DPI. Also not run: NTFS ACL/metadata/backup merging,
+Windows trust and app control, real PSADT/app execution, native content prep,
+Intune/SYSTEM deployment, driver/Windows servicing or Dell firmware/BitLocker/
+restart operations. Existing portable tests mock those Windows boundaries.
+
+Tests/V4/Test-WindowsUI.ps1 now includes inert native editor buttons and
+RenderScope text/selection/scroll/undo/redo checks. It is supplied for the Windows
+pilot, not claimed as executed here. Follow Builder/Direct-Script-Editor-Guide.md
+and Builder/Servicing-and-Editor-Guide.md for the required validation.
+
+Previous release evidence follows unchanged.
+
 V4.3 servicing and inline editor validation - 2026-09-18
 
 PASS: 553 assertions across ten isolated PowerShell 7.4.7/Linux suites:

@@ -1,11 +1,12 @@
-# PSADT Deployment Builder — v4.3
+# PSADT Deployment Builder — v4.4
 
-**v4.3 adds Windows Update, Dell Driver and an inline PSADT section editor.**
-See the [servicing and editor guide](Dell-BIOS-PSADT41/Builder/Servicing-and-Editor-Guide.md) for supported payloads,
-section templates, restart ownership and Windows pilot requirements. PSADT is the
-default authoring view; Editor supports the ten PSADT 4.x deployment sections.
+**v4.4 adds direct PS1 editing: Open PS1 → EDIT → Save PS1.**
+Edit common app metadata, the full custom settings table, custom/functions and all
+nine install/uninstall/repair phases without selecting a ZIP or package settings.
+[Direct editing and safe saves](Dell-BIOS-PSADT41/Builder/Direct-Script-Editor-Guide.md) explains backups, Save as, supported
+layouts and the Windows pilot. The four packaging modes and ZIP editor remain.
 
-**Current release: v4.3 (BuilderVersion 4.3.0), on the v4 branch.** Choose
+**Current release: v4.4 (BuilderVersion 4.4.0), on the v4 branch.** Choose
 **BIOS update**, **Application**, **Windows Update** or **Dell Driver** in the Files tab's **Deployment type** list.
 
 | Mode | Input | Behavior |

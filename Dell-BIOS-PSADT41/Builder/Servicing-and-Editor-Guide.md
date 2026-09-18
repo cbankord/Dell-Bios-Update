@@ -1,7 +1,7 @@
-# v4.3 Windows Update, Dell Driver and inline editor
+# v4.4 Windows Update, Dell Driver and inline editor
 
 Run `Start-PackageBuilder.cmd` on an x64 Windows packaging computer using Windows
-PowerShell 5.1. The deployment list now has four choices. The authoring view defaults
+PowerShell 5.1. The deployment list has four choices. The authoring view defaults
 to **PSADT**; choose **Editor** when you want to modify deployment sections.
 
 | Deployment type | PSADT ZIP | Additional input | Default behavior |
@@ -15,7 +15,8 @@ Use a clean, reviewed framework template for generated servicing. Its nine phase
 sections and custom/functions block are replaced with the servicing defaults;
 bootstrap, module, configuration, extensions and other files remain from your ZIP.
 The new servicing package name/version are applied to existing `adtSession`
-metadata fields. Application mode continues to preserve its original metadata.
+metadata fields. Application mode preserves its original metadata unless explicitly
+edited. In ZIP Editor, Metadata and Custom settings can override those values.
 Custom bootstrap or extension code still runs on the endpoint: review it.
 
 ## Windows Update
@@ -86,6 +87,10 @@ Windows DISM/CBS logs for updates, and SetupAPI device logs for drivers.
 
 ## Inline PSADT section editor
 
+For direct **Open PS1 → EDIT**, common metadata fields and custom settings, see
+[the v4.4 direct editor guide](Direct-Script-Editor-Guide.md). No ZIP is required
+for that workflow. The steps below describe ZIP authoring.
+
 1. Choose the deployment type and PSADT ZIP on **Files**.
 2. Open **4 PSADT / Editor** and select **Editor**.
 3. Click **Load selected ZIP**. For Application, all supported sections are loaded
@@ -104,7 +109,7 @@ Windows DISM/CBS logs for updates, and SetupAPI device logs for drivers.
    editor is saved literally: never put credentials in it.
 7. **Load template** applies a saved section document to the currently selected ZIP.
    Review the replacement sections. Switching ZIPs/types or loading another
-   document replaces the editor buffer; save first to retain your work.
+   document asks before replacing unsaved editor buffers; save first to retain your work.
 8. Build while **Editor** is selected to apply the current in-memory buffers,
    including unsaved changes. With no live buffer, an explicit reusable template
    path can be used instead. Selecting **PSADT** ignores old editor buffers and
@@ -116,7 +121,10 @@ section template never modifies the original ZIP or deployment script. Settings
 presets remember `UseEditor` and `SectionTemplatePath`, not unsaved section text.
 Every generated/edited build includes `Sections.psadt.json` outside Source and its
 SHA256 in `BuildManifest.json`, together with payload/ZIP hashes, mode and whether
-source was preserved. Build logs contain the decision and hashes, not section text.
+source was preserved. EntryScriptSHA256 also covers metadata edits in the resulting
+entry script; section templates exclude metadata. A no-op Application editor build
+keeps the original entry bytes and records SourcePreserved=true. Build logs contain
+the decision and hashes, not section text.
 
 For approved scripts that need signing, edit an unsigned authoring copy. The editor
 refuses to replace sections in a signed deployment script. Sign the generated entry
@@ -130,13 +138,13 @@ Neither the builder nor the editor bypasses execution policy or application cont
 The editor supports the PSADT 4.x `Install-ADTDeployment`, `Uninstall-ADTDeployment`
 and `Repair-ADTDeployment` functions with three direct `adtSession.InstallPhase`
 assignments per function in Pre/main/Post order, each on its own line. It preserves
-function scaffolding, phase assignments, script metadata and bootstrap outside the
-editable ranges. Nested braces, here-strings and comments are parsed as PowerShell.
+function scaffolding, phase assignments and bootstrap outside the editable ranges.
+The metadata table changes only when explicitly edited. Nested braces, here-strings and comments are parsed as PowerShell.
 
 Custom functions must be one contiguous block before the deployment functions, or
 inside the editor's `BuilderCustomFunctions` region before them. Unrelated top-level
 initialization and imported helper files are not automatically captured. This is a
-section editor, not a full module/metadata editor. Ambiguous layouts, extra/missing
+section/metadata editor; it does not edit imported modules or extensions. Ambiguous layouts, extra/missing
 phase assignments, malformed code or unsupported templates fail without guessing.
 Input text must be UTF-8 (with or without BOM) or BOM-marked Unicode; convert
 legacy ANSI authoring files first. PSADT 3.x remains supported for unchanged Application packaging; it has no inline

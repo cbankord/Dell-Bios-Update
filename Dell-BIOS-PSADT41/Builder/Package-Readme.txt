@@ -1,4 +1,4 @@
-DELL BIOS V4.3 - GENERATED PACKAGE (BIOS MODE)
+DELL BIOS V4.4 - GENERATED PACKAGE (BIOS MODE)
 
 This build was saved beneath the output folder selected on the builder's Build
 tab. BuildManifest.json and Build.log record the chosen parent and unique build

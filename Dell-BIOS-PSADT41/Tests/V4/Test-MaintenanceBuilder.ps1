@@ -23,6 +23,7 @@ try {
     $source=Join-Path $temp 'Original'
     $original=New-SectionFixture
     Write-Fixture (Join-Path $source 'Invoke-AppDeployToolkit.ps1') $original
+    [IO.File]::WriteAllText((Join-Path $source 'Invoke-AppDeployToolkit.ps1'),$original,(New-Object Text.UTF8Encoding($false))) # No BOM: an unnecessary editor write would change these bytes.
     Write-Fixture (Join-Path $source 'Invoke-AppDeployToolkit.exe') 'Inert launcher'
     Write-Fixture (Join-Path $source 'PSAppDeployToolkit/PSAppDeployToolkit.psd1') "@{ModuleVersion='4.1.8';RootModule='PSAppDeployToolkit.psm1'}"
     Write-Fixture (Join-Path $source 'PSAppDeployToolkit/PSAppDeployToolkit.psm1') "throw 'Never import framework'"
@@ -34,7 +35,7 @@ try {
     $s.MaintenancePayload=Join-Path $temp 'update.msu';Write-Fixture $s.MaintenancePayload 'inert approved update'
     $update=New-DeploymentPackage $s
     $manifest=Get-Content (Join-Path $update.OutputDirectory 'BuildManifest.json') -Raw|ConvertFrom-Json
-    Check ($manifest.PackageType -eq 'WindowsUpdate' -and $manifest.BuilderVersion -eq '4.3.0' -and -not $manifest.SourcePreserved) 'Windows Update builds generated steps and truthful manifest'
+    Check ($manifest.PackageType -eq 'WindowsUpdate' -and $manifest.BuilderVersion -eq '4.4.0' -and -not $manifest.SourcePreserved) 'Windows Update builds generated steps and truthful manifest'
     $entry=Get-Content (Join-Path $update.SourcePath 'Invoke-AppDeployToolkit.ps1') -Raw
     Check ($entry.Contains('Invoke-BuilderMaintenance') -and $entry.Contains('Close-ADTSession -ExitCode 3010')) 'Install and post-install generated with restart handoff'
     Check ($entry.Contains("AppName='Approved servicing'")) 'Generated servicing uses chosen application identity'
@@ -82,12 +83,18 @@ try {
     $s.PackageType='Application';$s.UseEditor=$true
     $doc=Read-EditorPackage $s.FrameworkZip
     Check ($doc.Sections.Count -eq 10 -and $doc.ZIP_SHA256 -eq (Get-FileHash $s.FrameworkZip).Hash) 'Editor reads complete ZIP without running bootstrap'
+    $noChange=New-DeploymentPackage $s -EditorDocument $doc
+    $noChangeManifest=Get-Content (Join-Path $noChange.OutputDirectory 'BuildManifest.json') -Raw|ConvertFrom-Json
+    Check ($noChangeManifest.SourcePreserved -and $noChangeManifest.EditorApplied) 'No-op editor build records source preservation accurately'
+    Check ((Get-FileHash (Join-Path $noChange.SourcePath 'Invoke-AppDeployToolkit.ps1')).Hash -eq (Get-FileHash (Join-Path $source 'Invoke-AppDeployToolkit.ps1')).Hash) 'No-op editor build preserves original encoding and exact bytes'
+    $doc.MetadataText=Set-EditorMetadataValues $doc.MetadataText @{AppName='Edited app metadata'}
     $doc.Sections.Install="    throw 'Edited install must not execute during packaging'`r`n"
     $app=New-DeploymentPackage $s -EditorDocument $doc
     $edited=Get-Content (Join-Path $app.SourcePath 'Invoke-AppDeployToolkit.ps1') -Raw
     Check ($edited.Contains('Edited install must not execute') -and $edited.Contains('Bootstrap must never execute')) 'Editor applies section changes and retains bootstrap'
     Check ((Get-FileHash (Join-Path $app.SourcePath 'Files/original.txt')).Hash -eq (Get-FileHash (Join-Path $source 'Files/original.txt')).Hash) 'Editor preserves other source files'
     $manifest=Get-Content (Join-Path $app.OutputDirectory 'BuildManifest.json') -Raw|ConvertFrom-Json
+    Check ($edited.Contains("AppName='Edited app metadata'") -and $manifest.EntryScriptSHA256 -eq (Get-FileHash (Join-Path $app.SourcePath 'Invoke-AppDeployToolkit.ps1')).Hash) 'ZIP metadata edits reach Source and exact entry script hash is recorded'
     Check ($manifest.EditorApplied -and -not $manifest.SourcePreserved -and $manifest.SectionsSHA256.Length -eq 64) 'Edited build records exact section snapshot'
     $doc.ZIP_SHA256='A'*64;Reject {New-DeploymentPackage $s -EditorDocument $doc} 'Stale ZIP editor document cannot build'
     $s.SectionTemplatePath=Join-Path $app.OutputDirectory 'Sections.psadt.json'

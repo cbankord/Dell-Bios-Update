@@ -1,3 +1,35 @@
+# v4.4 direct PS1 authoring and editor reliability - 2026-09-18
+
+- Add Open PS1 → EDIT → Save PS1 / Save as new PS1, independent of ZIP and package
+  settings. Accept a PS1 launcher argument/drag-drop; add Close PS1 to return to
+  ZIP authoring. Preserve immediate idle builder Close and active-worker cleanup.
+- Expose common literal app metadata fields, the complete custom adtSession table,
+  custom/functions and all nine installation/uninstallation/repair phases. Parse
+  without executing imported source; computed values stay explicit code edits.
+  Reuse the metadata pages for ZIP builds and detach metadata with section snapshots.
+- Save through a protected destination child, with full-script validation, a
+  per-file mutex, source SHA256 checks, File.Replace and a unique previous-file
+  backup. Refuse unrelated-file overwrite, signed edits and live BIOS cache writes.
+  Preserve no-op bytes/encoding and write changed source as UTF-8 BOM for PS5.1.
+- Find only the direct root metadata table so nested process/custom tables do not
+  break servicing identity updates. Preserve unchanged section spans and reject
+  helpers outside a marked custom region instead of silently omitting them.
+- Keep unchanged ZIP entry bytes instead of rewriting encoding. Record actual
+  SourcePreserved state and EntryScriptSHA256, including metadata edits. Section
+  templates retain schema 1 and exclude metadata; presets exclude code buffers.
+- Debounce/cache syntax coloring and isolate native Rich Edit repaint/scroll/undo
+  handling in a small disposable helper. Preserve selection/Modified state and
+  retain plain text if coloring fails. Native behavior remains a Windows pilot gate.
+- Centralize busy-state handling, surface background editor failures in its tab,
+  clear stale metadata controls on preset loads, guard unsaved document replacement
+  and prevent custom key handlers from bypassing read-only preview.
+- Add real file-save/no-op/backup/stale-source regressions and actual editor callback
+  checks. Extend ZIP builds for metadata and no-op byte preservation. Expand the
+  inert Windows smoke check for native undo/redo and scroll, with separate measured
+  portable results and unrun Windows/Intune/device validation in VALIDATION.txt.
+- Identify builder/package records as 4.4.0 on v4. No BIOS endpoint runtime, state,
+  firmware/restart/BitLocker/scheduling behavior or Main/v2/v3 branch changes.
+
 # v4.3 Windows Update, Dell Driver and section authoring - 2026-09-18
 
 - Add WindowsUpdate and Driver modes alongside BIOS/Application. Persist type,

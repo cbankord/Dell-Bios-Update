@@ -1,7 +1,7 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="PSADT Deployment Builder v4.3" Width="920" Height="740" MinWidth="560" MinHeight="460" WindowStyle="None" ResizeMode="CanResize"
+        Title="PSADT Deployment Builder v4.4" Width="920" Height="740" MinWidth="560" MinHeight="460" WindowStyle="None" ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen" Background="{DynamicResource BackgroundBrush}" Foreground="{DynamicResource TextBrush}"
         FontFamily="Segoe UI" FontSize="14" UseLayoutRounding="True">
   <shell:WindowChrome.WindowChrome>
@@ -40,24 +40,33 @@
         <TextBlock Text="The BIOS scheduling controls and one-hour restart countdown apply only to BIOS mode. Non-BIOS modes add no BIOS window, cache, BitLocker operations or scheduled tasks."/>
         <TextBlock Text="Generated Intune commands use Silent mode. Review your app's unattended behavior, return codes and restart policy during the Windows pilot." Margin="0,12,0,0"/>
       </StackPanel></StackPanel></ScrollViewer></TabItem>
-      <TabItem Header="4  PSADT / Editor"><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><Grid x:Name="EditorPanel" Margin="16" MinHeight="410">
+      <TabItem x:Name="EditorTab" Header="4  PSADT / Editor"><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><Grid x:Name="EditorPanel" Margin="16" MinHeight="410">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <WrapPanel>
           <Label Content="Authoring view" Target="{Binding ElementName=EditorMode}"/>
           <ComboBox x:Name="EditorMode" SelectedIndex="0" MinWidth="130" AutomationProperties.Name="Authoring view"><ComboBoxItem Content="PSADT"/><ComboBoxItem Content="Editor"/></ComboBox>
           <CheckBox x:Name="UseEditor" Visibility="Collapsed"/>
+          <Button x:Name="EditorOpenScript" Content="Open _PS1" ToolTip="Open a PSADT 4.x script directly; no ZIP or build settings required."/>
+          <Button x:Name="EditorEditScript" Content="_EDIT" IsEnabled="False"/>
+          <Button x:Name="EditorSaveScript" Content="Save P_S1" IsEnabled="False"/>
+          <Button x:Name="EditorSaveScriptAs" Content="Save as _new PS1" IsEnabled="False"/>
+          <Button x:Name="EditorCloseScript" Content="Close PS1" IsEnabled="False" ToolTip="Close this document and return to ZIP authoring. The builder stays open."/>
           <Button x:Name="EditorLoad" Content="Load selected _ZIP"/>
           <Button x:Name="EditorImport" Content="Load _template"/>
           <Button x:Name="EditorSave" Content="Save _template"/>
           <Button x:Name="EditorValidate" Content="Check s_yntax"/>
         </WrapPanel>
-        <TextBlock Grid.Row="1" x:Name="EditorStatus" Margin="0,8,0,10" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+        <StackPanel Grid.Row="1" Margin="0,8,0,10">
+          <TextBlock x:Name="EditorDocumentLabel" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.Name="Open editor document"/>
+          <TextBlock x:Name="EditorStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+        </StackPanel>
         <Grid Grid.Row="2"><Grid.ColumnDefinitions><ColumnDefinition Width="145"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
           <ListBox x:Name="SectionList" AutomationProperties.Name="PSADT deployment sections"/>
+          <ScrollViewer x:Name="MetadataView" Grid.Column="1" Margin="10,0,0,0" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" MaxHeight="340"><StackPanel x:Name="MetadataFields"/></ScrollViewer>
           <wfi:WindowsFormsHost xmlns:wfi="clr-namespace:System.Windows.Forms.Integration;assembly=WindowsFormsIntegration" Grid.Column="1" x:Name="EditorHost" Margin="10,0,0,0" MinHeight="140"/>
         </Grid>
         <StackPanel Grid.Row="3"><Label Content="Reusable section template (optional)" Target="{Binding ElementName=SectionTemplatePath}"/><TextBox x:Name="SectionTemplatePath" AutomationProperties.Name="Reusable section template path"/>
-          <TextBlock Text="Save template writes section text only. Keep credentials out of code. Build applies the current editor buffers when Editor is selected." FontSize="12" TextWrapping="Wrap"/>
+          <TextBlock Text="Save PS1 includes metadata, custom settings and sections. Save template stores the ten sections only. Opening a PS1 does not run it." FontSize="12" TextWrapping="Wrap"/>
         </StackPanel>
       </Grid></ScrollViewer></TabItem>
       <TabItem Header="5  Build"><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="22">

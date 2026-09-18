@@ -11,6 +11,7 @@ if($PSVersionTable.PSEdition -ne 'Desktop' -or [Threading.Thread]::CurrentThread
 if([Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0) {throw 'Run in the signed-in user session.'}
 Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase,WindowsFormsIntegration,System.Windows.Forms
 $root=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+if (-not ('Medela.EditorV44.RenderScope' -as [type])) { Add-Type -Path "$root/Builder/Editor-Rendering.cs" }
 . "$root/Files/UI/WindowChrome.ps1"
 $count=0
 function Check($Value,$Name){$script:count++;if(-not $Value){throw "FAIL: $Name"}}
@@ -38,11 +39,31 @@ foreach($folder in @('Builder','Files/UI')) {
             Check ([Windows.Automation.AutomationProperties]::GetName($button).Length -gt 0) "$folder $name has an accessible name"
         }
         if ($folder -eq 'Builder') {
+            $window.FindName('EditorTab').IsSelected=$true
             $hostControl=$window.FindName('EditorHost');$box=New-Object Windows.Forms.RichTextBox
             $box.AccessibleName='PowerShell section editor';$box.Text='Write-Output "Inert preview"'
             $hostControl.Child=$box
             Check ($hostControl.Child.Text.Contains('Inert preview')) 'Inline native text editor attaches to WPF host'
             Check ($window.FindName('EditorMode').SelectedIndex -eq 0) 'Default authoring view is PSADT'
+            foreach ($name in @('EditorOpenScript','EditorEditScript','EditorSaveScript','EditorSaveScriptAs','EditorCloseScript')) {
+                Check ($null -ne $window.FindName($name)) "$name is present in the native editor window"
+            }
+            $window.UpdateLayout();$box.WordWrap=$false
+            $original=(1..80|ForEach-Object {"# line $_`n"}) -join ''
+            $box.Text=$original;$box.ClearUndo();$box.Select($box.TextLength,0);$box.SelectedText='# user edit'
+            $edited=$box.Text;$selection=$box.SelectionStart;$box.ScrollToCaret()
+            $top=$box.GetCharIndexFromPosition((New-Object Drawing.Point(1,1)))
+            $scope=[Medela.EditorV44.RenderScope]::Begin($box.Handle)
+            try {
+                $box.SelectAll();$box.SelectionColor=[Drawing.Color]::DarkGreen
+                $box.Select(0,0);$box.ScrollToCaret() # Force a scroll change during coloring.
+                $box.Select($selection,0)
+            } finally { $scope.Dispose() }
+            Check ($box.Text -ceq $edited -and $box.SelectionStart -eq $selection) 'Native coloring preserves text and selection'
+            Check ($box.GetCharIndexFromPosition((New-Object Drawing.Point(1,1))) -eq $top) 'Native coloring restores scroll position'
+            Check $box.CanUndo 'Coloring retains the user text undo history'
+            $box.Undo();Check ($box.Text -ceq $original) 'Undo removes the user edit instead of syntax colors'
+            $box.Redo();Check ($box.Text -ceq $edited) 'Redo restores the user edit after highlighting'
         }
         Click-Caption $window CaptionMaximize
         Check ($window.WindowState -eq 'Maximized') "$folder maximize click works"
@@ -62,6 +83,7 @@ foreach($folder in @('Builder','Files/UI')) {
         Check $window.Tag.ClosedSeen "$folder Close exits when permitted"
     } finally {
         if($null -ne $window -and $window.IsLoaded) {if($null -ne $window.Tag){$window.Tag.Guard=$false};$window.Close()}
+        if ($folder -eq 'Builder' -and $null -ne $box) { $box.Dispose() }
     }
 }
 Write-Output "PASS: $count Windows WPF smoke assertions. Manual DPI, keyboard, screen-reader and live SYSTEM/device pilots still required."

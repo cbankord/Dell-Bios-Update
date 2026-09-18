@@ -33,13 +33,9 @@ function New-MaintenanceSections {
     return $sections
 }
 function Set-MaintenanceIdentity([string]$Text,[hashtable]$Settings) {
-    $parsed=Get-EditorSyntax $Text
-    $tables=@($parsed.Ast.EndBlock.Statements|Where-Object {
-        $_ -is [Management.Automation.Language.AssignmentStatementAst] -and $_.Left.Extent.Text -eq '$adtSession'
-    }|ForEach-Object { $_.Right.FindAll({param($n) $n -is [Management.Automation.Language.HashtableAst]},$false) })
-    if ($tables.Count -ne 1) { Stop-BuilderValidation 'Generated servicing requires one literal top-level adtSession metadata table.' }
+    $table=Get-EditorMetadataLayout $Text
     $values=@{AppName=$Settings.ApplicationName;AppVersion=$Settings.ApplicationVersion}
-    $edits=@(foreach ($pair in $tables[0].KeyValuePairs) {
+    $edits=@(foreach ($pair in $table.KeyValuePairs) {
         $key=$pair.Item1.Extent.Text.Trim("'",'"')
         if ($values.ContainsKey($key)) { @{Start=$pair.Item2.Extent.StartOffset;End=$pair.Item2.Extent.EndOffset;Text=("'"+$values[$key].Replace("'","''")+"'")} }
         elseif ($key -eq 'AppSuccessExitCodes') { @{Start=$pair.Item2.Extent.StartOffset;End=$pair.Item2.Extent.EndOffset;Text='@(0)'} }

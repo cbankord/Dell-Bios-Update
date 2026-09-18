@@ -21,6 +21,9 @@ function Get-Handler([string]$Target,[string]$Event) {
     if ($calls.Count -ne 1) { throw "Expected one $Target.$Event handler." }
     return $calls[0].Arguments[0].ScriptBlock.GetScriptBlock()
 }
+$busy=$ast.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Set-BuilderBusy'},$true)
+. ([scriptblock]::Create($busy.Extent.Text))
+$script:lastOutput=''
 $script:closing=Get-Handler '$window' 'Add_Closing'
 $click=Get-Handler '$controls.CloseButton' 'Add_Click'
 $escape=Get-Handler '$window' 'Add_PreviewKeyDown'
@@ -73,7 +76,7 @@ foreach ($fail in @($false,$true)) {
                 $started.Set()
                 if (-not $release.Wait(10000)) { throw 'Test worker release timed out.' }
                 if ($fail) { throw 'Inert build failure' }
-                [pscustomobject]@{PackageType=$packageType;OutputDirectory='completed-output';SHA256='inert';IntuneWinFile=''}
+                if ($packageType -eq 'Editor') { @{SourceKind='Script';Text='Inert document'} } else { [pscustomobject]@{PackageType=$packageType;OutputDirectory='completed-output';SHA256='inert';IntuneWinFile=''} }
             } finally { if ([IO.File]::Exists($partial)) { [IO.File]::Delete($partial) } }
         }).AddArgument($started).AddArgument($release).AddArgument($partial).AddArgument($fail).AddArgument($packageType)
         $script:job=@{Worker=$worker;Handle=$worker.BeginInvoke();Secret=$secret;Queue=(New-Object 'System.Collections.Concurrent.ConcurrentQueue[string]')}

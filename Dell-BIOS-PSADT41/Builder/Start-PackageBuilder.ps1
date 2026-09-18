@@ -1,5 +1,6 @@
 #requires -Version 5.1
 # Run with 64-bit Windows PowerShell -NoProfile -STA. Administrator is not required.
+param([string]$EditScript='')
 $ErrorActionPreference='Stop'
 . "$PSScriptRoot/Build-Package.ps1"
 Assert-BuilderHost
@@ -13,7 +14,13 @@ $window.Title=$builderBrand.AppTitle
 Initialize-BiosWindowChrome $window (Join-Path $script:BuilderSource 'Files/UI/Theme.xaml') $builderBrand (Get-BiosBrandIconPath $PSScriptRoot $builderBrand)
 $script:fields=@{}; $script:fieldBoxes=@{}; $script:kind=@{}; $script:job=$null; $script:lastOutput=''; $script:closeRequested=$false
 $controls=@{}
-foreach ($name in @('Tabs','FilesPanel','DeploymentPanel','ApplicationPanel','MaintenancePanel','EditorPanel','ExperiencePanel','ApplicationExperiencePanel','OutputPanel','ReviewText','ReviewConsent','OutputNotice','Reviewed','BuildButton','OpenButton','Progress','BuildLog','LoadButton','SaveButton','CloseButton','EditorMode','EditorLoad','EditorImport','EditorSave','EditorValidate','EditorHost','SectionList','EditorStatus')) { $controls[$name]=$window.FindName($name) }
+foreach ($name in @('Tabs','FilesPanel','DeploymentPanel','ApplicationPanel','MaintenancePanel','EditorPanel','ExperiencePanel','ApplicationExperiencePanel','OutputPanel','ReviewText','ReviewConsent','OutputNotice','Reviewed','BuildButton','OpenButton','Progress','BuildLog','LoadButton','SaveButton','CloseButton','EditorMode','EditorLoad','EditorImport','EditorSave','EditorValidate','EditorHost','SectionList','EditorStatus','EditorTab','EditorOpenScript','EditorEditScript','EditorSaveScript','EditorSaveScriptAs','EditorCloseScript','EditorDocumentLabel','MetadataView','MetadataFields')) { $controls[$name]=$window.FindName($name) }
+function Set-BuilderBusy([bool]$Busy) {
+    foreach ($name in @('FilesPanel','DeploymentPanel','ApplicationPanel','MaintenancePanel','EditorPanel','ExperiencePanel','OutputPanel','Reviewed','BuildButton','LoadButton','SaveButton')) { $controls[$name].IsEnabled=-not $Busy }
+    $controls.OpenButton.IsEnabled=(-not $Busy -and [bool]$script:lastOutput)
+    $controls.Progress.IsIndeterminate=$Busy
+    $controls.Progress.Visibility=if ($Busy) {'Visible'} else {'Collapsed'}
+}
 function Select-BuilderOutputFolder([string]$CurrentPath) {
     $dialog=New-Object Windows.Forms.FolderBrowserDialog
     $owner=$null
@@ -74,6 +81,10 @@ function Add-Field($Panel,[string]$Key,[string]$Label,[string]$Type='Text',[stri
     if ($Help) { $note=New-Object Windows.Controls.TextBlock; $note.Text=$Help; $note.FontSize=12; $note.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty,'MutedBrush'); $null=$box.Children.Add($note) }
     $null=$Panel.Children.Add($box); $script:fields[$Key]=$inputControl; $script:fieldBoxes[$Key]=$box; $script:kind[$Key]=$Type
 }
+$openScriptShortcut=New-Object Windows.Controls.Button; $openScriptShortcut.Content='Open a PSADT PS1 to edit...'
+$openScriptShortcut.ToolTip='Open the script directly without configuring a package or selecting a ZIP.'
+$null=$controls.FilesPanel.Children.Add($openScriptShortcut)
+$openScriptShortcut.Add_Click({ $controls.EditorTab.IsSelected=$true; Open-EditorScriptDialog })
 Add-Heading $controls.FilesPanel 'Choose what you are deploying' 'Choose the package type. PSADT is the default authoring view; Editor lets you change supported deployment sections.'
 Add-Field $controls.FilesPanel PackageType '_Deployment type' PackageType 'BIOS, Windows Update and Dell Driver use PSADT 4.1.x. Application also accepts prepared PSADT 4.x or legacy 3.x app ZIPs.'
 Add-Field $controls.FilesPanel BiosPath '_Dell BIOS executable' Bios 'The copied EXE is renamed ApprovedBIOS.exe, hashed and checked for a valid Dell signature. It is never run by the builder.'
@@ -152,6 +163,7 @@ function Set-BuilderPackageMode {
     if (Get-Command Set-EditorAvailability -ErrorAction SilentlyContinue) { Set-EditorAvailability }
 }
 function Set-FormSettings([hashtable]$Settings) {
+    if (Get-Command Clear-EditorDocument -ErrorAction SilentlyContinue) { Clear-EditorDocument }
     foreach ($key in $script:fields.Keys) {
         if (-not $Settings.ContainsKey($key)) { continue }
         $field=$script:fields[$key]
@@ -167,7 +179,7 @@ function Set-FormSettings([hashtable]$Settings) {
     $script:fields.Password.Clear(); $script:fields.PasswordConfirm.Clear(); $controls.Reviewed.IsChecked=$false
     Set-BuilderPackageMode
     $controls.EditorMode.SelectedIndex=if ($Settings.UseEditor -and $Settings.PackageType -ne 'BIOS') {1} else {0}
-    if (Get-Command Set-EditorAvailability -ErrorAction SilentlyContinue) { $script:editorDocument=$null; $script:editorSection=''; $script:editorBox.Clear(); Set-EditorAvailability }
+    if (Get-Command Set-EditorAvailability -ErrorAction SilentlyContinue) { Set-EditorAvailability }
 }
 function Get-FormSettings {
     $settings=New-PackageBuildSettings
@@ -226,7 +238,7 @@ $script:fields.BiosPasswordRequired.Add_Click({ $script:fields.Password.IsEnable
 $controls.LoadButton.Add_Click({
     $dialog=New-Object Microsoft.Win32.OpenFileDialog; $dialog.Filter='Builder preset (*.psd1)|*.psd1'
     if ($dialog.ShowDialog($window)) {
-        try { Set-FormSettings (Import-PackagePreset $dialog.FileName); Update-Review }
+        try { if (Confirm-EditorReplacement) { Set-FormSettings (Import-PackagePreset $dialog.FileName); Update-Review } }
         catch { $null=[Windows.MessageBox]::Show('Could not load this preset. It must be a builder settings file without secrets.','Load preset') }
     }
 })
@@ -275,8 +287,8 @@ $controls.BuildButton.Add_Click({
             New-DeploymentPackage -Settings $settings -BiosPassword $secret -EditorDocument $editorDocument -Progress {param($message) $queue.Enqueue($message)}
         }).AddArgument((Join-Path $PSScriptRoot 'Build-Package.ps1')).AddArgument($settings).AddArgument($secret).AddArgument($queue).AddArgument($editorSnapshot)
         $script:job=@{Worker=$worker; Handle=$worker.BeginInvoke(); Queue=$queue; Secret=$secret}
-        foreach ($name in @('FilesPanel','DeploymentPanel','ApplicationPanel','MaintenancePanel','EditorPanel','ExperiencePanel','OutputPanel','Reviewed','BuildButton','LoadButton','SaveButton','OpenButton')) { $controls[$name].IsEnabled=$false }
-        $controls.BuildLog.Text='Starting build...'; $controls.Progress.Visibility='Visible'; $controls.Progress.IsIndeterminate=$true
+        Set-BuilderBusy $true
+        $controls.BuildLog.Text='Starting build...'
     } catch {
         if ($null -eq $script:job) { if ($null -ne $worker) { $worker.Dispose() }; if ($null -ne $secret) { $secret.Dispose() } }
         $controls.BuildLog.Text=Get-BuilderFailureMessage $_
@@ -303,7 +315,7 @@ $timer.Add_Tick({
             } elseif ($script:job.ContainsKey('Kind') -and $script:job.Kind -eq 'Editor') {
                 Set-EditorDocument $results[0]
                 $script:fields.SectionTemplatePath.Text=$script:job.TemplatePath
-                $controls.EditorStatus.Text='Loaded all ten sections. Review, edit, check syntax, or save a reusable template.'
+                $controls.EditorStatus.Text=if ($results[0].Contains('SourceKind') -and $results[0].SourceKind -eq 'Script') {'PS1 opened for review. Click EDIT to change metadata, custom settings and deployment sections.'} else {'Loaded PSADT sections and available metadata. Review, edit, check syntax, or save a reusable section template.'}
                 $controls.BuildLog.AppendText("`r`nEditor sections loaded. No package has been built.")
                 $controls.OpenButton.IsEnabled=[bool]$script:lastOutput
             } else {
@@ -313,11 +325,15 @@ $timer.Add_Tick({
                 if (-not $result.IntuneWinFile) { $controls.BuildLog.AppendText("`r`nSource build complete. No .intunewin was requested.") }
                 $controls.OpenButton.IsEnabled=$true
             }
-        } catch { $controls.BuildLog.AppendText("`r`nFAILED: " + (Get-BuilderFailureMessage $_)) }
+        } catch {
+            $detail=Get-BuilderFailureMessage $_
+            $controls.BuildLog.AppendText("`r`nFAILED: "+$detail)
+            if ($script:job.ContainsKey('Kind') -and $script:job.Kind -eq 'Editor') { $controls.EditorStatus.Text=$detail }
+        }
         finally {
             $script:job.Worker.Dispose(); if ($null -ne $script:job.Secret) { $script:job.Secret.Dispose() }; $script:job=$null
-            foreach ($name in @('FilesPanel','DeploymentPanel','ApplicationPanel','MaintenancePanel','EditorPanel','ExperiencePanel','OutputPanel','Reviewed','BuildButton','LoadButton','SaveButton')) { $controls[$name].IsEnabled=$true }
-            $controls.Reviewed.IsChecked=$false; $controls.Progress.IsIndeterminate=$false; $controls.Progress.Visibility='Collapsed'
+            Set-BuilderBusy $false
+            $controls.Reviewed.IsChecked=$false
         }
         # EndInvoke and disposal must finish before ShowDialog returns. Never
         # abort extraction/content prep or leave a credential-bearing partial build.
@@ -335,5 +351,6 @@ $window.Add_Closing({param($sender,$eventArgs)
         }
     }
 })
+if ($EditScript) { $controls.EditorTab.IsSelected=$true; $script:initialScriptOpened=$false; $window.Add_ContentRendered({ if (-not $script:initialScriptOpened) { $script:initialScriptOpened=$true; Start-EditorPackageLoad -ScriptPath $EditScript } }) }
 try { Update-Review; $timer.Start(); $null=$window.ShowDialog() }
 finally { $timer.Stop(); $script:editorColorTimer.Stop(); $script:editorBox.Dispose(); $script:fields.Password.Clear(); $script:fields.PasswordConfirm.Clear() }

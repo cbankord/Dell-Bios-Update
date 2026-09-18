@@ -1,9 +1,10 @@
-# PSADT Deployment Builder v4.3 — BIOS and applications
+# PSADT Deployment Builder v4.4 — BIOS and applications
 
-**v4.3 adds Windows Update, Dell Driver and an inline PSADT section editor.**
-See the [servicing and editor guide](Builder/Servicing-and-Editor-Guide.md) for supported payloads,
-section templates, restart ownership and Windows pilot requirements. PSADT is the
-default authoring view; Editor supports the ten PSADT 4.x deployment sections.
+**v4.4 adds direct PS1 editing: Open PS1 → EDIT → Save PS1.**
+Edit common app metadata, the full custom settings table, custom/functions and all
+nine install/uninstall/repair phases without selecting a ZIP or package settings.
+[Direct editing and safe saves](Builder/Direct-Script-Editor-Guide.md) explains backups, Save as, supported
+layouts and the Windows pilot. The four packaging modes and ZIP editor remain.
 
 Choose **BIOS update**, **Application**, **Windows Update** or **Dell Driver** on the Files tab. BIOS mode creates the
 managed Dell workflow described below. Application mode packages a complete
@@ -24,7 +25,7 @@ Intune scripts and a runtime integrity manifest. No BIOS/password is in Git.
 On **5 Build**, use **Output folder → Choose folder** or enter an existing local
 folder. A fresh session has no preset destination. Review the displayed path;
 the builder creates a unique protected build folder beneath it. Saved presets
-retain your choice. `BuildManifest.json` identifies builder `4.3.0` and records
+retain your choice. `BuildManifest.json` identifies builder `4.4.0` and records
 the selected parent and actual build directory. See [output details](Builder/README.md#output).
 
 ## User experience
