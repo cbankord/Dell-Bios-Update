@@ -49,6 +49,6 @@ try {
  Write-Output "PASS: $count native Windows MSI assertions. No product installed."
 } catch {
  # This suite only authors inert fixtures, so native diagnostic details contain no app secrets.
- Write-Host ($Error|Out-String)
+ Write-Host ($Error|ForEach-Object {$_|Format-List * -Force; $_.Exception.Data|Format-Table}|Out-String -Width 200)
  throw
 } finally {Remove-Item -LiteralPath $temp -Recurse -Force}

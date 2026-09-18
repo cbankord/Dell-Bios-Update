@@ -1,6 +1,17 @@
 # v5.0.0 - Windows Installer database inspection only. Never installs a product.
 function Invoke-UpgradeCom($Object,[string]$Name,[object[]]$Arguments=@(),[string]$Kind='InvokeMethod') {
-    return $Object.GetType().InvokeMember($Name,[Reflection.BindingFlags]$Kind,$null,$Object,$Arguments)
+    # Reflection does not perform PowerShell's usual PSObject unwrapping. In
+    # particular, View.Execute and GenerateTransform require a native COM object.
+    $nativeArguments=New-Object object[] $Arguments.Count
+    for ($i=0;$i -lt $Arguments.Count;$i++) {
+        $nativeArguments[$i]=if ($null -eq $Arguments[$i]) {$null} else {$Arguments[$i].PSObject.BaseObject}
+    }
+    try { return $Object.GetType().InvokeMember($Name,[Reflection.BindingFlags]$Kind,$null,$Object,$nativeArguments) }
+    catch {
+        # Operation names are fixed in code; never attach MSI values or SQL text.
+        $_.Exception.Data['MsiOperation']=$Name
+        throw
+    }
 }
 function Close-UpgradeCom($Object) {
     if ($null -ne $Object -and [Runtime.InteropServices.Marshal]::IsComObject($Object)) { $null=[Runtime.InteropServices.Marshal]::FinalReleaseComObject($Object) }
